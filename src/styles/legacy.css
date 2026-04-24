@@ -45,14 +45,12 @@ summary,
 [role="button"],
 [role="menuitem"],
 .menu-item,
-.cursor-pointer,
 a *,
 button *,
 summary *,
 [role="button"] *,
 [role="menuitem"] *,
-.menu-item *,
-.cursor-pointer * {
+.menu-item * {
   cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
 }
 /* Pressed state — inverted-palette arrow so a click reads as
@@ -64,7 +62,6 @@ summary:active,
 [role="button"]:active,
 [role="menuitem"]:active,
 .menu-item:active,
-.cursor-pointer:active,
 canvas:active {
   cursor: url("/assets/cursors/cursor-tap.svg") 2 2, pointer;
 }
@@ -74,11 +71,9 @@ canvas:active {
 a[aria-disabled="true"],
 button:disabled,
 [role="button"][aria-disabled="true"],
-.cursor-not-allowed,
 a[aria-disabled="true"] *,
 button:disabled *,
-[role="button"][aria-disabled="true"] *,
-.cursor-not-allowed * {
+[role="button"][aria-disabled="true"] * {
   cursor: url("/assets/cursors/cursor-not-allowed.svg") 2 2, not-allowed;
 }
 /* Hide the cursor when the last input was a gamepad button —
@@ -1970,10 +1965,6 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-size: 0.8rem;
   color: var(--color-dune);
 }
-.menu-panel .menu-shop .menu-shop-coin {
-  font-size: 1.05rem;
-}
-
 /* ── Cosmetics equip menu (flat per-slot sections) ──────
        * Each slot renders as a plain <div class="cosmetic-slot">
        * with a slot-tinted left border + small label heading.
@@ -2044,8 +2035,7 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
 }
 /* "None" option thumb: same panel, just with a
        * crossed-out-circle icon drawn centrally. */
-.cosmetic-option-thumb.cosmetic-slot-thumb-none,
-.cosmetic-slot-thumb.cosmetic-slot-thumb-none {
+.cosmetic-option-thumb.cosmetic-slot-thumb-none {
   color: var(--color-dune);
 }
 .cosmetic-none-icon {
