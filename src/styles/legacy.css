@@ -1,7 +1,18 @@
-/* Raptor Runner — legacy CSS (extracted from index.html).
- * CSS rules that have NOT yet been migrated to Tailwind.
- * As sections are converted to Tailwind classes on the HTML,
- * their rules are deleted from this file.
+/* Raptor Runner — component CSS, originally extracted from
+ * index.html's <style> block during the React migration. The file
+ * keeps the "legacy" name for git-history reasons but is no longer
+ * transitional: an attempt to migrate these rules into inline
+ * Tailwind utilities found that most of the content is genuinely
+ * CSS-shaped (clamp() responsive sizing, ::after pseudo-elements,
+ * @keyframes animations, ::-webkit-* browser-quirk overrides,
+ * custom cursor: url() declarations, gamepad-connected ancestor
+ * cascades) and translates to either ugly arbitrary-variant
+ * className soup or @apply blocks that defeat Tailwind's purpose.
+ *
+ * Brand tokens are already wired through @theme in base.css so
+ * `var(--color-sand)` etc. work in both this file and inline
+ * Tailwind utilities — that's the integration we needed; full
+ * utility migration is not on the roadmap.
  */
 
 html,

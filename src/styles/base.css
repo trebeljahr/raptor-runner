@@ -5,16 +5,21 @@
 /*
  * Base stylesheet for Raptor Runner.
  *
- * All existing CSS has been extracted from index.html's <style> block
- * into legacy.css. It's imported here so Vite processes it alongside
- * Tailwind. As sections are migrated to Tailwind utility classes,
- * their rules are deleted from legacy.css.
+ * Component-level CSS lives in legacy.css (imported above) — that
+ * file holds the styles originally extracted from index.html's
+ * <style> block. Despite the name, it's no longer transitional: a
+ * migration attempt found most rules are genuinely CSS-shaped
+ * (clamp() sizing, ::after pseudo-elements, @keyframes, browser
+ * quirks) and don't map to inline Tailwind utilities cleanly. See
+ * the legacy.css header for the full reasoning.
  *
- * Phase-2 design system is defined in the @theme block below —
- * palette variables pulled from the in-game colours (sand, sky-teal,
- * dune-dark, coin-gold, cactus-green) and a single display face
- * (Unbounded Variable, self-hosted via @fontsource-variable for
- * offline compatibility on Electron and Capacitor).
+ * What this file owns: the @theme block below (palette + display
+ * face), so those tokens are available in both legacy.css and any
+ * inline Tailwind utilities sprinkled across the React components.
+ * Palette pulled from in-game colours (sand, sky-teal, dune-dark,
+ * coin-gold, cactus-green); display face is Unbounded Variable,
+ * self-hosted via @fontsource-variable for offline compatibility
+ * on Electron and Capacitor.
  */
 
 @theme {
