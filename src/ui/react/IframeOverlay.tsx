@@ -34,7 +34,13 @@ export function IframeOverlay({ callbacks: cb, iframeTitle, iframeSrc }: IframeO
 
   return (
     <div className="imprint-sheet">
-      <button ref={closeRef} className="imprint-close" aria-label="Close" onClick={handleClose}>
+      <button
+        type="button"
+        ref={closeRef}
+        className="imprint-close"
+        aria-label="Close"
+        onClick={handleClose}
+      >
         ×
       </button>
       <iframe title={iframeTitle} src={iframeSrc} loading="lazy" />

@@ -275,7 +275,7 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
 
   return (
     <div className="imprint-sheet shop-sheet">
-      <button className="imprint-close" aria-label="Close" onClick={handleClose}>
+      <button type="button" className="imprint-close" aria-label="Close" onClick={handleClose}>
         ×
       </button>
       <div className="shop-scroll">

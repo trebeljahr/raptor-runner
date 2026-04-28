@@ -42,7 +42,13 @@ export function Credits({ callbacks: cb }: CreditsProps) {
 
   return (
     <div className="imprint-sheet credits-sheet">
-      <button ref={closeRef} className="imprint-close" aria-label="Close" onClick={handleClose}>
+      <button
+        type="button"
+        ref={closeRef}
+        className="imprint-close"
+        aria-label="Close"
+        onClick={handleClose}
+      >
         ×
       </button>
       <div className="credits-scroll">

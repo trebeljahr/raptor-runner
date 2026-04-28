@@ -86,7 +86,13 @@ export function Achievements({ onClose }: AchievementsProps) {
 
   return (
     <div className="imprint-sheet achievements-sheet">
-      <button ref={closeRef} className="imprint-close" aria-label="Close" onClick={handleClose}>
+      <button
+        type="button"
+        ref={closeRef}
+        className="imprint-close"
+        aria-label="Close"
+        onClick={handleClose}
+      >
         ×
       </button>
       <div className="achievements-scroll">
