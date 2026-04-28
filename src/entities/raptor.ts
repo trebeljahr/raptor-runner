@@ -22,9 +22,9 @@ import {
   RAPTOR_COLLISION,
   RAPTOR_COLLISION_INSET,
   RAPTOR_CROWN,
-  RAPTOR_FRAMES,
   RAPTOR_FRAME_DELAY_MAX,
   RAPTOR_FRAME_DELAY_MIN,
+  RAPTOR_FRAMES,
   RAPTOR_IDLE_FRAME,
   RAPTOR_NATIVE_H,
   RAPTOR_NATIVE_W,
@@ -40,7 +40,7 @@ import {
   PLACEHOLDER_COLORS,
 } from "../cosmetics";
 import { hapticJump } from "../haptic";
-import { type Polygon, clamp, lerp } from "../helpers";
+import { clamp, lerp, type Polygon } from "../helpers";
 import { IMAGES } from "../images";
 import { saveTotalJumps } from "../persistence";
 import { state } from "../state";

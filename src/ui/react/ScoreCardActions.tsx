@@ -161,8 +161,6 @@ export function ScoreCardActions({
         return createPortal(
           <p
             className="score-card-hint"
-            role="button"
-            tabIndex={0}
             style={{ cursor: "pointer" }}
             onClick={handleRestart}
             onKeyDown={handleHintKey}

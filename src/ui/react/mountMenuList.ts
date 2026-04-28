@@ -6,7 +6,7 @@ import { createElement } from "react";
  * Hosts inside the #menu-list-root div in index.html which sits
  * where the old <ul> used to live.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { MenuList, type MenuListCallbacks } from "./MenuList";
 
 let root: Root | null = null;

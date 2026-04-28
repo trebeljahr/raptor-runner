@@ -589,7 +589,7 @@ export function drawRareEvent(ctx: CanvasRenderingContext2D) {
     // "Your Name" style comet — very bright, multi-tailed, sparkly.
     const tailAngle = Math.atan2(state.height * 0.25, state.width * 1.6);
     const tailLen = state.width * 0.3;
-    const headR = COMET_HEAD_R;
+    const _headR = COMET_HEAD_R;
     const a = alpha;
 
     // Head — single drawImage of the pre-baked triple-gradient sprite
@@ -735,7 +735,7 @@ export function drawRareEvent(ctx: CanvasRenderingContext2D) {
       // Similar blink speed (4.5-6 Hz) but wildly different offsets
       const blinkSpeed = 4.5 + h4 * 1.5;
       const blinkPhase = h1 * 17.3 + h2 * 11.7; // large spread
-      const blink = Math.pow(Math.max(0, Math.sin(e.age * blinkSpeed + blinkPhase)), 5);
+      const blink = Math.max(0, Math.sin(e.age * blinkSpeed + blinkPhase)) ** 5;
       const baseBright = detaches ? 0.6 : 1;
       const sa = (1 - along * 0.5) * blink * a * baseBright;
       if (sa < 0.05) continue;
@@ -846,6 +846,7 @@ export function drawRareEvent(ctx: CanvasRenderingContext2D) {
         const pa = Math.max(0, 1 - pt * 1.2) * alpha;
         if (pa < 0.02) continue;
         // Color: white→yellow→orange→dark as particle ages
+        // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
         let r, g, b;
         if (pt < 0.2) {
           r = 255;

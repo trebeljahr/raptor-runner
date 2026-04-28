@@ -13,7 +13,7 @@ import { createElement } from "react";
  * the root; subsequent calls re-render so the component re-reads
  * window.Game state (coin balance, inventory, owned/equipped).
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { Shop } from "./Shop";
 
 let root: Root | null = null;

@@ -15,11 +15,11 @@
  */
 
 import {
-  COINS_MUTED_KEY,
   COIN_CHAIN_END_GAIN,
   COIN_STREAK_MAX_PITCH,
   COIN_STREAK_PITCH_STEP,
   COIN_STREAK_RESET_MS,
+  COINS_MUTED_KEY,
   EVENTS_MUTED_KEY,
   FOOTSTEPS_MUTED_KEY,
   JUMP_MUTED_KEY,
@@ -220,7 +220,7 @@ export const audio = {
       if (e != null) this.eventsMuted = e === "1";
       const th = window.localStorage.getItem(THUNDER_MUTED_KEY);
       if (th != null) this.thunderMuted = th === "1";
-    } catch (e) {
+    } catch (_e) {
       /* ignored */
     }
   },
@@ -251,7 +251,7 @@ export const audio = {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (Ctx) this._audioCtx = new Ctx();
-    } catch (e) {
+    } catch (_e) {
       /* Web Audio not available */
     }
   },
@@ -307,7 +307,7 @@ export const audio = {
       const raw = window.localStorage.getItem(MUTED_KEY);
       if (raw == null) return null;
       return raw === "1";
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   },
@@ -724,7 +724,7 @@ export const audio = {
       src.connect(gain);
       gain.connect(this._audioCtx.destination);
       src.start(0);
-    } catch (e) {
+    } catch (_e) {
       /* non-critical */
     }
   },
@@ -1000,16 +1000,10 @@ export const audio = {
     const ticks = Math.min(count, 10);
     const intervalMs = durationMs / ticks;
     for (let i = 0; i < ticks; i++) {
-      const id = window.setTimeout(
-        () => this._playCoinFillTick(i, ticks),
-        i * intervalMs,
-      );
+      const id = window.setTimeout(() => this._playCoinFillTick(i, ticks), i * intervalMs);
       this._coinFillTimers.push(id);
     }
-    this._coinFillChordTimer = window.setTimeout(
-      () => this.playCoinChainEnd(),
-      durationMs,
-    );
+    this._coinFillChordTimer = window.setTimeout(() => this.playCoinChainEnd(), durationMs);
   },
 
   /** Per-tick chime. Reuses the liecio diamond-found sample (same
@@ -1733,8 +1727,7 @@ export const audio = {
     }
     if (
       this._isRainPlaying &&
-      this.rain &&
-      this.rain.paused &&
+      this.rain?.paused &&
       !this.muted &&
       !this.musicMuted &&
       !this.rainMuted

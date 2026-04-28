@@ -288,13 +288,13 @@
        */
       html.is-desktop .sound-btn,
       html.is-desktop .fullscreen-btn {
-        display: none !important;
+        display: none;
       }
       html:not(.is-desktop) .desktop-only {
-        display: none !important;
+        display: none;
       }
       html.is-desktop .web-only {
-        display: none !important;
+        display: none;
       }
       /* Steam-specific UI (store link, friends link, achievements
          "view on Steam" button). Hidden by default — the main.ts
@@ -304,7 +304,7 @@
          keeps the Steam rows out of the menu on DRM-free / Steam-
          unavailable builds even though they ship under Electron. */
       html:not(.has-steam) .steam-only {
-        display: none !important;
+        display: none;
       }
 
       /* "View on Steam" link inside the achievements overlay.
@@ -350,24 +350,24 @@
          (file://), so unregister any leftover SW from a prior PWA
          install to keep things tidy. -->
     <script>
-      if (window.electronAPI && window.electronAPI.isDesktop) {
+      if (window.electronAPI?.isDesktop) {
         document.documentElement.classList.add("is-desktop");
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker
             .getRegistrations()
-            .then(function (regs) {
-              regs.forEach(function (r) {
+            .then((regs) => {
+              regs.forEach((r) => {
                 r.unregister();
               });
             })
-            .catch(function () {
+            .catch(() => {
               /* ignore — best-effort cleanup */
             });
         }
         // Strip "or tap" from the game canvas aria-label and any
         // other input-hint text — desktop/Steam players aren't on a
         // touch device. Runs after DOMContentLoaded.
-        document.addEventListener("DOMContentLoaded", function () {
+        document.addEventListener("DOMContentLoaded", () => {
           var canvas = document.getElementById("game-canvas");
           if (canvas) {
             var label = canvas.getAttribute("aria-label");

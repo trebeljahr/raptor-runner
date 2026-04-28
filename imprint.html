@@ -148,7 +148,7 @@
       // never flashes visible.
       if (window.self !== window.top) {
         document.documentElement.classList.add("in-frame-html");
-        document.addEventListener("DOMContentLoaded", function () {
+        document.addEventListener("DOMContentLoaded", () => {
           document.body.classList.add("in-frame");
         });
       }

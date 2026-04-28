@@ -43,7 +43,9 @@ body {
 html,
 body,
 body * {
-  cursor: url("/assets/cursors/cursor-default.svg") 2 2, auto;
+  cursor:
+    url("/assets/cursors/cursor-default.svg") 2 2,
+    auto;
 }
 /* Pointer cursor on every interactive affordance. Uses the
          raptor-footprint silhouette from the "first-run" achievement
@@ -62,7 +64,9 @@ summary *,
 [role="button"] *,
 [role="menuitem"] *,
 .menu-item * {
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
 }
 /* Pressed state — inverted-palette arrow so a click reads as
          "pushed in". Applied on active pointer-down for all
@@ -74,7 +78,9 @@ summary:active,
 [role="menuitem"]:active,
 .menu-item:active,
 canvas:active {
-  cursor: url("/assets/cursors/cursor-tap.svg") 2 2, pointer;
+  cursor:
+    url("/assets/cursors/cursor-tap.svg") 2 2,
+    pointer;
 }
 /* Disabled state — red-slash overlay so it's clear the control
          is not interactive. Overrides the pointer rule on the same
@@ -85,7 +91,9 @@ button:disabled,
 a[aria-disabled="true"] *,
 button:disabled *,
 [role="button"][aria-disabled="true"] * {
-  cursor: url("/assets/cursors/cursor-not-allowed.svg") 2 2, not-allowed;
+  cursor:
+    url("/assets/cursors/cursor-not-allowed.svg") 2 2,
+    not-allowed;
 }
 /* Hide the cursor when the last input was a gamepad button —
          the player's using the pad, so a floating mouse pointer is
@@ -100,7 +108,7 @@ body.pad-active,
 body.pad-active *,
 body.mouse-idle,
 body.mouse-idle * {
-  cursor: none !important;
+  cursor: none;
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
@@ -167,7 +175,9 @@ body {
     rgb(170, 210, 205) 55%,
     rgb(245, 220, 170) 80%
   );
-  transition: opacity 0.4s ease-out, visibility 0.4s;
+  transition:
+    opacity 0.4s ease-out,
+    visibility 0.4s;
 }
 .start-screen.hidden {
   opacity: 0;
@@ -340,8 +350,13 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.06s ease;
 }
 .start-btn:not(:disabled):hover,
 .start-btn:not(:disabled):focus-visible,
@@ -607,7 +622,9 @@ body.needs-rotate .rotate-prompt {
   pointer-events: auto;
   opacity: 1;
   transform: translateY(0) scale(1);
-  transition: opacity 0.35s ease-out, transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition:
+    opacity 0.35s ease-out,
+    transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 .achievement-toast.leaving {
   opacity: 0;
@@ -894,8 +911,11 @@ body.needs-rotate .rotate-prompt {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: clamp(0.72rem, min(1.8vw, 2.2vh), 0.9rem);
-  text-shadow: -1px -1px 0 var(--color-dune), 1px -1px 0 var(--color-dune), -1px 1px 0
-    var(--color-dune), 1px 1px 0 var(--color-dune);
+  text-shadow:
+    -1px -1px 0 var(--color-dune),
+    1px -1px 0 var(--color-dune),
+    -1px 1px 0 var(--color-dune),
+    1px 1px 0 var(--color-dune);
 }
 .score-card-hint kbd {
   display: inline-block;
@@ -935,8 +955,13 @@ body.gamepad-connected .score-card-hint .pad-hint {
   border-radius: 6px;
   background: var(--color-sand-contrast);
   color: var(--color-dune);
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.06s ease;
 }
 .score-card-panel.visible .share-score-btn {
   display: inline-block;
@@ -1056,10 +1081,14 @@ body.gamepad-connected .score-card-hint .pad-hint {
   font-size: clamp(0.85rem, min(2.3vw, 2.7vh), 1rem);
   font-weight: 700;
   letter-spacing: 0.01em;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   white-space: nowrap;
   overflow: hidden;
-  transition: background-color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 .revive-btn:hover:not(:disabled) {
   background: var(--color-sky);
@@ -1163,8 +1192,11 @@ body.gamepad-connected .score-card-hint .pad-hint {
   color: var(--color-sand-contrast);
   font-weight: 600;
   letter-spacing: 0.01em;
-  text-shadow: -1px -1px 0 var(--color-dune), 1px -1px 0 var(--color-dune), -1px 1px 0
-    var(--color-dune), 1px 1px 0 var(--color-dune);
+  text-shadow:
+    -1px -1px 0 var(--color-dune),
+    1px -1px 0 var(--color-dune),
+    -1px 1px 0 var(--color-dune),
+    1px 1px 0 var(--color-dune);
 }
 .revive-balance[hidden] {
   display: none;
@@ -1186,9 +1218,13 @@ body.gamepad-connected .score-card-hint .pad-hint {
   font-size: clamp(0.82rem, min(2.2vw, 2.6vh), 1rem);
   font-weight: 700;
   letter-spacing: 0.01em;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   white-space: nowrap;
-  transition: background-color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 .play-again-btn:hover {
   background: var(--color-sky);
@@ -1247,9 +1283,14 @@ body.gamepad-connected .score-card-hint .pad-hint {
   border-radius: 6px;
   background: var(--color-sand-contrast);
   color: var(--color-dune);
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   padding: 0;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.06s ease;
   /* Eliminate tap delay + disable double-tap zoom on mobile. */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -1350,7 +1391,10 @@ body.gamepad-connected .score-card-hint .pad-hint {
   stroke-dasharray: 10;
   stroke-dashoffset: 0;
   transform-origin: 10px 10px;
-  transition: stroke-dashoffset 0.3s, opacity 0.2s, transform 0.2s;
+  transition:
+    stroke-dashoffset 0.3s,
+    opacity 0.2s,
+    transform 0.2s;
 }
 .sound-btn.muted .speaker {
   opacity: 0.5;
@@ -1366,7 +1410,9 @@ body.gamepad-connected .score-card-hint .pad-hint {
   stroke-dasharray: 8;
   stroke-dashoffset: 8;
   opacity: 0;
-  transition: stroke-dashoffset 0.2s 0.1s, opacity 0.2s 0.1s;
+  transition:
+    stroke-dashoffset 0.2s 0.1s,
+    opacity 0.2s 0.1s;
 }
 .sound-btn.muted .mute-x {
   stroke-dashoffset: 0;
@@ -1522,9 +1568,14 @@ body.gamepad-connected .score-card-hint .pad-hint {
   font-family: var(--font-display);
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   white-space: nowrap;
-  transition: background-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.06s ease;
 }
 .menu-panel .menu-item:hover {
   background: var(--color-sky);
@@ -1691,7 +1742,7 @@ body.gamepad-connected .menu-panel .menu-gamepad-hint {
   display: flex;
 }
 body.cap .menu-panel .menu-gamepad-hint {
-  display: none !important;
+  display: none;
 }
 .menu-panel .close-hint {
   margin-top: 1rem;
@@ -1705,11 +1756,15 @@ body.cap .menu-panel .menu-gamepad-hint {
   color: var(--color-dune);
   padding: 0.35rem 1.1rem;
   border-radius: 6px;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   font-family: var(--font-display);
   font-size: 0.85rem;
   font-weight: 600;
-  transition: background-color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 .menu-panel .close-hint button:hover {
   background: var(--color-sky);
@@ -1807,7 +1862,9 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--color-dune);
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   list-style: none;
   user-select: none;
   border: 3px solid var(--color-dune);
@@ -1885,7 +1942,9 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--color-dune);
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   list-style: none;
   user-select: none;
   border: 3px solid var(--color-dune);
@@ -2193,7 +2252,7 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   background: var(--color-sand);
 }
 .shop-item-thumb.shop-item-thumb-sprite {
-  background: var(--color-sand) !important;
+  background: var(--color-sand);
 }
 .shop-item-thumb img {
   width: 100%;
@@ -2257,12 +2316,16 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.8rem;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  transition: background-color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 .coin-icon {
   width: 1em;
@@ -2734,7 +2797,9 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   transition: background 0.15s;
   touch-action: manipulation;
 }
@@ -2764,7 +2829,9 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  cursor: url("/assets/cursors/cursor-pointer.png") 10 0, pointer;
+  cursor:
+    url("/assets/cursors/cursor-pointer.png") 10 0,
+    pointer;
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
@@ -2772,7 +2839,9 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease;
 }
 .imprint-close:hover {
   background: var(--color-sky);
@@ -2806,7 +2875,7 @@ body.cinematic-mode #achievement-toasts,
 body.cinematic-mode #start-screen,
 body.cinematic-mode #score-card-overlay,
 body.cinematic-mode #menu-overlay {
-  display: none !important;
+  display: none;
 }
 #cinematic-hud {
   position: fixed;
@@ -2879,12 +2948,12 @@ body.cap #game-canvas {
 }
 body.cap .fullscreen-btn {
   /* No-op on native mobile — the WebView always fills the screen. */
-  display: none !important;
+  display: none;
 }
 body.cap .achievements-steam-link,
 body.cap .desktop-only {
   /* Hide Steam-branded controls on mobile. */
-  display: none !important;
+  display: none;
 }
 /* Web-ish items that don't make sense inside a native shell:
          - PWA install prompt (beforeinstallprompt never fires in a
@@ -2903,7 +2972,7 @@ body.cap #menu-install-li,
 body.cap #menu-imprint-li,
 body.cap #menu-github-li,
 body.cap .menu-panel .menu-hint {
-  display: none !important;
+  display: none;
 }
 /* Hit-target safety: icon buttons at the default 14px offset sit
          just outside the iPhone Dynamic Island in landscape. Adding a

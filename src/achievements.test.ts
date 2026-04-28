@@ -84,8 +84,8 @@ describe("ACHIEVEMENTS_BY_ID lookup", () => {
   it("unknown ids return undefined (prototype-free lookup)", () => {
     // Object.create(null) means 'toString' / 'constructor' / 'hasOwnProperty'
     // do NOT accidentally resolve to Object.prototype methods.
-    expect(ACHIEVEMENTS_BY_ID["toString"]).toBeUndefined();
-    expect(ACHIEVEMENTS_BY_ID["hasOwnProperty"]).toBeUndefined();
-    expect(ACHIEVEMENTS_BY_ID["__proto__"]).toBeUndefined();
+    expect(ACHIEVEMENTS_BY_ID.toString).toBeUndefined();
+    expect(ACHIEVEMENTS_BY_ID.hasOwnProperty).toBeUndefined();
+    expect(ACHIEVEMENTS_BY_ID.__proto__).toBeUndefined();
   });
 });

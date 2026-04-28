@@ -7,7 +7,7 @@ import { createElement } from "react";
  * so production builds (where body[data-debug] is unset) never
  * reveal the section.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { DebugSettings, type DebugSettingsCallbacks } from "./DebugSettings";
 
 let root: Root | null = null;

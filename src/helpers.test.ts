@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  type Polygon,
   clamp,
   compactInPlace,
   cross,
   lerp,
   lerpColor,
+  type Polygon,
   pointInPolygon,
   polygonsOverlap,
   randRange,

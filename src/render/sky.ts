@@ -209,15 +209,15 @@ export function drawSun(ctx: CanvasRenderingContext2D) {
   const arc = celestialArc(SUN_PHASE_CENTER, CELESTIAL_ARC_HALF_WIDTH);
   if (!arc.visible) return;
   const r = Math.max(SUN_MIN_RADIUS_PX, state.width * SUN_RADIUS_SCALE);
-  const elevation = Math.max(0, 1 - Math.pow(Math.abs(arc.t - 0.5) * 2, 4));
+  const elevation = Math.max(0, 1 - (Math.abs(arc.t - 0.5) * 2) ** 4);
   const cZenith: [number, number, number] = [255, 250, 235];
   const cMid: [number, number, number] = [255, 200, 110];
   const cHorizon: [number, number, number] = [220, 60, 25];
-  let core: [number, number, number], halo: [number, number, number];
+  let core: [number, number, number], _halo: [number, number, number];
   if (elevation > 0.5) {
     const k = (elevation - 0.5) * 2;
     core = lerpColor(cMid, cZenith, k) as [number, number, number];
-    halo = lerpColor(
+    _halo = lerpColor(
       [255, 180, 100] as [number, number, number],
       [255, 230, 170] as [number, number, number],
       k,
@@ -225,7 +225,7 @@ export function drawSun(ctx: CanvasRenderingContext2D) {
   } else {
     const k = elevation * 2;
     core = lerpColor(cHorizon, cMid, k) as [number, number, number];
-    halo = lerpColor(
+    _halo = lerpColor(
       [225, 70, 30] as [number, number, number],
       [255, 180, 100] as [number, number, number],
       k,

@@ -38,7 +38,6 @@ import "./styles/base.css";
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID } from "./achievements";
 import { audio } from "./audio";
 import { contexts, initCanvas } from "./canvas";
-import { track, trackPageview } from "./telemetry";
 // ScoreCardWorker import moved into src/render/scoreCard.ts.
 import {
   BOW_TIE_SCORE_THRESHOLD,
@@ -50,6 +49,7 @@ import {
   DUNE_CACTUS_MIN_SPACING_PX,
   DUNE_CACTUS_SPACING_RANGE_PX,
   DUNE_SCROLL_SPEED,
+  GAME_OVER_FADE_RATE,
   GAMEPAD_JUMP_BUTTONS,
   GAMEPAD_MENU_DOWN_BUTTONS,
   GAMEPAD_MENU_LEFT_BUTTONS,
@@ -58,7 +58,6 @@ import {
   GAMEPAD_MENU_UP_BUTTONS,
   GAMEPAD_STICK_DEADZONE,
   GAMEPAD_STICK_PRESS_THRESHOLD,
-  GAME_OVER_FADE_RATE,
   GRASS_FIELD_COLOR,
   GROUND_BAND_COLORS,
   GROUND_BAND_HEIGHTS_PX,
@@ -68,12 +67,12 @@ import {
   METERS_PER_BG_UNIT_PER_FRAME,
   MOON_PHASE_CENTER,
   PARTY_HAT_SCORE_THRESHOLD,
-  RAINBOW_LIFETIME_SEC,
-  RAINBOW_MAX_OPACITY,
-  RAINBOW_SPAWN_CHANCE,
   RAIN_AUDIO_MAX_VOLUME,
   RAIN_FADE_IN_RATE,
   RAIN_FADE_OUT_RATE,
+  RAINBOW_LIFETIME_SEC,
+  RAINBOW_MAX_OPACITY,
+  RAINBOW_SPAWN_CHANCE,
   REVIVE_FIRST_COST,
   REVIVE_INVULN_FRAMES,
   REVIVE_SECOND_COST,
@@ -123,11 +122,11 @@ import {
   warmShootingStarSprite,
 } from "./effects/particles";
 import {
-  RARE_EVENTS,
   drawRareEventFg,
   drawRareEventSky,
   drawUfoBeam,
   maybeSpawnRareEvent,
+  RARE_EVENTS,
   setDuneHeightProvider,
   setRareEventsAchievementHandler,
   stopActiveRareEventAudio,
@@ -150,14 +149,14 @@ import { Raptor } from "./entities/raptor";
 import { Stars } from "./entities/stars";
 import { hapticDeath } from "./haptic";
 import {
-  type Polygon,
   compactInPlace,
   lerpColor,
   moonPhaseFromCycles,
+  type Polygon,
   polygonsOverlap,
   randRange,
 } from "./helpers";
-import { IMAGES, IMAGE_SRCS } from "./images";
+import { IMAGE_SRCS, IMAGES } from "./images";
 import {
   hydratePersistence,
   loadBoolFlag,
@@ -214,6 +213,7 @@ import {
 } from "./services/gameServices";
 import { state } from "./state";
 import { pushAchievementToSteam, reconcileWithSteam } from "./steamBridge";
+import { track, trackPageview } from "./telemetry";
 
 // Fire the single pageview for this session. Gated inside
 // trackPageview() — no-ops in dev, Electron, Capacitor, and on
@@ -285,7 +285,7 @@ trackPageview();
 let canvas = null as unknown as HTMLCanvasElement;
 let ctx = null as unknown as CanvasRenderingContext2D;
 let skyCanvas = null as unknown as HTMLCanvasElement;
-let skyCtx = null as unknown as CanvasRenderingContext2D;
+let _skyCtx = null as unknown as CanvasRenderingContext2D;
 let fgCanvas = null as unknown as HTMLCanvasElement;
 let fgCtx = null as unknown as CanvasRenderingContext2D;
 let deathCanvas = null as unknown as HTMLCanvasElement;
@@ -855,7 +855,7 @@ function update(now: number) {
         for (const cb of GameAPI._gameOverCbs) {
           try {
             cb();
-          } catch (e) {
+          } catch (_e) {
             /* ignore listener errors */
           }
         }
@@ -955,6 +955,7 @@ function render() {
   // the fade in / out.
   if (state.rainbow) {
     const rb = state.rainbow;
+    // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
     let alpha;
     if (rb.age < 1) alpha = rb.age;
     else if (rb.age < 3) alpha = 1;
@@ -1350,7 +1351,7 @@ function unlockAchievement(id: string) {
   for (const cb of GameAPI._achievementCbs) {
     try {
       cb(def);
-    } catch (e) {
+    } catch (_e) {
       /* ignore listener errors */
     }
   }
@@ -1424,7 +1425,7 @@ function initRunState() {
   // Sound of Silence: snapshot the mute state right now.
   // If the player unmutes at any point during the run,
   // setMuted() flips this to false. Checked at game-over.
-  state._runMutedThroughout = !!(audio && audio.muted);
+  state._runMutedThroughout = !!audio?.muted;
 }
 
 /** Reset game state for a new run.
@@ -1525,7 +1526,7 @@ function resetGame(hard = false) {
   for (const cb of GameAPI._gameResetCbs) {
     try {
       cb();
-    } catch (e) {
+    } catch (_e) {
       /* ignore listener errors */
     }
   }
@@ -2002,7 +2003,7 @@ const GameAPI = {
   getReviveCost(): number {
     const n = state.revivesUsedThisRun;
     if (n === 0) return REVIVE_FIRST_COST;
-    return REVIVE_SECOND_COST * Math.pow(2, n - 1);
+    return REVIVE_SECOND_COST * 2 ** (n - 1);
   },
 
   /** True iff the player is currently dead and can afford the
@@ -2117,7 +2118,7 @@ const GameAPI = {
     for (const cb of GameAPI._gameOverCbs) {
       try {
         cb();
-      } catch (e) {
+      } catch (_e) {
         /* ignore */
       }
     }
@@ -3008,7 +3009,7 @@ async function init() {
       state.noCollisions = true;
       perf.enabled = false;
     }
-  } catch (e) {
+  } catch (_e) {
     /* no-op */
   }
 
@@ -3021,7 +3022,7 @@ async function init() {
   canvas = contexts.mainCanvas!;
   ctx = contexts.main!;
   skyCanvas = contexts.skyCanvas!;
-  skyCtx = contexts.sky!;
+  _skyCtx = contexts.sky!;
   fgCanvas = contexts.fgCanvas!;
   fgCtx = contexts.fg!;
   deathCanvas = contexts.deathCanvas!;
@@ -3031,7 +3032,7 @@ async function init() {
   // Break the audio → state hard dependency: invalidate the
   // Sound-of-Silence streak when the player un-mutes mid-run.
   audio.setUnmuteDuringRunHandler(() => {
-    if (state && state.started && !state.gameOver) {
+    if (state?.started && !state.gameOver) {
       state._runMutedThroughout = false;
     }
   });
@@ -3469,7 +3470,7 @@ async function init() {
         initMobile({
           onBackButton: () => {
             const w = window as any;
-            if (w.__rrIsMenuOpen && w.__rrIsMenuOpen()) {
+            if (w.__rrIsMenuOpen?.()) {
               w.__rrCloseMenu?.();
               return true;
             }

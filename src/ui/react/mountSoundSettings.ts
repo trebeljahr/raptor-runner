@@ -5,7 +5,7 @@ import { createElement } from "react";
  * id="sound-settings"> with its <summary> stays vanilla in index.html
  * — we only replace the body div's inner content.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { SoundSettings, type SoundSettingsCallbacks } from "./SoundSettings";
 
 let root: Root | null = null;

@@ -1,7 +1,7 @@
-import { resolve } from "path";
+import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { type Plugin, defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { ATTRIBUTION_SECTIONS, renderAttributionHTML } from "./src/credits";
 

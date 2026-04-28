@@ -23,9 +23,9 @@
  *   circuits — the game still runs and unlocks land in localStorage.
  */
 
-import fs from "fs";
-import path from "path";
-import { BrowserWindow, Menu, app, ipcMain, shell } from "electron";
+import fs from "node:fs";
+import path from "node:path";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import steamworks from "steamworks.js";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;

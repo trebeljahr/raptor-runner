@@ -516,7 +516,7 @@ export function updateCoinSparks(dtSec: number): void {
   if (state.coinSparks.length === 0) return;
   // Per-frame drag: convert the 60fps constant to whatever dt we got.
   // At 60fps, dtSec ≈ 1/60 and the multiplier equals COIN_SPARK_DRAG_PER_FRAME.
-  const dragThisStep = Math.pow(COIN_SPARK_DRAG_PER_FRAME, dtSec * 60);
+  const dragThisStep = COIN_SPARK_DRAG_PER_FRAME ** (dtSec * 60);
   let expired = 0;
   for (const p of state.coinSparks) {
     p.age += dtSec;

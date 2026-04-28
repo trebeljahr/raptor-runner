@@ -6,7 +6,7 @@ import { createElement } from "react";
  * (and its hidden-attribute gating in ui.ts) keeps driving
  * show/hide at the section level.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { CosmeticsMenu, type CosmeticsMenuCallbacks } from "./CosmeticsMenu";
 
 let root: Root | null = null;

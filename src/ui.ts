@@ -140,7 +140,7 @@ function getStartBtn() {
 
 const START_SCREEN_CALLBACKS = {
   onStart: () => triggerStart(),
-  getHighScore: () => (window.Game?.getHighScore && window.Game.getHighScore()) || 0,
+  getHighScore: () => window.Game?.getHighScore?.() || 0,
   getAssetsReady: () => assetsReady,
 };
 
@@ -197,11 +197,7 @@ function onGameReady() {
   // start music immediately. Browsers may block autoplay
   // without a user gesture — that's fine, the first click
   // anywhere will unlock it via the interaction handlers.
-  if (
-    window.Game.hasSavedMutePreference &&
-    window.Game.hasSavedMutePreference() &&
-    !window.Game.isMuted()
-  ) {
+  if (window.Game.hasSavedMutePreference?.() && !window.Game.isMuted()) {
     // Re-apply the unmuted state to trigger music.play()
     window.Game.setMuted(false);
   }
@@ -235,7 +231,7 @@ let coinDrainOverride = false;
 
 function scoreLoop() {
   if (!scoreLoopRunning) return;
-  if (window.Game && window.Game.getScore) {
+  if (window.Game?.getScore) {
     const target = window.Game.getScore();
     const diff = target - displayedScore;
     if (Math.abs(diff) > 0.01) {
@@ -321,8 +317,7 @@ function startGame() {
   // blasting music on open is unexpected). Desktop games are
   // expected to play sound out of the box.
   if (
-    window.electronAPI &&
-    window.electronAPI.isDesktop &&
+    window.electronAPI?.isDesktop &&
     window.Game.hasSavedMutePreference &&
     !window.Game.hasSavedMutePreference() &&
     window.Game.setMuted
@@ -347,7 +342,7 @@ function startGame() {
 function triggerStart() {
   if (overlay.classList.contains("open")) return;
   if (!assetsReady || window.Game.isStarted()) return;
-  if (window.Game && window.Game.playMenuTap) window.Game.playMenuTap();
+  if (window.Game?.playMenuTap) window.Game.playMenuTap();
   // Retrigger-safe: remove + force reflow + re-add so rapid
   // keyboard repeats still replay the animation cleanly. The
   // button is rendered by React, so look it up fresh each call
@@ -427,7 +422,7 @@ function openAbout() {
     iframeSrc: aboutIframeSrc,
   });
   aboutOverlay.classList.add("open");
-  if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+  if (window.Game?.isStarted?.()) {
     window.Game.pause();
   }
 }
@@ -451,7 +446,7 @@ function openCredits() {
   if (!creditsOverlay) return;
   refreshCredits({ onClose: closeCredits });
   creditsOverlay.classList.add("open");
-  if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+  if (window.Game?.isStarted?.()) {
     window.Game.pause();
   }
 }
@@ -473,7 +468,7 @@ if (creditsOverlay) {
 function openAchievements() {
   refreshAchievements({ onClose: closeAchievements });
   if (achievementsOverlay) achievementsOverlay.classList.add("open");
-  if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+  if (window.Game?.isStarted?.()) {
     window.Game.pause();
   }
 }
@@ -505,22 +500,22 @@ if (achievementsOverlay) {
  *  top-right mute button) repaints from the new value. */
 const SOUND_SETTINGS_CALLBACKS = {
   onToggleSound: () => {
-    if (!window.Game || !window.Game.setMuted) return;
+    if (!window.Game?.setMuted) return;
     window.Game.setMuted(!window.Game.isMuted());
     syncSoundUI();
   },
   onToggleMusic: () => {
-    if (!window.Game || !window.Game.setMusicMuted) return;
+    if (!window.Game?.setMusicMuted) return;
     window.Game.setMusicMuted(!window.Game.isMusicMuted());
     syncSoundUI();
   },
   onToggleJumpSound: () => {
-    if (!window.Game || !window.Game.setJumpMuted) return;
+    if (!window.Game?.setJumpMuted) return;
     window.Game.setJumpMuted(!window.Game.isJumpMuted());
     syncSoundUI();
   },
   onToggleRainSound: () => {
-    if (!window.Game || !window.Game.setRainMuted) return;
+    if (!window.Game?.setRainMuted) return;
     window.Game.setRainMuted(!window.Game.isRainMuted());
     syncSoundUI();
   },
@@ -565,7 +560,7 @@ function refreshSoundUI() {
 }
 
 function toggleSound() {
-  if (!window.Game || !window.Game.setMuted) return;
+  if (!window.Game?.setMuted) return;
   // Ensure Web Audio context is unlocked on this user gesture
   if (window.Game.unlockAudio) window.Game.unlockAudio();
   window.Game.setMuted(!window.Game.isMuted());
@@ -606,7 +601,7 @@ async function toggleFullscreen() {
         document.msExitFullscreen;
       if (exit) await exit.call(document);
     }
-  } catch (e) {
+  } catch (_e) {
     /* User-cancelled or not allowed — silently ignore. */
   }
 }
@@ -632,7 +627,7 @@ if (fullscreenBtn) {
 function refreshMenuHighscore() {
   const hsEl = document.getElementById("menu-highscore");
   const hsVal = document.getElementById("menu-highscore-value");
-  if (!hsEl || !hsVal || !window.Game || !window.Game.getHighScore) return;
+  if (!hsEl || !hsVal || !window.Game?.getHighScore) return;
   const hs = Math.floor(window.Game.getHighScore() || 0);
   if (hs > 0) {
     hsVal.textContent = String(hs);
@@ -669,7 +664,7 @@ function openMenuBase() {
   // Press Esc hint) are hidden on the start screen.
   const panel = overlay.querySelector(".menu-panel");
   if (panel) {
-    if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+    if (window.Game?.isStarted?.()) {
       panel.classList.remove("pre-game");
     } else {
       panel.classList.add("pre-game");
@@ -677,7 +672,7 @@ function openMenuBase() {
   }
   // Only pause an already-running game. Before the player
   // has hit Start Game, there's nothing to pause.
-  if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+  if (window.Game?.isStarted?.()) {
     window.Game.pause();
   }
 }
@@ -693,7 +688,7 @@ function closeMenu() {
   // Only resume if the player is actually in a started game.
   // Before Start Game, there's nothing to resume — the rAF
   // loop still renders the start screen behind the menu.
-  if (window.Game && window.Game.isStarted && window.Game.isStarted()) {
+  if (window.Game?.isStarted?.()) {
     window.Game.resume();
   }
 }
@@ -1008,10 +1003,9 @@ window.__rrMenuSelect = () => {
 // click handler stays focused on behaviour; the audio feedback
 // lives here so it's uniform and can't drift per-item.
 overlay.addEventListener("click", (e) => {
-  const t =
-    e.target && e.target.closest
-      ? e.target.closest(".menu-item, .sound-settings-summary, .menu-group-summary")
-      : null;
+  const t = e.target?.closest
+    ? e.target.closest(".menu-item, .sound-settings-summary, .menu-group-summary")
+    : null;
   if (!t) return;
   const items = getNavigableMenuItems();
   const idx = items.indexOf(t);
@@ -1047,7 +1041,7 @@ overlay.addEventListener("click", (e) => {
 // "Back to home screen" — reset the game, close the menu, and
 // re-show the start screen with its current personal-best badge.
 function handleHomeClick() {
-  if (window.Game && window.Game.returnToHome) {
+  if (window.Game?.returnToHome) {
     window.Game.returnToHome();
   }
   // Close menu without a Game.resume() side-effect, since we
@@ -1253,7 +1247,7 @@ function refreshPerfUI() {
 // shown once the player actually unlocks them — or always in
 // debug mode for testing.
 const cosmeticsGroup = document.getElementById("cosmetics");
-const cosmeticsList = document.getElementById("cosmetics-list");
+const _cosmeticsList = document.getElementById("cosmetics-list");
 const menuShopBtn = document.getElementById("menu-shop");
 const menuShopBalanceValue = document.getElementById("menu-shop-balance-value");
 const shopOverlay = document.getElementById("shop-overlay");
@@ -1535,7 +1529,7 @@ function closeResetConfirm() {
 function doReset() {
   window.Game.resetAllProgress();
   refreshEasterEggUI();
-  if (achievementsOverlay && achievementsOverlay.classList.contains("open")) {
+  if (achievementsOverlay?.classList.contains("open")) {
     refreshAchievements({ onClose: closeAchievements });
   }
   const pbEl = document.getElementById("personal-best");
@@ -1572,11 +1566,11 @@ document.addEventListener(
   (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (achievementsOverlay && achievementsOverlay.classList.contains("open")) {
+      if (achievementsOverlay?.classList.contains("open")) {
         closeAchievements();
-      } else if (creditsOverlay && creditsOverlay.classList.contains("open")) {
+      } else if (creditsOverlay?.classList.contains("open")) {
         closeCredits();
-      } else if (aboutOverlay && aboutOverlay.classList.contains("open")) {
+      } else if (aboutOverlay?.classList.contains("open")) {
         closeAbout();
       } else if (imprintOverlay.classList.contains("open")) {
         closeImprint();
@@ -1702,7 +1696,7 @@ const achievementToastStack = document.getElementById("achievement-toasts");
 // Both input fields come from static strings in main.ts,
 // so it's safe to use innerHTML for the SVG fragment.
 function buildAchievementIconNode(ach) {
-  if (ach && ach.iconImage) {
+  if (ach?.iconImage) {
     const img = document.createElement("img");
     img.src = ach.iconImage;
     img.alt = "";
@@ -1713,7 +1707,7 @@ function buildAchievementIconNode(ach) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = (ach && ach.iconHTML) || "";
+  svg.innerHTML = ach?.iconHTML || "";
   return svg;
 }
 
@@ -1904,7 +1898,7 @@ function startCoinFillAnim(total: number, runCoins: number) {
   const step = () => {
     const now = performance.now();
     const t = Math.min(1, (now - startTime) / DURATION_MS);
-    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const eased = 1 - (1 - t) ** 3; // ease-out cubic
     reviveBalance = Math.round(startAt + (total - startAt) * eased);
     if (scoreCoinValueEl) {
       const drained = Math.round(runCoins * (1 - eased));
@@ -2003,7 +1997,7 @@ function flashShareLabel(text, duration = 1800) {
 }
 
 function isDesktopApp() {
-  return !!(window.electronAPI && window.electronAPI.isDesktop);
+  return !!window.electronAPI?.isDesktop;
 }
 
 function buildShareText(score) {
@@ -2023,12 +2017,7 @@ async function handleShareClick() {
     // Mobile: native share sheet with the file — the OS
     // decides whether the image, the text, or both end up
     // in the target app.
-    if (
-      isTouchDevice &&
-      navigator.canShare &&
-      navigator.canShare({ files: [file] }) &&
-      navigator.share
-    ) {
+    if (isTouchDevice && navigator.canShare?.({ files: [file] }) && navigator.share) {
       try {
         await navigator.share({
           title: "Raptor Runner",
@@ -2061,14 +2050,14 @@ async function handleShareClick() {
         ]);
         flashShareLabel(isDesktopApp() ? "Invite copied!" : "Copied!");
         return;
-      } catch (e) {
+      } catch (_e) {
         // Some browsers reject multi-type ClipboardItems;
         // fall back to image-only.
         try {
           await navigator.clipboard.write([new ClipboardItem({ "image/png": currentCardBlob })]);
           flashShareLabel(isDesktopApp() ? "Invite copied!" : "Copied!");
           return;
-        } catch (e2) {
+        } catch (_e2) {
           // fall through to text-only copy
         }
       }
@@ -2078,7 +2067,7 @@ async function handleShareClick() {
     try {
       await navigator.clipboard.writeText(shareText);
       flashShareLabel("Link copied!");
-    } catch (e) {
+    } catch (_e) {
       flashShareLabel("Copy failed");
     }
   } finally {
@@ -2094,7 +2083,7 @@ async function handleShareClick() {
 // to the functions defined here (doRestart, handleShareClick,
 // handleReviveClick).
 function doRestart() {
-  if (window.Game && window.Game.restartFromGameOver) {
+  if (window.Game?.restartFromGameOver) {
     window.Game.restartFromGameOver();
   }
 }

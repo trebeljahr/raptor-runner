@@ -27,7 +27,7 @@ import {
   DIAMOND_SPARKLE_COUNT,
   DIAMOND_SPARKLE_ORBIT_RATIO,
 } from "../constants";
-import { type Polygon, compactInPlace, pointInPolygon } from "../helpers";
+import { compactInPlace, type Polygon, pointInPolygon } from "../helpers";
 import { IMAGES } from "../images";
 import { saveCoinsBalance } from "../persistence";
 import { state } from "../state";
@@ -351,8 +351,7 @@ export function drawCoins(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = "#fff";
         fillStyleSet = true;
       }
-      const dTwinkleBaseT =
-        state.frame * ((Math.PI * 2 * COIN_TWINKLE_FREQUENCY_HZ) / 60);
+      const dTwinkleBaseT = state.frame * ((Math.PI * 2 * COIN_TWINKLE_FREQUENCY_HZ) / 60);
       const dcx = c.x + c.w / 2;
       const dcy = cy + c.h / 2;
       for (let i = 0; i < DIAMOND_SPARKLE_COUNT; i++) {
@@ -486,7 +485,6 @@ function drawFourPointStar(
 }
 
 export { drawFourPointStar };
-
 
 export function clearCoins(): void {
   state.coins = [];

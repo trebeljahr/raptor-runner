@@ -24,8 +24,7 @@ import {
   FLOWER_PATCH_WIDTH_PX,
 } from "../constants";
 import { compactInPlace } from "../helpers";
-import { IMAGES } from "../images";
-import { FLOWER_KEYS } from "../images";
+import { FLOWER_KEYS, IMAGES } from "../images";
 import { state } from "../state";
 
 interface Flower {

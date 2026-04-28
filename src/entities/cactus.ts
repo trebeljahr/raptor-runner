@@ -28,10 +28,10 @@ import {
   SPEED_INCREMENT,
   VELOCITY_SCALE_DIVISOR,
 } from "../constants";
-import { type Polygon, compactInPlace } from "../helpers";
+import { compactInPlace, type Polygon } from "../helpers";
 import { IMAGES } from "../images";
 import { state } from "../state";
-import { spawnCoinAboveCactus, spawnCoinUnderPterodactyl, spawnCoinsInRange } from "./coins";
+import { spawnCoinAboveCactus, spawnCoinsInRange, spawnCoinUnderPterodactyl } from "./coins";
 import { makeFlowerPatch } from "./flowers";
 import { Pterodactyls } from "./pterodactyl";
 import type { Raptor } from "./raptor";

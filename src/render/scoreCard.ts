@@ -17,7 +17,7 @@ function getScoreCardWorker() {
   if (scoreCardWorker) return scoreCardWorker;
   try {
     scoreCardWorker = new ScoreCardWorker();
-  } catch (e) {
+  } catch (_e) {
     scoreCardWorker = null;
   }
   return scoreCardWorker;
@@ -40,8 +40,8 @@ export async function generateScoreCardBlob(deathSnapshotReady: boolean) {
           const onMessage = (e: MessageEvent) => {
             worker.removeEventListener("message", onMessage);
             worker.removeEventListener("error", onError);
-            if (e.data && e.data.blob) resolve(e.data.blob);
-            else reject(new Error((e.data && e.data.error) || "worker failed"));
+            if (e.data?.blob) resolve(e.data.blob);
+            else reject(new Error(e.data?.error || "worker failed"));
           };
           const onError = (ev: ErrorEvent) => {
             worker.removeEventListener("message", onMessage);
@@ -63,7 +63,7 @@ export async function generateScoreCardBlob(deathSnapshotReady: boolean) {
         return blob;
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // Fall through to main-thread path.
   }
   return generateScoreCardBlobMainThread(deathSnapshotReady);
@@ -90,6 +90,7 @@ function generateScoreCardBlobMainThread(deathSnapshotReady: boolean) {
     const srcH = deathCanvas.height;
     const srcAspect = srcW / srcH;
     const dstAspect = W / H;
+    // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
     let sx, sy, sw, sh;
     if (srcAspect > dstAspect) {
       sh = srcH;

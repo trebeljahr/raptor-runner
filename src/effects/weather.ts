@@ -226,6 +226,7 @@ export function updateLightning(frameScale: number, now: number) {
 
 export function _generateBoltPath() {
   // Always target a visible dune cactus if one exists.
+  // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
   let targetX;
   let struckDuneCactus = null;
   const off = state.duneOffset || 0;

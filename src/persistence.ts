@@ -230,7 +230,7 @@ export function loadHighScore(): number {
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -248,7 +248,7 @@ export function loadCareerRuns(): number {
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -268,7 +268,7 @@ export function loadUnlockedAchievements(): UnlockedAchievementSet {
     if (Array.isArray(arr)) {
       for (const id of arr) if (typeof id === "string") set[id] = true;
     }
-  } catch (e) {
+  } catch (_e) {
     /* ignore corrupt values */
   }
   return set;
@@ -286,7 +286,7 @@ export function loadTotalJumps(): number {
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -303,7 +303,7 @@ export function loadTotalNightsSurvived(): number {
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -320,7 +320,7 @@ export function loadTotalDayCycles(): number {
     if (raw == null) return 0;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -335,7 +335,7 @@ export function loadRareEventsSeen(): RareEventsSeen {
   try {
     const raw = _persistGet(RARE_EVENTS_SEEN_KEY);
     return raw ? JSON.parse(raw) : {};
-  } catch (e) {
+  } catch (_e) {
     return {};
   }
 }
@@ -353,7 +353,7 @@ export function loadBoolFlag(key: string, fallback: boolean): boolean {
     const raw = _persistGet(key);
     if (raw == null) return fallback;
     return raw === "1";
-  } catch (e) {
+  } catch (_e) {
     return fallback;
   }
 }

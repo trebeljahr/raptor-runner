@@ -25,16 +25,16 @@
 import type { NormalizedPoint } from "../cactusVariants";
 import {
   PTERODACTYL_FLIGHT_HEIGHT_RATIO,
-  PTERODACTYL_FRAMES,
   PTERODACTYL_FRAME_DELAY_MS,
   PTERODACTYL_FRAME_H,
   PTERODACTYL_FRAME_W,
+  PTERODACTYL_FRAMES,
   PTERODACTYL_HEIGHT_SCALE,
   PTERODACTYL_LOW_FLIGHT_HEIGHT_RATIO,
   PTERODACTYL_LOW_FLIGHT_SIZE_SCALE,
   PTERODACTYL_SHEET_COLS,
 } from "../constants";
-import { type Polygon, compactInPlace } from "../helpers";
+import { compactInPlace, type Polygon } from "../helpers";
 import { IMAGES } from "../images";
 import { state } from "../state";
 import type { Raptor } from "./raptor";

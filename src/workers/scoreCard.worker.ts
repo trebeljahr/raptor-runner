@@ -49,9 +49,13 @@ self.onmessage = async (e: MessageEvent) => {
       const srcH = bitmap.height;
       const srcAspect = srcW / srcH;
       const dstAspect = W / H;
+      // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
       let sx;
+      // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
       let sy;
+      // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
       let sw;
+      // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
       let sh;
       if (srcAspect > dstAspect) {
         sh = srcH;

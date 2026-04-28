@@ -149,8 +149,8 @@ describe("loadUnlockedAchievements / saveUnlockedAchievements", () => {
   it("ignores non-string entries in the stored array", () => {
     window.localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(["alpha", 42, null, "beta"]));
     const got = loadUnlockedAchievements();
-    expect(got["alpha"]).toBe(true);
-    expect(got["beta"]).toBe(true);
+    expect(got.alpha).toBe(true);
+    expect(got.beta).toBe(true);
     expect(Object.keys(got).length).toBe(2);
   });
   it("treats a non-array stored value as empty", () => {

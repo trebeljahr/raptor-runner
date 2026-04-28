@@ -134,7 +134,7 @@ export class Stars {
       const u = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
       const across = u * (this.mwThickness * 0.5);
       // Long-axis intensity also tapers off toward the band ends.
-      const endFade = 1 - Math.pow(Math.abs(along) / (this.mwLength / 2), 2);
+      const endFade = 1 - (Math.abs(along) / (this.mwLength / 2)) ** 2;
       if (endFade < 0.05) continue;
       const x = this.mwCenterX + along * mwCos - across * mwSin;
       const y = this.mwCenterY + along * mwSin + across * mwCos;
@@ -157,7 +157,7 @@ export class Stars {
       const across = (Math.random() - 0.5) * this.mwThickness * 0.15;
       const x = this.mwCenterX + along * mwCos - across * mwSin;
       const y = this.mwCenterY + along * mwSin + across * mwCos;
-      const endFade = 1 - Math.pow(Math.abs(along) / (this.mwLength / 2), 2);
+      const endFade = 1 - (Math.abs(along) / (this.mwLength / 2)) ** 2;
       this.mwHazePuffs.push({
         x,
         y,
@@ -228,7 +228,7 @@ export class Stars {
       if (s.twinkleDepth) {
         const raw = 0.5 + 0.5 * Math.sin(s.twinklePhase + state.frame * s.twinkleRate);
         twinkle = s.flash
-          ? 0.4 + 1.1 * Math.pow(raw, 8) // sharp bright spikes
+          ? 0.4 + 1.1 * raw ** 8 // sharp bright spikes
           : 1 - s.twinkleDepth * raw;
       }
       const a = s.brightness * twinkle * this.opacity;

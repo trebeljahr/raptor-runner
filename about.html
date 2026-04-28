@@ -184,7 +184,7 @@
          loads in an iframe so it has its own document — replicate the
          detection here via postMessage-free checks. */
       html.is-desktop .web-only {
-        display: none !important;
+        display: none;
       }
       /* Brand-matched scrollbar — same palette the in-game chrome
          uses, so this page doesn't drop a default grey bar into a
@@ -215,7 +215,7 @@
       // never flashes visible.
       if (window.self !== window.top) {
         document.documentElement.classList.add("in-frame-html");
-        document.addEventListener("DOMContentLoaded", function () {
+        document.addEventListener("DOMContentLoaded", () => {
           document.body.classList.add("in-frame");
         });
       }
@@ -227,8 +227,7 @@
         if (
           window.parent &&
           window.parent !== window &&
-          window.parent.document &&
-          window.parent.document.documentElement.classList.contains(
+          window.parent.document?.documentElement.classList.contains(
             "is-desktop",
           )
         ) {

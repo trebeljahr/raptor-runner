@@ -187,6 +187,7 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
   const thumbStyle = thumbUrl ? undefined : { background: SLOT_COLOR[def.slot] ?? "#555" };
   const thumbClass = thumbUrl ? "shop-item-thumb shop-item-thumb-sprite" : "shop-item-thumb";
 
+  // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
   let action;
   if (equipped) {
     // Click toggles off — matches the cosmetics drawer so controller

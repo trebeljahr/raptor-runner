@@ -6,7 +6,7 @@ import { createElement } from "react";
  * stays in index.html for backdrop and open-state CSS, React renders
  * the sheet inside.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { Achievements } from "./Achievements";
 
 let root: Root | null = null;

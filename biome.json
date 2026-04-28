@@ -13,7 +13,10 @@
       "!**/node_modules",
       "!**/.next",
       "!**/out",
-      "!**/coverage"
+      "!**/coverage",
+      "!**/*.css",
+      "!**/*.html",
+      "!**/*.htm"
     ]
   },
   "formatter": {
@@ -36,21 +39,25 @@
       "recommended": true,
       "suspicious": {
         "noExplicitAny": "warn",
-        "noApproximativeNumericConstant": "off"
+        "noApproximativeNumericConstant": "off",
+        "noUnknownAtRules": "off"
       },
       "style": {
         "noNonNullAssertion": "off",
         "useImportType": "error",
         "useTemplate": "off",
-        "noUnusedTemplateLiteral": "off"
+        "noUnusedTemplateLiteral": "off",
+        "noDescendingSpecificity": "off"
       },
-
       "performance": {
         "noDelete": "off"
       },
       "correctness": {
         "noUnusedVariables": "warn",
         "noUnusedImports": "error"
+      },
+      "a11y": {
+        "useGenericFontNames": "off"
       }
     }
   }

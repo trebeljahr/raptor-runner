@@ -7,7 +7,7 @@ import { createElement } from "react";
  * raptor stage (painted by refreshStartRaptorCosmetics) stay in
  * vanilla DOM.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { StartScreen, type StartScreenCallbacks } from "./StartScreen";
 
 let root: Root | null = null;

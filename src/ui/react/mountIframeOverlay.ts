@@ -6,7 +6,7 @@ import { createElement } from "react";
  * React root, its own lazy iframe src state, and its own host
  * element, so they don't interfere when both are mounted at once.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { IframeOverlay, type IframeOverlayProps } from "./IframeOverlay";
 
 let aboutRoot: Root | null = null;

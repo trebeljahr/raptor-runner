@@ -6,7 +6,7 @@ import { createElement } from "react";
  * reviveKey, shareLabel, handlers), calls refreshScoreCardActions on
  * every mutation, and the component renders from the passed props.
  */
-import { type Root, createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { ScoreCardActions, type ScoreCardActionsProps } from "./ScoreCardActions";
 
 let root: Root | null = null;
