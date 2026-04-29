@@ -224,9 +224,18 @@ export class Raptor {
     const def = COSMETICS_BY_ID[id];
     if (!def) return;
     // Classics have bespoke draw routines with hand-tuned anchors.
-    if (id === "party-hat") return this.drawPartyHat(ctx);
-    if (id === "thug-glasses") return this.drawThugGlasses(ctx);
-    if (id === "bow-tie") return this.drawBowTie(ctx);
+    if (id === "party-hat") {
+      this.drawPartyHat(ctx);
+      return;
+    }
+    if (id === "thug-glasses") {
+      this.drawThugGlasses(ctx);
+      return;
+    }
+    if (id === "bow-tie") {
+      this.drawBowTie(ctx);
+      return;
+    }
     this._drawCosmeticPlaceholder(ctx, slot, def);
   }
 
