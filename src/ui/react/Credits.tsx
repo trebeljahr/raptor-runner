@@ -69,10 +69,12 @@ export function Credits({ callbacks: cb }: CreditsProps) {
           <section key={s.id} className="credits-section">
             <h2>{s.title}</h2>
             {s.items.length === 1 ? (
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted credits content, no user input
               <p dangerouslySetInnerHTML={{ __html: s.items[0] }} />
             ) : (
               <ul className="credits-links">
                 {s.items.map((item, i) => (
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted credits content, no user input
                   <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
                 ))}
               </ul>

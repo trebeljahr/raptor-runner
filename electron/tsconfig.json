@@ -5,6 +5,7 @@
     "moduleResolution": "node",
     "outDir": ".",
     "rootDir": ".",
+    // biome-ignore lint/suspicious/noDuplicateObjectKeys: duplicate by intent (override)
     "noEmit": false,
     "strict": true,
     "esModuleInterop": true,

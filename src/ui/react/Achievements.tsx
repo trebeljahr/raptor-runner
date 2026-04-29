@@ -50,6 +50,7 @@ function AchievementIcon({ ach, hidden }: { ach: Achievement; hidden: boolean })
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted source, no user input
       dangerouslySetInnerHTML={{ __html: ach.iconHTML ?? "" }}
     />
   );
