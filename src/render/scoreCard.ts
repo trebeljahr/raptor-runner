@@ -36,7 +36,7 @@ export async function generateScoreCardBlob(deathSnapshotReady: boolean) {
       const worker = getScoreCardWorker();
       if (worker) {
         const bitmap = await createImageBitmap(deathCanvas);
-        const blob = await new Promise((resolve, reject) => {
+        const blob = await new Promise<Blob>((resolve, reject) => {
           const onMessage = (e: MessageEvent) => {
             worker.removeEventListener("message", onMessage);
             worker.removeEventListener("error", onError);
@@ -171,7 +171,7 @@ function generateScoreCardBlobMainThread(deathSnapshotReady: boolean) {
   }
   cctx.restore();
 
-  return new Promise((resolve) => {
+  return new Promise<Blob | null>((resolve) => {
     card.toBlob((blob) => resolve(blob), "image/png");
   });
 }

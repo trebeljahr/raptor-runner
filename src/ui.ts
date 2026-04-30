@@ -17,16 +17,14 @@
  *     `import.meta.env.VITE_STEAM_STORE_URL` so Vite's normal env
  *     substitution handles it instead of the bespoke HTML-level
  *     replacement that was never actually plumbed in
- *   - declare window.Game, window.__onStartKey, etc. ambient types
- *     so TypeScript doesn't flag the many dynamic accesses
  *
- * @ts-nocheck because the content below is pre-existing JavaScript
- * with no type annotations. A proper migration to TypeScript types
- * can land incrementally without touching this module's behaviour.
+ * The whole module is now type-checked under strict mode. The cross-
+ * module bridges (window.Game, window.__rr*, window.__onStartKey)
+ * are typed in src/window.d.ts. Game-API consumers capture
+ * `const game = window.Game; if (!game) return;` at the top of
+ * any handler that depends on it — by the time those run, the
+ * onReady gate has fired, but the capture keeps TypeScript honest.
  */
-
-// @ts-nocheck
-/* eslint-disable */
 
 import { refreshAchievements } from "./ui/react/mountAchievements";
 import { refreshCosmeticsMenu } from "./ui/react/mountCosmeticsMenu";
@@ -50,8 +48,14 @@ const STEAM_STORE_URL: string =
   import.meta.env.VITE_STEAM_STORE_URL ||
   "https://raptor.trebeljahr.com";
 
-const cog = document.getElementById("settings-cog");
-const overlay = document.getElementById("menu-overlay");
+// These four elements are required by index.html and are present
+// before this module runs (the script is loaded after the elements
+// in the markup, and the start screen / menu overlay / cog / sound
+// toggle are static structural chrome that never get torn down).
+// Failing fast with `!` here keeps the rest of the module readable
+// at the use sites.
+const cog = document.getElementById("settings-cog")!;
+const overlay = document.getElementById("menu-overlay")!;
 
 // The top block of menu-item buttons — Steam Friends, Steam Store,
 // Quit, Fullscreen — all live inside the React <MenuList> component
@@ -113,9 +117,9 @@ async function handleFullscreenClick() {
     });
   } catch (_) {}
 }
-const topSoundBtn = document.getElementById("sound-toggle");
+const topSoundBtn = document.getElementById("sound-toggle")!;
 const fullscreenBtn = document.getElementById("fullscreen-toggle");
-const imprintOverlay = document.getElementById("imprint-overlay");
+const imprintOverlay = document.getElementById("imprint-overlay")!;
 const aboutOverlay = document.getElementById("about-overlay");
 // Iframe src is lazily flipped from "about:blank" on first open —
 // ui.ts holds the flag, the React component reads the current value
@@ -124,7 +128,7 @@ let aboutIframeSrc = "about:blank";
 let imprintIframeSrc = "about:blank";
 let aboutLoaded = false;
 const achievementsOverlay = document.getElementById("achievements-overlay");
-const startScreen = document.getElementById("start-screen");
+const startScreen = document.getElementById("start-screen")!;
 let imprintLoaded = false;
 let assetsReady = false;
 
@@ -175,15 +179,22 @@ function onGameReady() {
   // The button still takes keyboard focus naturally the moment
   // the player hits Tab / Enter / Space.
 
+  // window.Game is guaranteed assigned by the time onReady fires —
+  // main.ts sets it before invoking the ready callback. Capturing it
+  // locally satisfies TS's narrowing inside the event-handler closures
+  // below without sprinkling optional chains everywhere.
+  const game = window.Game;
+  if (!game) return;
+
   // Wire the share panel to the game's onGameOver /
   // onGameReset events now that the API is ready.
-  if (window.Game.onGameOver) {
-    window.Game.onGameOver(showScoreCard);
-    window.Game.onGameReset(hideScoreCard);
+  if (game.onGameOver) {
+    game.onGameOver(showScoreCard);
+    game.onGameReset(hideScoreCard);
   }
   // Achievement toasts.
-  if (window.Game.onAchievementUnlock) {
-    window.Game.onAchievementUnlock(showAchievementToast);
+  if (game.onAchievementUnlock) {
+    game.onAchievementUnlock(showAchievementToast);
   }
 
   // Initial sync of the start-screen raptor cosmetics with
@@ -197,9 +208,9 @@ function onGameReady() {
   // start music immediately. Browsers may block autoplay
   // without a user gesture — that's fine, the first click
   // anywhere will unlock it via the interaction handlers.
-  if (window.Game.hasSavedMutePreference?.() && !window.Game.isMuted()) {
+  if (game.hasSavedMutePreference?.() && !game.isMuted()) {
     // Re-apply the unmuted state to trigger music.play()
-    window.Game.setMuted(false);
+    game.setMuted(false);
   }
 }
 // The game module (main.ts) calls Game.onReady(cb) when assets
@@ -231,8 +242,9 @@ let coinDrainOverride = false;
 
 function scoreLoop() {
   if (!scoreLoopRunning) return;
-  if (window.Game?.getScore) {
-    const target = window.Game.getScore();
+  const game = window.Game;
+  if (game?.getScore) {
+    const target = game.getScore();
     const diff = target - displayedScore;
     if (Math.abs(diff) > 0.01) {
       // Ease toward target at ~18% per 60fps frame. Under
@@ -241,13 +253,13 @@ function scoreLoop() {
       if (Math.abs(target - displayedScore) < 0.5) {
         displayedScore = target;
       }
-      scoreValueEl.textContent = String(Math.floor(displayedScore));
+      if (scoreValueEl) scoreValueEl.textContent = String(Math.floor(displayedScore));
     }
     // Update the aria-label only when the REAL score
     // changes, not on every tween frame, so assistive
     // tech doesn't get spammed with intermediate values.
     if (target !== lastAriaScore && scoreDisplay) {
-      const coinsForLabel = window.Game.getCoinsBalance?.() ?? 0;
+      const coinsForLabel = game.getCoinsBalance?.() ?? 0;
       scoreDisplay.setAttribute("aria-label", `Score: ${target} meters, ${coinsForLabel} coins`);
       lastAriaScore = target;
       lastAriaCoins = coinsForLabel;
@@ -261,8 +273,8 @@ function scoreLoop() {
   // Skip this chase entirely while the game-over fill is draining
   // the HUD — that animation writes to the element directly, and
   // re-chasing getRunCoins() would instantly undo each drain step.
-  if (!coinDrainOverride && window.Game && window.Game.getRunCoins && scoreCoinValueEl) {
-    const target = window.Game.getRunCoins();
+  if (!coinDrainOverride && game && game.getRunCoins && scoreCoinValueEl) {
+    const target = game.getRunCoins();
     const diff = target - displayedCoins;
     if (Math.abs(diff) > 0.01) {
       displayedCoins += diff * 0.22;
@@ -306,11 +318,12 @@ function hideScoreDisplay() {
 }
 
 function startGame() {
-  if (!assetsReady || window.Game.isStarted()) return;
+  const game = window.Game;
+  if (!assetsReady || !game || game.isStarted()) return;
   // The click/keypress is a user gesture — unlock the Web Audio
   // context and re-apply the mute state so music starts if
   // the user previously chose to have sound on.
-  if (window.Game.unlockAudio) window.Game.unlockAudio();
+  if (game.unlockAudio) game.unlockAudio();
   // Desktop default: if the player has never saved a mute
   // preference, start unmuted. Web default stays muted (to
   // respect browser autoplay expectations — a web page
@@ -318,18 +331,18 @@ function startGame() {
   // expected to play sound out of the box.
   if (
     window.electronAPI?.isDesktop &&
-    window.Game.hasSavedMutePreference &&
-    !window.Game.hasSavedMutePreference() &&
-    window.Game.setMuted
+    game.hasSavedMutePreference &&
+    !game.hasSavedMutePreference() &&
+    game.setMuted
   ) {
-    window.Game.setMuted(false);
-  } else if (window.Game.setMuted) {
-    window.Game.setMuted(window.Game.isMuted());
+    game.setMuted(false);
+  } else if (game.setMuted) {
+    game.setMuted(game.isMuted());
   }
   refreshSoundUI();
   // Hide the start screen first, then tell the game to run.
   startScreen.classList.add("hidden");
-  window.Game.start();
+  game.start();
   showScoreDisplay();
 }
 
@@ -341,8 +354,9 @@ function startGame() {
 // fired click on Start never bypasses an open modal.
 function triggerStart() {
   if (overlay.classList.contains("open")) return;
-  if (!assetsReady || window.Game.isStarted()) return;
-  if (window.Game?.playMenuTap) window.Game.playMenuTap();
+  const game = window.Game;
+  if (!assetsReady || !game || game.isStarted()) return;
+  game.playMenuTap?.();
   // Retrigger-safe: remove + force reflow + re-add so rapid
   // keyboard repeats still replay the animation cleanly. The
   // button is rendered by React, so look it up fresh each call
@@ -392,7 +406,7 @@ function openImprint() {
     iframeSrc: imprintIframeSrc,
   });
   imprintOverlay.classList.add("open");
-  window.Game.pause();
+  window.Game?.pause();
 }
 function closeImprint() {
   imprintOverlay.classList.remove("open");
@@ -421,13 +435,13 @@ function openAbout() {
     callbacks: { onClose: closeAbout },
     iframeSrc: aboutIframeSrc,
   });
-  aboutOverlay.classList.add("open");
+  aboutOverlay?.classList.add("open");
   if (window.Game?.isStarted?.()) {
     window.Game.pause();
   }
 }
 function closeAbout() {
-  aboutOverlay.classList.remove("open");
+  aboutOverlay?.classList.remove("open");
   // Back to the menu we came from. openMenu handles its own
   // pause gating (no-op when the game isn't started).
   openMenu();
@@ -569,11 +583,16 @@ function toggleSound() {
 
 // ───────── Fullscreen button ─────────
 function isFullscreen() {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+    mozFullScreenElement?: Element | null;
+    msFullscreenElement?: Element | null;
+  };
   return !!(
-    document.fullscreenElement ||
-    document.webkitFullscreenElement ||
-    document.mozFullScreenElement ||
-    document.msFullscreenElement
+    doc.fullscreenElement ||
+    doc.webkitFullscreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement
   );
 }
 function refreshFullscreenUI() {
@@ -583,10 +602,23 @@ function refreshFullscreenUI() {
   fullscreenBtn.setAttribute("aria-pressed", String(on));
   fullscreenBtn.setAttribute("aria-label", on ? "Exit fullscreen" : "Enter fullscreen");
 }
+// Vendor-prefixed Fullscreen API methods aren't in lib.dom.d.ts;
+// browsers that need them are old enough that we just probe
+// dynamically. The `as any` reads stay scoped here.
+type LegacyFullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void>;
+  mozRequestFullScreen?: () => Promise<void>;
+  msRequestFullscreen?: () => Promise<void>;
+};
+type LegacyFullscreenDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void>;
+  mozCancelFullScreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+};
 async function toggleFullscreen() {
   try {
     if (!isFullscreen()) {
-      const el = document.documentElement;
+      const el = document.documentElement as LegacyFullscreenElement;
       const req =
         el.requestFullscreen ||
         el.webkitRequestFullscreen ||
@@ -594,12 +626,13 @@ async function toggleFullscreen() {
         el.msRequestFullscreen;
       if (req) await req.call(el);
     } else {
+      const doc = document as LegacyFullscreenDocument;
       const exit =
-        document.exitFullscreen ||
-        document.webkitExitFullscreen ||
-        document.mozCancelFullScreen ||
-        document.msExitFullscreen;
-      if (exit) await exit.call(document);
+        doc.exitFullscreen ||
+        doc.webkitExitFullscreen ||
+        doc.mozCancelFullScreen ||
+        doc.msExitFullscreen;
+      if (exit) await exit.call(doc);
     }
   } catch (_e) {
     /* User-cancelled or not allowed — silently ignore. */
@@ -639,10 +672,10 @@ function refreshMenuHighscore() {
 
 // Track the element that had focus before an overlay opened,
 // so we can restore it when the overlay closes.
-let _menuPriorFocus = null;
+let _menuPriorFocus: HTMLElement | null = null;
 
 function openMenuBase() {
-  _menuPriorFocus = document.activeElement;
+  _menuPriorFocus = document.activeElement as HTMLElement | null;
   overlay.classList.add("open");
   cog.setAttribute("aria-expanded", "true");
   refreshSoundUI();
@@ -772,7 +805,7 @@ window.__rrActiveScrollable = () => {
   const scroll = active.querySelector(".credits-scroll, .achievements-scroll");
   if (scroll) {
     return {
-      scrollBy(dx, dy) {
+      scrollBy(dx: number, dy: number) {
         scroll.scrollBy(dx, dy);
       },
     };
@@ -780,7 +813,7 @@ window.__rrActiveScrollable = () => {
   const iframe = active.querySelector("iframe");
   if (iframe) {
     return {
-      scrollBy(dx, dy) {
+      scrollBy(dx: number, dy: number) {
         try {
           iframe.contentWindow?.scrollBy?.(dx, dy);
         } catch (_) {
@@ -804,7 +837,7 @@ window.__rrSubOverlayOpen = () => !!document.querySelector(".imprint-overlay.ope
 window.__rrCloseActiveSubOverlay = () => {
   const active = document.querySelector(".imprint-overlay.open");
   if (!active) return false;
-  const closeBtn = active.querySelector(".imprint-close");
+  const closeBtn = active.querySelector<HTMLElement>(".imprint-close");
   if (closeBtn && typeof closeBtn.click === "function") {
     closeBtn.click();
     return true;
@@ -820,7 +853,7 @@ window.__rrCloseActiveSubOverlay = () => {
 // The .imprint-close ✕ is excluded from the ring because the
 // "cancel" face button already closes the overlay; including it
 // would steal a d-pad slot for no gain.
-function getActiveSubOverlayButtons() {
+function getActiveSubOverlayButtons(): HTMLButtonElement[] {
   const active = document.querySelector(".imprint-overlay.open");
   if (!active) return [];
   // Walk the action buttons (not the cards around them) — the focus
@@ -828,8 +861,8 @@ function getActiveSubOverlayButtons() {
   // / can't-afford shop buttons use aria-disabled, not disabled, so
   // they stay in the nav ring: the player can still see what's
   // locked behind what price, pressing the face button is a no-op.
-  const all = active.querySelectorAll("button:not(.imprint-close)");
-  const list = [];
+  const all = active.querySelectorAll<HTMLButtonElement>("button:not(.imprint-close)");
+  const list: HTMLButtonElement[] = [];
   for (const el of all) {
     if (el.disabled) continue;
     if (!el.offsetParent) continue;
@@ -838,7 +871,7 @@ function getActiveSubOverlayButtons() {
   return list;
 }
 let _subOverlayFocusIdx = 0;
-function focusSubOverlayIndex(idx) {
+function focusSubOverlayIndex(idx: number) {
   const items = getActiveSubOverlayButtons();
   if (!items.length) return;
   _subOverlayFocusIdx = ((idx % items.length) + items.length) % items.length;
@@ -856,7 +889,7 @@ function currentSubOverlayFocusIdx() {
   const items = getActiveSubOverlayButtons();
   if (!items.length) return 0;
   const active = document.activeElement;
-  const matchIdx = items.indexOf(active);
+  const matchIdx = active instanceof HTMLButtonElement ? items.indexOf(active) : -1;
   if (matchIdx !== -1) return matchIdx;
   return Math.min(Math.max(0, _subOverlayFocusIdx), items.length - 1);
 }
@@ -900,11 +933,16 @@ window.__rrSubOverlaySelect = () => {
 // (it toggles the collapsible). Without it, gamepad nav
 // skipped right past the "Sound Settings" row and the
 // player couldn't fold it open/closed with a controller.
-function getNavigableMenuItems() {
-  const all = overlay.querySelectorAll(".menu-item, .sound-settings-summary, .menu-group-summary");
-  const list = [];
+function getNavigableMenuItems(): HTMLElement[] {
+  const all = overlay.querySelectorAll<HTMLElement>(
+    ".menu-item, .sound-settings-summary, .menu-group-summary",
+  );
+  const list: HTMLElement[] = [];
   for (const el of all) {
-    if (el.disabled) continue;
+    // `disabled` only exists on form-control subtypes (HTMLButtonElement
+    // et al). The selector above also matches <summary>s, which don't
+    // have it — guard via `in`.
+    if ("disabled" in el && (el as HTMLButtonElement).disabled) continue;
     if (!el.offsetParent) continue;
     // Collapsed <details> — summaries themselves are fine
     // to navigate TO, but items INSIDE a closed details
@@ -928,9 +966,9 @@ let _menuFocusIdx = 0;
  *  the `.kbd-focus` class covers everywhere else. The class is
  *  cleared on blur or on the next real mouse click, so mouse
  *  users don't see a stuck highlight. */
-function focusKbd(target) {
+function focusKbd(target: HTMLElement) {
   try {
-    target.focus({ focusVisible: true });
+    target.focus({ focusVisible: true } as FocusOptions);
   } catch {
     target.focus();
   }
@@ -941,7 +979,7 @@ function focusKbd(target) {
   };
   target.addEventListener("blur", clearOnBlur);
 }
-function focusMenuIndex(idx) {
+function focusMenuIndex(idx: number) {
   const items = getNavigableMenuItems();
   if (!items.length) return;
   _menuFocusIdx = ((idx % items.length) + items.length) % items.length;
@@ -968,8 +1006,8 @@ function focusMenuIndex(idx) {
 function currentMenuFocusIdx() {
   const items = getNavigableMenuItems();
   if (!items.length) return 0;
-  const active = document.activeElement;
-  const matchIdx = items.indexOf(active);
+  const active = document.activeElement as HTMLElement | null;
+  const matchIdx = active ? items.indexOf(active) : -1;
   if (matchIdx !== -1) return matchIdx;
   // Focus is off-menu or on an item that isn't navigable
   // anymore. Clamp the stored index into the new range.
@@ -1003,9 +1041,10 @@ window.__rrMenuSelect = () => {
 // click handler stays focused on behaviour; the audio feedback
 // lives here so it's uniform and can't drift per-item.
 overlay.addEventListener("click", (e) => {
-  const t = e.target?.closest
-    ? e.target.closest(".menu-item, .sound-settings-summary, .menu-group-summary")
-    : null;
+  const target = e.target instanceof Element ? e.target : null;
+  const t = target?.closest<HTMLElement>(
+    ".menu-item, .sound-settings-summary, .menu-group-summary",
+  );
   if (!t) return;
   const items = getNavigableMenuItems();
   const idx = items.indexOf(t);
@@ -1272,7 +1311,12 @@ const _IDLE_NECK_CORRECTION = { x: 0.00187, y: -0.00078 };
 // draw path in raptor.ts and use slightly smaller scales. Mirror
 // those here so party-hat/thug-glasses/bow-tie render identically
 // on the start screen.
-const _CLASSIC_DRAW: Record<string, { scale?: number; rotation?: number }> = {
+type CosmeticDraw = {
+  scale?: number;
+  rotation?: number;
+  offset?: { x?: number; y?: number };
+};
+const _CLASSIC_DRAW: Record<string, CosmeticDraw> = {
   "party-hat": { scale: 0.25, rotation: -0.35 },
   "thug-glasses": { scale: 0.07 },
   "bow-tie": { scale: 0.06, rotation: -0.15 },
@@ -1423,9 +1467,10 @@ const COSMETICS_MENU_CALLBACKS = {
  * "None" row are all rendered by <CosmeticsMenu> in React.
  */
 function renderCosmeticsMenu() {
-  if (!cosmeticsGroup || !window.Game) return;
-  const all = window.Game.getAllCosmetics?.() ?? [];
-  const owned = all.filter((c: { id: string }) => window.Game.ownsCosmetic?.(c.id));
+  const game = window.Game;
+  if (!cosmeticsGroup || !game) return;
+  const all = game.getAllCosmetics?.() ?? [];
+  const owned = all.filter((c: { id: string }) => game.ownsCosmetic?.(c.id));
   cosmeticsGroup.hidden = owned.length === 0;
   refreshCosmeticsMenu(COSMETICS_MENU_CALLBACKS);
 }
@@ -1471,7 +1516,7 @@ function openShop() {
   _subOverlayFocusIdx = 0;
   tryFocusSubOverlay(6);
 }
-function tryFocusSubOverlay(attempts) {
+function tryFocusSubOverlay(attempts: number) {
   const items = getActiveSubOverlayButtons();
   if (items.length) {
     focusSubOverlayIndex(0);
@@ -1527,7 +1572,7 @@ function closeResetConfirm() {
   if (resetOverlay) resetOverlay.classList.remove("open");
 }
 function doReset() {
-  window.Game.resetAllProgress();
+  window.Game?.resetAllProgress();
   refreshEasterEggUI();
   if (achievementsOverlay?.classList.contains("open")) {
     refreshAchievements({ onClose: closeAchievements });
@@ -1594,10 +1639,10 @@ refreshSoundUI();
 // pushed into React via syncScoreCardActions().
 const scoreCardOverlay = document.getElementById("score-card-overlay");
 const sharePanel = document.getElementById("score-card-panel");
-const scoreCardImg = document.getElementById("score-card-preview");
+const scoreCardImg = document.getElementById("score-card-preview") as HTMLImageElement | null;
 const originalShareLabel = "Share your score";
-let currentCardBlob = null;
-let currentCardUrl = null;
+let currentCardBlob: Blob | null = null;
+let currentCardUrl: string | null = null;
 let shareInFlight = false;
 let shareLabel = originalShareLabel;
 let reviveCost: number | null = null;
@@ -1640,7 +1685,8 @@ function clearCard() {
 const scoreCardSlot = document.getElementById("score-card-slot");
 
 function showScoreCard() {
-  if (!sharePanel || !scoreCardImg || !window.Game) return;
+  const game = window.Game;
+  if (!sharePanel || !scoreCardImg || !game) return;
   // Open the panel with the spinner visible immediately —
   // no waiting for the worker to finish composing the
   // image. The spinner is swapped for the real image once
@@ -1663,7 +1709,8 @@ function showScoreCard() {
   // worker asks for it.
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      window.Game.generateScoreCard()
+      game
+        .generateScoreCard()
         .then((blob) => {
           if (!blob || !sharePanel.classList.contains("visible")) {
             return;
@@ -1695,7 +1742,16 @@ const achievementToastStack = document.getElementById("achievement-toasts");
 //                     is literally the thing you unlock.
 // Both input fields come from static strings in main.ts,
 // so it's safe to use innerHTML for the SVG fragment.
-function buildAchievementIconNode(ach) {
+type AchievementToast = {
+  id: string;
+  title: string;
+  desc: string;
+  iconHTML: string | null;
+  iconImage: string | null;
+  unlocked: boolean;
+  secret: boolean;
+};
+function buildAchievementIconNode(ach: AchievementToast) {
   if (ach?.iconImage) {
     const img = document.createElement("img");
     img.src = ach.iconImage;
@@ -1711,8 +1767,9 @@ function buildAchievementIconNode(ach) {
   return svg;
 }
 
-function showAchievementToast(ach) {
-  if (!achievementToastStack || !ach) return;
+function showAchievementToast(ach: AchievementToast) {
+  const game = window.Game;
+  if (!achievementToastStack || !ach || !game) return;
   const el = document.createElement("div");
   el.className = "achievement-toast";
   const iconWrap = document.createElement("div");
@@ -1725,7 +1782,7 @@ function showAchievementToast(ach) {
   const kicker = document.createElement("div");
   kicker.className = "achievement-toast-kicker";
   // Show n/m counter
-  const allAch = window.Game.getAchievements ? window.Game.getAchievements() : [];
+  const allAch = game.getAchievements ? game.getAchievements() : [];
   const unlocked = allAch.filter((a) => a.unlocked).length;
   kicker.textContent = `Achievement Unlocked (${unlocked}/${allAch.length})`;
   const title = document.createElement("div");
@@ -1985,11 +2042,11 @@ function handleReviveClick() {
 const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints || 0) > 1;
 
-function setShareLabel(text) {
+function setShareLabel(text: string) {
   shareLabel = text;
   syncScoreCardActions();
 }
-function flashShareLabel(text, duration = 1800) {
+function flashShareLabel(text: string, duration = 1800) {
   setShareLabel(text);
   setTimeout(() => {
     if (!shareInFlight) setShareLabel(originalShareLabel);
@@ -2000,7 +2057,7 @@ function isDesktopApp() {
   return !!window.electronAPI?.isDesktop;
 }
 
-function buildShareText(score) {
+function buildShareText(score: number) {
   if (isDesktopApp()) {
     return `🦖 I scored ${score} in Raptor Runner — can you beat me? ${STEAM_STORE_URL}`;
   }
@@ -2011,7 +2068,7 @@ async function handleShareClick() {
   if (shareInFlight || !currentCardBlob) return;
   shareInFlight = true;
   try {
-    const score = window.Game.getScore ? window.Game.getScore() : 0;
+    const score = window.Game?.getScore ? window.Game.getScore() : 0;
     const shareText = buildShareText(score);
     const file = new File([currentCardBlob], `raptor-runner-${score}.png`, { type: "image/png" });
     // Mobile: native share sheet with the file — the OS
@@ -2027,7 +2084,7 @@ async function handleShareClick() {
         flashShareLabel("Shared!");
         return;
       } catch (e) {
-        if (e && e.name === "AbortError") return; // cancelled
+        if (e instanceof Error && e.name === "AbortError") return; // cancelled
         // fall through to clipboard
       }
     }

@@ -2475,6 +2475,7 @@ const GameAPI = {
     if (canvas) canvas.removeEventListener("pointerdown", onPointerDown);
   },
 };
+export type GameAPI = typeof GameAPI;
 (window as any).Game = GameAPI;
 
 // ══════════════════════════════════════════════════════════════════
