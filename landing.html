@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Same policy shape as about.html / imprint.html, minus the
+         inline-script hash — this page ships no inline JS, so
+         script-src stays plain 'self' (covers the vite-plugin-pwa
+         registerSW.js injection and the dev client). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* https://localhost:*; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raptor Runner — a pixel-art endless runner in a living desert</title>
+    <meta
+      name="description"
+      content="Run a velociraptor through a desert that changes around you — full day/night cycle, dynamic weather, unlockable cosmetics, 27 achievements. Free in your browser."
+    />
+    <link rel="canonical" href="https://raptor.trebeljahr.com/landing.html" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Raptor Runner" />
+    <meta
+      property="og:title"
+      content="Raptor Runner — a pixel-art endless runner in a living desert"
+    />
+    <meta
+      property="og:description"
+      content="Full day/night cycle, dynamic weather, unlockable cosmetics, 27 achievements. Free in your browser."
+    />
+    <meta
+      property="og:url"
+      content="https://raptor.trebeljahr.com/landing.html"
+    />
+    <meta
+      property="og:image"
+      content="https://raptor.trebeljahr.com/assets/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Raptor Runner — a pixel-art endless runner in a living desert"
+    />
+    <meta
+      name="twitter:description"
+      content="Full day/night cycle, dynamic weather, unlockable cosmetics, 27 achievements. Free in your browser."
+    />
+    <meta
+      name="twitter:image"
+      content="https://raptor.trebeljahr.com/assets/og-image.png"
+    />
+
+    <!-- Self-hosted Unbounded display face — same brand typography as
+         about.html / imprint.html. Vite bundles the @fontsource import. -->
+    <link rel="stylesheet" href="/src/styles/legal-pages.css" />
+    <style>
+      /* Brand palette — mirrors src/styles/base.css so this reads as
+         the same game chrome as the in-game UI and the other
+         standalone pages. */
+      :root {
+        --color-sand: #f5dcaa;
+        --color-sand-contrast: #fbebc6;
+        --color-sand-dim: #e8c98e;
+        --color-sky: #50b4cd;
+        --color-sky-dim: #3a8fa5;
+        --color-sky-deep: #1f5b6b;
+        --color-dune: #2a1d13;
+        --color-dune-dim: #4a3526;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0 1.5rem 3.5rem;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        background: var(--color-sky);
+        color: var(--color-dune);
+        line-height: 1.65;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      section.panel {
+        background: var(--color-sand-contrast);
+        border: 3px solid var(--color-dune);
+        border-radius: 10px;
+        padding: 2.25rem 2.25rem;
+        margin-top: 2rem;
+      }
+      /* Hero — sky-colored page background with the sand panel sitting
+         on it, same composition as the in-game start screen. */
+      header.hero {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 3.5rem 0 0;
+        text-align: center;
+      }
+      .hero-panel {
+        background: var(--color-sand-contrast);
+        border: 3px solid var(--color-dune);
+        border-radius: 10px;
+        padding: 2.75rem 2.25rem 2.5rem;
+      }
+      h1 {
+        font-size: clamp(2.1rem, 6vw, 3.25rem);
+        margin: 0 0 0.75rem;
+        color: var(--color-dune);
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+      }
+      .hero-tagline {
+        font-size: clamp(1rem, 2.5vw, 1.2rem);
+        color: var(--color-dune-dim);
+        margin: 0 auto 1.75rem;
+        max-width: 620px;
+      }
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.8rem 1.5rem;
+        border: 3px solid var(--color-dune);
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 1.02rem;
+        color: var(--color-dune);
+        background: var(--color-sand);
+        transition:
+          background 0.12s ease,
+          transform 0.06s ease;
+      }
+      .btn-primary {
+        background: var(--color-sky);
+      }
+      .btn:hover,
+      .btn:focus-visible {
+        background: var(--color-sky-dim);
+        outline: none;
+      }
+      .btn:active {
+        transform: translateY(2px);
+      }
+      .hero-note {
+        font-size: 0.85rem;
+        color: var(--color-dune-dim);
+        margin: 0.75rem 0 0;
+      }
+      .hero-shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-top: 2rem;
+        border: 3px solid var(--color-dune);
+        border-radius: 8px;
+      }
+      h2 {
+        font-size: 1.5rem;
+        margin: 0 0 1rem;
+        color: var(--color-dune);
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 0.9rem;
+        font-size: 0.97rem;
+      }
+      a {
+        color: var(--color-sky-deep);
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-color: rgba(31, 91, 107, 0.35);
+        text-underline-offset: 2px;
+      }
+      a:hover,
+      a:focus-visible {
+        color: var(--color-dune);
+        text-decoration-color: currentColor;
+        outline: none;
+      }
+      .btn,
+      .btn:hover,
+      .btn:focus-visible {
+        color: var(--color-dune);
+        text-decoration: none;
+      }
+      .showcase {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-top: 1.25rem;
+      }
+      .showcase figure {
+        margin: 0;
+      }
+      .showcase img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border: 2px solid var(--color-dune);
+        border-radius: 6px;
+      }
+      .showcase h3 {
+        font-size: 1.02rem;
+        margin: 0.75rem 0 0.3rem;
+      }
+      .showcase p {
+        font-size: 0.9rem;
+        color: var(--color-dune-dim);
+        margin: 0;
+      }
+      ul.feature-list {
+        columns: 2;
+        column-gap: 2.5rem;
+        padding-left: 1.35rem;
+        margin: 0.5rem 0 0;
+      }
+      ul.feature-list li {
+        margin-bottom: 0.55rem;
+        font-size: 0.93rem;
+        break-inside: avoid;
+      }
+      @media (max-width: 640px) {
+        ul.feature-list {
+          columns: 1;
+        }
+      }
+      .platforms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.75rem;
+      }
+      .platforms span {
+        display: inline-block;
+        padding: 0.45rem 0.85rem;
+        border: 2px solid var(--color-dune);
+        border-radius: 6px;
+        background: var(--color-sand);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+      .platforms span.soon {
+        background: transparent;
+        color: var(--color-dune-dim);
+        border-style: dashed;
+      }
+      .footer-links {
+        max-width: 960px;
+        margin: 2.5rem auto 0;
+        color: var(--color-dune);
+        font-size: 0.9rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.3rem 1.5rem;
+      }
+      .footer-links a {
+        color: var(--color-dune);
+        font-weight: 700;
+      }
+      /* Brand-matched scrollbar — same palette the in-game chrome
+         uses. */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-dune) var(--color-sand-dim);
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--color-sand-dim);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-dune);
+        border: 2px solid var(--color-sand-dim);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-sky-deep);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-panel">
+        <h1>Raptor Runner</h1>
+        <p class="hero-tagline">
+          A pixel-art endless runner through a desert that changes around you
+          — the Chrome dinosaur game grown into a small, full-featured indie
+          release.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="index.html">Play now — free</a>
+          <a
+            class="btn"
+            href="https://trebeljahr.itch.io/raptor-runner"
+            target="_blank"
+            rel="noopener"
+            >View on itch.io</a
+          >
+        </div>
+        <p class="hero-note">
+          Runs in your browser. No download, no account, no ads.
+        </p>
+        <img
+          class="hero-shot"
+          src="press/02-sunset.png"
+          alt="Raptor Runner at sunset — magenta-pink sky, moon rising behind a cactus"
+          width="1920"
+          height="1081"
+        />
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>A desert that's actually alive</h2>
+        <p>
+          The sky cycles through twelve color bands, from warm dawn pastels to
+          a starlit night with a Milky Way band and a moon on a realistic arc.
+          Rain builds from scattered drops to a full storm with lightning —
+          and everything on the ground is tinted by the sky, so dusk genuinely
+          reads as dusk.
+        </p>
+        <div class="showcase">
+          <figure>
+            <img
+              src="press/03-night.png"
+              alt="Deep night scene — moon at zenith, stars over silhouetted dunes"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+            <h3>Full day/night cycle</h3>
+            <p>
+              Sun and moon on parabolic arcs, ~300 twinkling stars, a rotating
+              Milky Way.
+            </p>
+          </figure>
+          <figure>
+            <img
+              src="press/04-storm-lightning.png"
+              alt="Storm scene — rain streaks and a lightning bolt striking the desert"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+            <h3>Weather that builds</h3>
+            <p>
+              Rain swells naturally into a downpour; lightning blackens nearby
+              cacti. Rainbows after.
+            </p>
+          </figure>
+          <figure>
+            <img
+              src="press/05-cosmetics.png"
+              alt="Raptor wearing a party hat, thug glasses, and a bow tie"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+            <h3>Cosmetics you earn</h3>
+            <p>
+              16 hats, glasses, and accessories bought with coins collected in
+              the run — never with real money.
+            </p>
+          </figure>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Small game, finished properly</h2>
+        <ul class="feature-list">
+          <li>27 achievements — milestones, near-misses, storm survival</li>
+          <li>5 rare easter-egg events: UFO, Santa, comet, tumbleweed, meteor</li>
+          <li>Coin chains — ten in a row earns a diamond</li>
+          <li>Pterodactyls at two altitudes: duck one, jump the other</li>
+          <li>Persistent personal bests and shareable score cards</li>
+          <li>Full controller support — Xbox, PlayStation, Nintendo</li>
+          <li>Independent audio sliders for music, SFX, and rain</li>
+          <li>Installable as an offline PWA</li>
+          <li>No ads, no tracking cookies, no microtransactions</li>
+          <li>1–10 minute runs — perfect coffee-break length</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Platforms</h2>
+        <p>
+          One TypeScript codebase, every screen. The web version is live now;
+          store builds are in preparation.
+        </p>
+        <div class="platforms">
+          <span>Web — live, free</span>
+          <span class="soon">macOS / Windows / Linux — coming</span>
+          <span class="soon">iOS / Android — coming</span>
+          <span class="soon">Steam — in preparation</span>
+          <span class="soon">itch.io — in preparation</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>From weekend prototype to real release</h2>
+        <p>
+          Raptor Runner started in 2022 as a four-evening "what if the Chrome
+          dino game had weather?" experiment, then sat in a folder for almost
+          four years. In 2026 it was revived and finished — properly — as the
+          first in a series of half-finished side projects being brought back
+          to life with AI-assisted workflows.
+          <a href="about.html">Read the full story</a>, or follow the series
+          at <a href="https://ricos.site" target="_blank" rel="noopener">ricos.site</a>.
+        </p>
+        <p>
+          Writing about the game? Screenshots, factsheet, and descriptions are
+          ready to use in the <a href="press.html">press kit</a>.
+        </p>
+      </section>
+    </main>
+
+    <div class="footer-links">
+      <a href="index.html">Play</a>
+      <a href="about.html">About</a>
+      <a href="press.html">Press kit</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="imprint.html">Imprint</a>
+      <a
+        href="https://github.com/trebeljahr/raptor-runner"
+        target="_blank"
+        rel="noopener"
+        >GitHub</a
+      >
+    </div>
+  </body>
+</html>

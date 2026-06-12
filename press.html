@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Same policy shape as about.html / imprint.html, minus the
+         inline-script hash — this page ships no inline JS, so
+         script-src stays plain 'self' (covers the vite-plugin-pwa
+         registerSW.js injection and the dev client). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* https://localhost:*; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Press Kit – Raptor Runner</title>
+    <meta
+      name="description"
+      content="Raptor Runner press kit — factsheet, descriptions, screenshots, logo assets, and contact for press and content creators."
+    />
+    <link rel="canonical" href="https://raptor.trebeljahr.com/press.html" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Raptor Runner" />
+    <meta property="og:title" content="Raptor Runner — Press Kit" />
+    <meta
+      property="og:description"
+      content="Factsheet, descriptions, screenshots, and contact for press and content creators."
+    />
+    <meta property="og:url" content="https://raptor.trebeljahr.com/press.html" />
+    <meta
+      property="og:image"
+      content="https://raptor.trebeljahr.com/assets/og-image.png"
+    />
+
+    <!-- Self-hosted Unbounded display face — same brand typography as
+         about.html / imprint.html. Vite bundles the @fontsource import. -->
+    <link rel="stylesheet" href="/src/styles/legal-pages.css" />
+    <style>
+      /* Brand palette — mirrors src/styles/base.css so this reads as
+         the same game chrome as the other standalone pages. */
+      :root {
+        --color-sand: #f5dcaa;
+        --color-sand-contrast: #fbebc6;
+        --color-sand-dim: #e8c98e;
+        --color-sky: #50b4cd;
+        --color-sky-deep: #1f5b6b;
+        --color-dune: #2a1d13;
+        --color-dune-dim: #4a3526;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 3.5rem 2rem;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        background: var(--color-sand);
+        color: var(--color-dune);
+        line-height: 1.65;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        background: var(--color-sand-contrast);
+        border: 3px solid var(--color-dune);
+        border-radius: 10px;
+        padding: 2.5rem 2.25rem;
+      }
+      .back {
+        display: inline-block;
+        margin-bottom: 1.75rem;
+        color: var(--color-sky-deep);
+        text-decoration: none;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .back:hover,
+      .back:focus-visible {
+        text-decoration: underline;
+        outline: none;
+      }
+      h1 {
+        font-size: 2.25rem;
+        margin: 0 0 0.5rem;
+        color: var(--color-dune);
+        letter-spacing: -0.02em;
+      }
+      .tagline {
+        color: var(--color-dune-dim);
+        font-style: italic;
+        margin: 0 0 2rem;
+        font-size: 1rem;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin: 2.5rem 0 0.7rem;
+        color: var(--color-dune);
+        padding-bottom: 0.35rem;
+        border-bottom: 2px solid var(--color-sand-dim);
+      }
+      h3 {
+        font-size: 1rem;
+        margin: 1.5rem 0 0.4rem;
+        color: var(--color-dune);
+      }
+      p {
+        margin: 0 0 0.9rem;
+        font-size: 0.95rem;
+      }
+      a {
+        color: var(--color-sky-deep);
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-color: rgba(31, 91, 107, 0.35);
+        text-underline-offset: 2px;
+      }
+      a:hover,
+      a:focus-visible {
+        color: var(--color-dune);
+        text-decoration-color: currentColor;
+        outline: none;
+      }
+      ul {
+        padding-left: 1.35rem;
+        margin: 0.65rem 0 1.25rem;
+      }
+      li {
+        margin-bottom: 0.4rem;
+        font-size: 0.93rem;
+      }
+      .muted {
+        color: var(--color-dune-dim);
+        font-size: 0.88rem;
+      }
+      table.factsheet {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+        margin: 0.75rem 0 1rem;
+      }
+      table.factsheet th,
+      table.factsheet td {
+        text-align: left;
+        vertical-align: top;
+        padding: 0.45rem 0.75rem 0.45rem 0;
+        border-bottom: 1px solid var(--color-sand-dim);
+      }
+      table.factsheet th {
+        white-space: nowrap;
+        width: 9.5rem;
+        font-weight: 700;
+        color: var(--color-dune);
+      }
+      blockquote {
+        margin: 1rem 0;
+        padding: 0.85rem 1.25rem;
+        border-left: 4px solid var(--color-sky);
+        color: var(--color-dune);
+        background: var(--color-sand);
+        border-radius: 0 6px 6px 0;
+        font-size: 0.97rem;
+      }
+      .shot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0 0.5rem;
+      }
+      .shot-grid figure {
+        margin: 0;
+      }
+      .shot-grid img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border: 2px solid var(--color-dune);
+        border-radius: 6px;
+        background: var(--color-sand);
+      }
+      .shot-grid figcaption {
+        font-size: 0.82rem;
+        color: var(--color-dune-dim);
+        margin-top: 0.35rem;
+        line-height: 1.45;
+      }
+      .asset-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+        margin: 1rem 0;
+      }
+      .asset-row figure {
+        margin: 0;
+        text-align: center;
+      }
+      .asset-row img {
+        display: block;
+        border: 2px solid var(--color-dune);
+        border-radius: 6px;
+        background: var(--color-sand);
+        margin: 0 auto 0.35rem;
+      }
+      .asset-row figcaption {
+        font-size: 0.82rem;
+        color: var(--color-dune-dim);
+      }
+      .usage-card {
+        margin: 0 0 1.5rem;
+        padding: 1rem 1.25rem;
+        background: var(--color-sand);
+        border: 2px solid var(--color-dune);
+        border-radius: 8px;
+      }
+      .usage-card p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+      .footer-links {
+        margin-top: 2.75rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid var(--color-sand-dim);
+        color: var(--color-dune-dim);
+        font-size: 0.88rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem 1.25rem;
+      }
+      .footer-links a {
+        color: var(--color-dune);
+      }
+      /* Brand-matched scrollbar — same palette the in-game chrome
+         uses, so this page doesn't drop a default grey bar into a
+         warm sand overlay. */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-dune) var(--color-sand-dim);
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--color-sand-dim);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-dune);
+        border: 2px solid var(--color-sand-dim);
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-sky-deep);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">&larr; Back to the game</a>
+
+      <h1>Raptor Runner — Press Kit</h1>
+      <p class="tagline">
+        A polished pixel-art runner through a living desert — the Chrome
+        dinosaur game grown into a small, full-featured indie release.
+      </p>
+
+      <div class="usage-card">
+        <p>
+          Press, content creators, and curators are welcome to use any
+          screenshot, description, and the developer bio on this page without
+          modification. For interviews, custom assets, or review keys (once
+          the Steam / itch builds are live), see
+          <a href="#contact">Contact</a> below.
+        </p>
+      </div>
+
+      <h2>Factsheet</h2>
+      <table class="factsheet">
+        <tbody>
+          <tr>
+            <th scope="row">Title</th>
+            <td>Raptor Runner</td>
+          </tr>
+          <tr>
+            <th scope="row">Developer</th>
+            <td>Rico Trebeljahr (solo), based in Germany</td>
+          </tr>
+          <tr>
+            <th scope="row">Release</th>
+            <td>
+              Web build live now (v1.1.2). itch.io and Steam launches in
+              preparation; dates TBD.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Platforms</th>
+            <td>
+              Web (live), Desktop — macOS / Windows / Linux (Electron),
+              Mobile — iOS / Android (Capacitor), Steam and itch.io in
+              preparation
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Genre</th>
+            <td>Arcade / endless runner / casual, single-player</td>
+          </tr>
+          <tr>
+            <th scope="row">Price</th>
+            <td>
+              Free on the web. Paid build planned for itch.io / Steam
+              (estimate €2.99–€4.99). No microtransactions anywhere —
+              cosmetics are earned with in-game coins.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Engine</th>
+            <td>
+              Hand-rolled canvas game loop on Vite + TypeScript; React for
+              menu / shop / settings overlays. No game framework.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Art style</th>
+            <td>
+              Hand-picked, licensed pixel-art sprites over a hand-authored
+              canvas-rendered sky
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Session length</th>
+            <td>1–10 minutes per run</td>
+          </tr>
+          <tr>
+            <th scope="row">Input</th>
+            <td>
+              Keyboard (Space / W / Arrow Up), mouse / touch (tap), gamepad
+              (Xbox / PlayStation / Nintendo auto-detected)
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Languages</th>
+            <td>English</td>
+          </tr>
+          <tr>
+            <th scope="row">Website</th>
+            <td>
+              <a href="https://raptor.trebeljahr.com"
+                >raptor.trebeljahr.com</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Source code</th>
+            <td>
+              <a
+                href="https://github.com/trebeljahr/raptor-runner"
+                target="_blank"
+                rel="noopener"
+                >github.com/trebeljahr/raptor-runner</a
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Description</h2>
+
+      <h3>One-liner</h3>
+      <blockquote>
+        A polished pixel-art runner through a living desert — the Chrome
+        dinosaur game grown into a small, full-featured indie release.
+      </blockquote>
+
+      <h3>Short</h3>
+      <p>
+        Raptor Runner is a handcrafted endless runner set in a desert that
+        changes around you. A full day/night cycle, weather that builds and
+        fades, a coin-funded cosmetics shop, 27 achievements, and rare
+        easter-egg events. Plays in the browser, ships on desktop and mobile.
+      </p>
+
+      <h3>Long</h3>
+      <p>
+        Run a velociraptor across a handcrafted desert that genuinely changes
+        around you. A twelve-band sky cycles from dawn through midday into a
+        starlit night with a moon tracking a realistic arc — at night,
+        roughly 300 twinkling stars and a Milky Way band rotate in.
+        Everything on the ground is tinted by the current sky color, so dusk
+        genuinely reads as dusk.
+      </p>
+      <p>
+        Weather builds and fades naturally. Rain starts as scattered drops,
+        intensifies into a downpour, and lightning bolts strike the desert at
+        peak intensity, blackening nearby cacti. After the storm passes, a
+        rainbow might appear.
+      </p>
+      <p>
+        Pterodactyls patrol the sky at two altitudes — one you duck under,
+        one you jump over. Coins drop into the desert in patterns; collecting
+        ten in a row triggers a rising-pitch chime and a diamond reward.
+        Coins fund a shop with sixteen hats, glasses, ties, and other small
+        accessories. Every cosmetic is earned, not bought with real money.
+        Twenty-seven achievements track everything from a first jump to
+        surviving the storm, and five rare events (UFO, Santa, tumbleweed,
+        comet, meteor) reward players who keep running long enough.
+      </p>
+      <p>
+        What started as a four-day p5.js side project in April 2022 — "what
+        if the Chrome dino game had weather?" — sat dormant for almost four
+        years before being revived in April 2026 and rebuilt into a small,
+        full-featured indie release. The game runs in a browser as an
+        installable PWA, on desktop through Electron, and on mobile through
+        Capacitor, all from one TypeScript codebase. The entire revival was
+        built in collaboration with AI code agents; the developer writes
+        about that workflow at
+        <a href="https://ricos.site" target="_blank" rel="noopener"
+          >ricos.site</a
+        >.
+      </p>
+
+      <h2>Features</h2>
+      <ul>
+        <li>
+          Full day/night cycle — twelve-band sky color schedule, sun and moon
+          on matching parabolic arcs, rotating star field with a Milky Way
+          band at night
+        </li>
+        <li>
+          Sky-color tint on the foreground (raptor, cacti, sand) — dusk reads
+          as dusk
+        </li>
+        <li>
+          Dynamic weather — rain builds and fades naturally, lightning
+          strikes at peak intensity, rainbow after the storm
+        </li>
+        <li>Two pterodactyl flight variants — one to duck, one to jump</li>
+        <li>
+          Coin-and-diamond economy — 10-in-a-row coin chains trigger a
+          rising-pitch chime and a diamond reward
+        </li>
+        <li>
+          In-game shop with 16 unlockable cosmetics, all earned with coins —
+          no microtransactions
+        </li>
+        <li>
+          27 achievements tracking milestones, near-misses, weather survival,
+          and rare-event spotting
+        </li>
+        <li>
+          5 rare easter-egg events (UFO, Santa, tumbleweed, comet, meteor)
+        </li>
+        <li>Persistent personal bests with shareable score cards</li>
+        <li>
+          Independent audio sliders for music, jump SFX, and rain ambience
+        </li>
+        <li>
+          Full controller support (Xbox / PlayStation / Nintendo
+          auto-detected)
+        </li>
+        <li>Installable as an offline PWA</li>
+        <li>
+          Web, desktop, and mobile from one TypeScript codebase; Steam
+          achievement bridge ready
+        </li>
+        <li>
+          Cookieless, self-hosted analytics — no consent banner, no tracker
+          (<a href="privacy.html">privacy policy</a>)
+        </li>
+      </ul>
+
+      <h2>History</h2>
+      <ul>
+        <li>
+          <strong>April 2022</strong> — Initial p5.js prototype built across
+          four evenings. Buggy jump physics, one cactus sprite, no menu.
+          Shelved for almost four years.
+        </li>
+        <li>
+          <strong>April 2026</strong> — Revival. Rewritten on vanilla canvas,
+          then built out over two weeks: day/night cycle, weather, cosmetics,
+          achievements, rare events, score cards, React menu overlays, a full
+          visual redesign, and PWA support. v1.0.0 tagged 2026-04-19, v1.1.2
+          tagged 2026-04-24.
+        </li>
+        <li>
+          <strong>Now</strong> — Multi-platform release prep: Electron
+          desktop builds, Capacitor iOS / Android builds, itch.io and Steam
+          pages in preparation.
+        </li>
+      </ul>
+
+      <h2 id="screenshots">Screenshots</h2>
+      <p>
+        Seven launch screenshots, 1920×1081 PNG. Click any image to open the
+        full-resolution file.
+      </p>
+      <div class="shot-grid">
+        <figure>
+          <a href="press/01-midday.png" target="_blank">
+            <img
+              src="press/01-midday.png"
+              alt="Bright midday desert, sun at zenith, raptor mid-stride beside a flowering cactus"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Midday — sun at zenith, flowering cactus</figcaption>
+        </figure>
+        <figure>
+          <a href="press/02-sunset.png" target="_blank">
+            <img
+              src="press/02-sunset.png"
+              alt="Magenta-pink sunset with the moon rising behind a cactus"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Sunset — moon rising behind a cactus</figcaption>
+        </figure>
+        <figure>
+          <a href="press/03-night.png" target="_blank">
+            <img
+              src="press/03-night.png"
+              alt="Deep night, moon at zenith, stars visible over silhouetted dunes"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Night — stars over silhouetted dunes</figcaption>
+        </figure>
+        <figure>
+          <a href="press/04-storm-lightning.png" target="_blank">
+            <img
+              src="press/04-storm-lightning.png"
+              alt="Afternoon storm with rain streaks and a lightning bolt under an overcast tint"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Storm — rain and a lightning strike</figcaption>
+        </figure>
+        <figure>
+          <a href="press/05-cosmetics.png" target="_blank">
+            <img
+              src="press/05-cosmetics.png"
+              alt="Raptor wearing a party hat, thug glasses, and a bow tie"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Cosmetics — party hat, glasses, bow tie</figcaption>
+        </figure>
+        <figure>
+          <a href="press/06-sunrise.png" target="_blank">
+            <img
+              src="press/06-sunrise.png"
+              alt="Lavender-to-orange pre-dawn sky with the sun rising"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Sunrise — lavender-to-orange pre-dawn</figcaption>
+        </figure>
+        <figure>
+          <a href="press/07-rainy-night.png" target="_blank">
+            <img
+              src="press/07-rainy-night.png"
+              alt="Dark rainy night atmosphere with the moon low on the horizon"
+              loading="lazy"
+              width="1920"
+              height="1081"
+            />
+          </a>
+          <figcaption>Rainy night — moon low on the horizon</figcaption>
+        </figure>
+      </div>
+
+      <h2>Logo &amp; icon</h2>
+      <p>
+        The display title is set in Unbounded. App icons below; click to open
+        the full-resolution file.
+      </p>
+      <div class="asset-row">
+        <figure>
+          <a href="assets/icon-rounded-1024.png" target="_blank">
+            <img
+              src="assets/icon-rounded-1024.png"
+              alt="Raptor Runner app icon, rounded"
+              width="128"
+              height="128"
+              loading="lazy"
+            />
+          </a>
+          <figcaption>App icon, 1024×1024</figcaption>
+        </figure>
+        <figure>
+          <a href="assets/og-image.png" target="_blank">
+            <img
+              src="assets/og-image.png"
+              alt="Raptor Runner social preview image — title screen with raptor, cacti, sun, and clouds"
+              width="242"
+              height="127"
+              loading="lazy"
+            />
+          </a>
+          <figcaption>Social / header image, 1200×630</figcaption>
+        </figure>
+      </div>
+
+      <h2>Monetization</h2>
+      <ul>
+        <li>The web build is free — no ads, no tracking-based monetization, no upsell.</li>
+        <li>
+          A paid build is planned for itch.io and Steam (estimate
+          €2.99–€4.99); mobile-store pricing TBD.
+        </li>
+        <li>
+          No in-app purchases anywhere. Cosmetics are earned with in-game
+          coins, never bought with real money.
+        </li>
+      </ul>
+
+      <h2>About the developer</h2>
+      <p>
+        Rico Trebeljahr is a freelance developer and writer based in Germany.
+        Raptor Runner is the first launch in a series of half-finished side
+        projects being revived and shipped using AI-assisted workflows — he
+        writes about the process at
+        <a href="https://ricos.site" target="_blank" rel="noopener"
+          >ricos.site</a
+        >. More work at
+        <a href="https://portfolio.trebeljahr.com" target="_blank" rel="noopener"
+          >portfolio.trebeljahr.com</a
+        >.
+      </p>
+
+      <h2 id="contact">Contact</h2>
+      <table class="factsheet">
+        <tbody>
+          <tr>
+            <th scope="row">Press / inquiries</th>
+            <td>
+              <a href="mailto:imprint+raptor@trebeljahr.com"
+                >imprint+raptor@trebeljahr.com</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Developer site</th>
+            <td>
+              <a href="https://ricos.site" target="_blank" rel="noopener"
+                >ricos.site</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">GitHub</th>
+            <td>
+              <a
+                href="https://github.com/trebeljahr"
+                target="_blank"
+                rel="noopener"
+                >github.com/trebeljahr</a
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer-links">
+        <a href="index.html">Game</a>
+        <a href="about.html">About</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="imprint.html">Imprint</a>
+      </div>
+    </main>
+  </body>
+</html>

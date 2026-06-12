@@ -25,6 +25,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "58417"],
       "port": 58417
+    },
+    {
+      "name": "pages-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "58731"],
+      "port": 58731
     }
   ]
 }

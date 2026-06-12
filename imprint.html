@@ -108,6 +108,19 @@
         color: var(--color-dune-dim);
         font-size: 0.88rem;
       }
+      .footer-links {
+        margin-top: 2.75rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid var(--color-sand-dim);
+        color: var(--color-dune-dim);
+        font-size: 0.88rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem 1.25rem;
+      }
+      .footer-links a {
+        color: var(--color-dune);
+      }
       /* When this page is loaded inside an iframe (as the in-game imprint
          overlay), hide the "Back to the game" link — the parent window
          has its own close button, and clicking back would navigate the
@@ -231,6 +244,12 @@
         The content and works created by the site operator on these pages are
         subject to German copyright law.
       </p>
+
+      <div class="footer-links">
+        <a href="index.html">Game</a>
+        <a href="about.html">About</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
     </main>
   </body>
 </html>

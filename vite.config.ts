@@ -1,3 +1,4 @@
+import { rmSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -80,6 +81,27 @@ function creditsBuildInjectPlugin(): Plugin {
   };
 }
 
+/**
+ * The press-kit screenshots in public/press/ are web-only content:
+ * Capacitor and Electron don't even emit the pages that reference
+ * them, but Vite copies publicDir wholesale, which would add ~2.5 MB
+ * to every native package. Prune the copied directory from native
+ * bundles after the build writes out.
+ */
+function pruneNativePressAssetsPlugin(): Plugin {
+  return {
+    name: "prune-native-press-assets",
+    apply: "build",
+    closeBundle() {
+      if (!USE_RELATIVE_BASE) return;
+      rmSync(resolve(__dirname, "dist", "press"), {
+        recursive: true,
+        force: true,
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Capacitor and Electron both load the bundle off a non-http(s)
   // scheme (capacitor:// and file:// respectively), so vite-injected
@@ -113,6 +135,7 @@ export default defineConfig({
   },
   plugins: [
     creditsBuildInjectPlugin(),
+    pruneNativePressAssetsPlugin(),
     react(),
     tailwindcss(),
     // The PWA service worker is web-only. Skipped on Capacitor to
@@ -178,9 +201,27 @@ export default defineConfig({
               // them up it adds a second entry WITH revision, and Workbox's
               // addToCacheList refuses the conflict. Excluding them here lets
               // the manifest-side injection be the only source of truth.
-              globIgnores: ["**/icon-192.png", "**/icon-512.png", "**/apple-touch-icon.png"],
+              // press/ holds the full-res press-kit screenshots (~2.5 MB) —
+              // keep them out of the precache so installing the PWA doesn't
+              // download marketing assets the game never loads.
+              globIgnores: [
+                "**/icon-192.png",
+                "**/icon-512.png",
+                "**/apple-touch-icon.png",
+                "press/**",
+              ],
               navigateFallback: "/index.html",
-              navigateFallbackDenylist: [/^\/about\.html$/, /^\/imprint\.html$/],
+              // Standalone pages and direct navigations to press images
+              // must bypass the SPA fallback, otherwise the service worker
+              // serves the game shell instead.
+              navigateFallbackDenylist: [
+                /^\/about\.html$/,
+                /^\/imprint\.html$/,
+                /^\/landing\.html$/,
+                /^\/press\.html$/,
+                /^\/privacy\.html$/,
+                /^\/press\//,
+              ],
               cleanupOutdatedCaches: true,
               skipWaiting: true,
               clientsClaim: true,
@@ -196,17 +237,31 @@ export default defineConfig({
   build: {
     rollupOptions: {
       // On mobile we only ship the main entry — about/imprint become
-      // in-app overlays. On the web we keep them as separate pages so
-      // the existing navigation and SEO remain unchanged.
+      // in-app overlays. Desktop additionally gets the pages its
+      // in-game overlays iframe (about/imprint) plus privacy; the
+      // marketing pages (landing/press) are web-only since they
+      // reference the press screenshots that native builds prune.
+      // On the web we keep everything as separate pages so the
+      // existing navigation and SEO remain unchanged.
       input: IS_CAPACITOR
         ? {
             main: resolve(__dirname, "index.html"),
           }
-        : {
-            main: resolve(__dirname, "index.html"),
-            about: resolve(__dirname, "about.html"),
-            imprint: resolve(__dirname, "imprint.html"),
-          },
+        : IS_ELECTRON
+          ? {
+              main: resolve(__dirname, "index.html"),
+              about: resolve(__dirname, "about.html"),
+              imprint: resolve(__dirname, "imprint.html"),
+              privacy: resolve(__dirname, "privacy.html"),
+            }
+          : {
+              main: resolve(__dirname, "index.html"),
+              about: resolve(__dirname, "about.html"),
+              imprint: resolve(__dirname, "imprint.html"),
+              landing: resolve(__dirname, "landing.html"),
+              press: resolve(__dirname, "press.html"),
+              privacy: resolve(__dirname, "privacy.html"),
+            },
     },
   },
   worker: {
