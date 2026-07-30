@@ -1960,7 +1960,11 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
 .menu-panel .accessibility-range:focus-visible,
 .menu-panel .accessibility-select:focus-visible,
 .menu-panel .accessibility-keycap:focus-visible,
-.menu-panel .accessibility-keyreset:focus-visible {
+.menu-panel .accessibility-keyreset:focus-visible,
+.menu-panel .accessibility-range.kbd-focus,
+.menu-panel .accessibility-select.kbd-focus,
+.menu-panel .accessibility-keycap.kbd-focus,
+.menu-panel .accessibility-keyreset.kbd-focus {
   outline: 2px solid var(--color-sky-deep);
   outline-offset: 1px;
 }

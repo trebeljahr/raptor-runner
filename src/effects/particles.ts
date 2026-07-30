@@ -148,10 +148,16 @@ export function bakeShootingStarSprite(): void {
 }
 
 export function maybeSpawnShootingStar(frameScale: number): void {
-  // Fast peripheral streaks are exactly the kind of decorative
-  // motion the reduce-motion preference asks to avoid, and skipping
-  // the spawn has zero gameplay impact (pure easter egg).
-  if (reduceMotion()) return;
+  // Reduce motion must not change what a player can EARN: skipping
+  // spawns entirely would make the "Make A Wish" achievement (fired
+  // below on the first star of a run) permanently unobtainable —
+  // including for players whose OS sets prefers-reduced-motion
+  // without them ever touching the in-game setting. So stars still
+  // spawn, but drift instead of streak: a fraction of the normal
+  // speed keeps them off the "fast peripheral motion" list the
+  // preference exists to avoid, while the run counter and
+  // achievement path stay identical.
+  const reduced = reduceMotion();
   if (Math.floor(state.smoothPhase) < 1) return;
   if (!state.isNight) return;
   if (state.rainIntensity > SHOOTING_STAR_RAIN_THRESHOLD) return; // no shooting stars in overcast
@@ -166,7 +172,7 @@ export function maybeSpawnShootingStar(frameScale: number): void {
   // (straight down-left) and a bit shallower.
   const startX = w * randRange(0.6, 1.08);
   const startY = h * randRange(-0.05, 0.3);
-  const speed = Math.max(w, h) * SHOOTING_STAR_SPEED_SCALE;
+  const speed = Math.max(w, h) * SHOOTING_STAR_SPEED_SCALE * (reduced ? 0.3 : 1);
   const angle = randRange(Math.PI * 0.68, Math.PI * 0.82);
   state.shootingStars.push({
     x: startX,

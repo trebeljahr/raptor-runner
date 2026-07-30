@@ -376,10 +376,11 @@ export const audio = {
       rampVolume(this.music, this._musicTarget(), 60);
     }
     if (this.rain && this._isRainPlaying && !this.rain.paused) {
-      // The game loop rescales this by rain intensity on its next
-      // frame; ramping here covers paused-game states (menu open)
-      // where that loop isn't running.
-      rampVolume(this.rain, this.rainTargetVolume(), 60);
+      // Scaled by the cached intensity: this path runs from the pause
+      // menu's sliders, i.e. exactly when the game loop's per-frame
+      // rescale is NOT running — ramping to the full-intensity ceiling
+      // here would make light drizzle jump to storm loudness.
+      rampVolume(this.rain, this.rainTargetVolume() * this._rainIntensity, 60);
     }
   },
 
@@ -875,6 +876,24 @@ export const audio = {
   // ── Rain ambience (file-based <audio> element) ──────────────
   rain: null as HTMLAudioElement | null,
   _isRainPlaying: false,
+  // Last rain intensity the game loop applied (0..1). Cached here
+  // because the loop stops running while paused, but the pause menu's
+  // volume sliders keep calling _applyVolumes — without this factor a
+  // slider drag during light drizzle would ramp the rain element to
+  // its full-intensity ceiling.
+  _rainIntensity: 1,
+
+  /** Per-frame entry point for the game loop's rain-intensity scaling.
+   *  Writes the element volume AND caches the factor so slider-driven
+   *  _applyVolumes calls stay correct while the loop is paused. */
+  setRainIntensity(intensity: number) {
+    const n = Number(intensity);
+    if (!Number.isFinite(n)) return;
+    this._rainIntensity = clamp01(n);
+    if (this.rain && this._isRainPlaying && !this.rain.paused) {
+      this.rain.volume = this.rainTargetVolume() * this._rainIntensity;
+    }
+  },
 
   initRain() {
     this.rain = document.getElementById("rain-audio") as HTMLAudioElement | null;

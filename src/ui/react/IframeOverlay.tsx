@@ -11,6 +11,7 @@
  * "have we ever opened this" flag and flips the prop on first open.
  */
 import { type MouseEvent, useEffect, useRef } from "react";
+import { syncEmbeddedDoc } from "../../iframeAccessibility";
 
 export interface IframeOverlayCallbacks {
   onClose: () => void;
@@ -43,7 +44,12 @@ export function IframeOverlay({ callbacks: cb, iframeTitle, iframeSrc }: IframeO
       >
         ×
       </button>
-      <iframe title={iframeTitle} src={iframeSrc} loading="lazy" />
+      <iframe
+        title={iframeTitle}
+        src={iframeSrc}
+        loading="lazy"
+        onLoad={(e) => syncEmbeddedDoc(e.currentTarget)}
+      />
     </div>
   );
 }

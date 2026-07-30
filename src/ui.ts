@@ -246,6 +246,13 @@ let displayedScore = 0;
 let displayedCoins = 0;
 let lastAriaScore = -1;
 let lastAriaCoins = -1;
+// Coin pickups arrive in bursts (coin rows); rewriting the live
+// region per coin would defeat the milestone throttle above it, so
+// coin announcements get their own minimum spacing. Trailing pickups
+// still announce — the changed-count check re-fires on a later frame
+// once the window elapses.
+const COIN_ARIA_MIN_INTERVAL_MS = 2000;
+let lastCoinAriaAt = 0;
 let scoreLoopRunning = false;
 // When true, scoreLoop stops auto-tracking getRunCoins() so the
 // game-over fill animation can drain the HUD counter down to 0 in
@@ -301,12 +308,23 @@ function scoreLoop() {
       if (Math.abs(target - displayedCoins) < 0.5) displayedCoins = target;
       scoreCoinValueEl.textContent = String(Math.floor(displayedCoins));
     }
-    if (target !== lastAriaCoins && scoreDisplay && lastAriaScore >= 0) {
+    if (
+      target !== lastAriaCoins &&
+      scoreDisplay &&
+      lastAriaScore >= 0 &&
+      performance.now() - lastCoinAriaAt >= COIN_ARIA_MIN_INTERVAL_MS
+    ) {
+      // Announce the CURRENT score, not the last milestone value —
+      // lastAriaScore can lag the real score by up to 99 m, and a
+      // pickup call-out that contradicts the visible score reads as
+      // a bug to screen-reader users.
+      const liveScore = Math.floor(game.getScore?.() ?? displayedScore);
       scoreDisplay.setAttribute(
         "aria-label",
-        `Score: ${lastAriaScore} meters, ${target} coins this run`,
+        `Score: ${liveScore} meters, ${target} coins this run`,
       );
       lastAriaCoins = target;
+      lastCoinAriaAt = performance.now();
     }
   }
   requestAnimationFrame(scoreLoop);
@@ -1180,11 +1198,20 @@ window.__rrSubOverlayFocusAtEdge = (dir: 1 | -1): boolean => {
 // skipped right past the "Sound Settings" row and the
 // player couldn't fold it open/closed with a controller.
 function getNavigableMenuItems(): HTMLElement[] {
+  // Accessibility rows (slider / select / key-capture) are a
+  // non-focusable .menu-item DIV wrapping the real control. The ring
+  // must hold the CONTROLS, not the wrapper: focusKbd on a div is a
+  // silent no-op and click() on it changes nothing, which would make
+  // those settings dead weight on a controller. So the wrapper is
+  // filtered out below and its inner range/select/buttons are matched
+  // here instead.
   const all = overlay.querySelectorAll<HTMLElement>(
-    ".menu-item, .sound-settings-summary, .menu-group-summary",
+    ".menu-item, .sound-settings-summary, .menu-group-summary, " +
+      ".accessibility-range, .accessibility-select, .accessibility-keycap, .accessibility-keyreset",
   );
   const list: HTMLElement[] = [];
   for (const el of all) {
+    if (el.classList.contains("accessibility-row")) continue;
     // `disabled` only exists on form-control subtypes (HTMLButtonElement
     // et al). The selector above also matches <summary>s, which don't
     // have it — guard via `in`.
@@ -1265,14 +1292,79 @@ window.__rrMenuFocusNext = () => {
 window.__rrMenuFocusPrev = () => {
   focusMenuIndex(currentMenuFocusIdx() - 1);
 };
+/** Resolve a focused accessibility control back to its row
+ *  descriptor. The rendered controls carry id
+ *  `accessibility-${row.id}`; buttons (keycap/reset) don't need this
+ *  because click() already does the right thing for them. */
+function findAccessibilityRowFor(el: HTMLElement) {
+  for (const row of ACCESSIBILITY_SETTINGS_CALLBACKS.rows) {
+    if (el.id === `accessibility-${row.id}`) return row;
+  }
+  return null;
+}
+
+/** Gamepad-adjust a slider (clamp) or select (cycle) control. Routes
+ *  through the row descriptor's set() — the same code path as the
+ *  pointer/keyboard handlers in <AccessibilitySettings> — so
+ *  persistence and re-render behave identically across inputs.
+ *  Returns true when `target` was an adjustable control (even at a
+ *  slider's rail: a LEFT press at 0% must count as handled so it
+ *  doesn't fall through to the gamepad "back" action). */
+function adjustAccessibilityControl(target: HTMLElement, dir: number): boolean {
+  if (target instanceof HTMLInputElement && target.classList.contains("accessibility-range")) {
+    const row = findAccessibilityRowFor(target);
+    if (!row || row.kind !== "slider") return false;
+    const value = row.get();
+    const steps = Math.round((value - row.min) / row.step) + dir;
+    const raw = row.min + steps * row.step;
+    // toFixed guards float drift (0.1 + 0.05 style artifacts) so the
+    // stored value stays on a clean step boundary.
+    const next = Math.min(row.max, Math.max(row.min, Number(raw.toFixed(4))));
+    if (next !== value) {
+      row.set(next);
+      window.Game?.playMenuTap?.();
+    }
+    return true;
+  }
+  if (target instanceof HTMLSelectElement && target.classList.contains("accessibility-select")) {
+    const row = findAccessibilityRowFor(target);
+    if (!row || row.kind !== "select") return false;
+    const current = row.get();
+    const idx = row.options.findIndex((o: { value: string }) => o.value === current);
+    const len = row.options.length;
+    if (!len) return true;
+    const nextIdx = (((idx + dir) % len) + len) % len;
+    row.set(row.options[nextIdx].value);
+    window.Game?.playMenuTap?.();
+    return true;
+  }
+  return false;
+}
+
 window.__rrMenuSelect = () => {
   const items = getNavigableMenuItems();
   if (!items.length) return;
   const idx = currentMenuFocusIdx();
   const target = items[idx];
-  if (target && typeof target.click === "function") {
+  if (!target) return;
+  // Range/select controls have no useful click(): the face button
+  // nudges the slider up / cycles the select instead, so a controller
+  // is never parked on a row it can't change even without d-pad
+  // left/right.
+  if (adjustAccessibilityControl(target, 1)) return;
+  if (typeof target.click === "function") {
     target.click();
   }
+};
+
+// Gamepad d-pad left/right hook (main.ts calls this from the in-menu
+// branch): adjusts the focused slider/select and reports whether the
+// press was consumed — main.ts uses the return value to keep d-pad
+// LEFT working as "back" on every non-adjustable row.
+window.__rrMenuAdjust = (dir: number): boolean => {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !overlay.contains(active)) return false;
+  return adjustAccessibilityControl(active, dir);
 };
 
 // Keep _menuFocusIdx in sync with mouse clicks. Without
@@ -2200,6 +2292,18 @@ function currentScoreCardFocusIdx(): number {
 };
 (window as any).__rrScoreCardSelect = () => {
   if (!isScoreCardOpen()) return;
+  // Activate whatever score-card button actually holds keyboard
+  // focus first. Tab can reach focusable card elements that the
+  // arrow-key ring doesn't track (e.g. the restart-hint button),
+  // and main.ts preventDefaults Enter/Space before the browser's
+  // native activation fires — falling back to the ring index here
+  // would click a DIFFERENT button than the one announced to the
+  // player, in the worst case a coin-spending Revive.
+  const active = document.activeElement;
+  if (active instanceof HTMLButtonElement && !active.disabled && sharePanel?.contains(active)) {
+    active.click();
+    return;
+  }
   const btns = getNavigableScoreCardButtons();
   const btn = btns[currentScoreCardFocusIdx()];
   btn?.click();

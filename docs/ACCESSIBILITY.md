@@ -69,6 +69,16 @@ the versioned localStorage schema in `src/persistence.ts`.
   (DOM HUD and score card cover the same information).
 - High contrast affects UI and canvas compositing, not per-obstacle
   colorblind palettes.
+- The canvas half of high contrast uses `CanvasRenderingContext2D.filter`,
+  which WebKit only supports from Safari/iOS 18. On older WKWebViews
+  (Capacitor iOS 17 and earlier) the filter assignment is silently
+  ignored and the mode degrades to the UI palette swap plus the
+  sky-tint damping — still functional, but without the extra
+  silhouette sharpening.
+- The About/Imprint overlays are same-origin iframes; text scale is
+  propagated into them (`src/iframeAccessibility.ts`), but their pages
+  ship their own fixed palette, so the high-contrast token swap does
+  not restyle them (they are static high-contrast text to begin with).
 - Screen-reader behavior is verified at the code/DOM level only.
   **TODO (Rico): manual VoiceOver (macOS) and NVDA (Windows) pass over
   the menu, shop, accessibility panel, and game-over card before

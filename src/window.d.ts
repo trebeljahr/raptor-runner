@@ -23,6 +23,7 @@ declare global {
     __rrMenuFocusNext?: () => void;
     __rrMenuFocusPrev?: () => void;
     __rrMenuSelect?: () => void;
+    __rrMenuAdjust?: (dir: number) => boolean;
     __rrScoreCardFocusInitial?: () => void;
     __rrToggleMenu?: () => void;
     __rrCloseMenu?: () => void;

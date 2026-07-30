@@ -37,6 +37,7 @@
 import "./styles/base.css";
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID } from "./achievements";
 import { audio } from "./audio";
+import { syncEmbeddedDocs } from "./iframeAccessibility";
 import { contexts, initCanvas } from "./canvas";
 // ScoreCardWorker import moved into src/render/scoreCard.ts.
 import {
@@ -580,7 +581,7 @@ function update(now: number) {
   if (state.rainIntensity > 0.01 && !audio._isRainPlaying) audio.startRain();
   else if (state.rainIntensity < 0.01 && audio._isRainPlaying) audio.stopRain();
   if (audio.rain && audio._isRainPlaying) {
-    audio.rain.volume = audio.rainTargetVolume() * state.rainIntensity;
+    audio.setRainIntensity(state.rainIntensity);
   }
 
   // Slow rotation of the night-sky dome, tied to the cycle phase
@@ -1197,7 +1198,12 @@ function render() {
     const sky = state.currentSky;
     const skyLum = (sky[0] * 0.2126 + sky[1] * 0.7152 + sky[2] * 0.0722) / 255;
     const darkness = 1 - Math.min(1, skyLum / 0.6);
-    const brightness = (0.93 + darkness * 0.37).toFixed(2);
+    // Quantize to 0.05 steps: Skia compiles a fresh filter-chain
+    // shader per distinct filter STRING (see the lightning-cactus
+    // warm-up), so letting brightness drift through ~38 values over
+    // a day/night cycle would trigger repeated compile hitches.
+    // Eight coarse steps are visually indistinguishable here.
+    const brightness = (Math.round((0.93 + darkness * 0.37) / 0.05) * 0.05).toFixed(2);
     ctx.save();
     ctx.filter = `contrast(1.1) saturate(1.25) brightness(${brightness})`;
     ctx.drawImage(fgCanvas, 0, 0, fgCanvas.width, fgCanvas.height, 0, 0, state.width, state.height);
@@ -1831,6 +1837,7 @@ function applyTextScale(scale: number): void {
     root.style.fontSize = `${scale * 100}%`;
     root.style.setProperty("--text-scale", String(scale));
   }
+  syncEmbeddedDocs();
 }
 
 /** Dedupe and drop anything that can't be a usable jump binding:
@@ -3082,6 +3089,7 @@ function pollGamepad() {
     __rrMenuFocusNext?: () => void;
     __rrMenuFocusPrev?: () => void;
     __rrMenuSelect?: () => void;
+    __rrMenuAdjust?: (dir: number) => boolean;
     __rrScoreCardFocusNext?: () => void;
     __rrScoreCardFocusPrev?: () => void;
     __rrScoreCardSelect?: () => void;
@@ -3407,10 +3415,26 @@ function pollGamepad() {
     if (intent.select) {
       w.__rrMenuSelect?.();
     }
+    // Right (d-pad or stick flick) adjusts the focused slider/select
+    // (volume up, next option). Right is otherwise unused in the
+    // menu, so no conflict to resolve.
+    if (intent.navRight) {
+      w.__rrMenuAdjust?.(1);
+    }
     // Stepwise back: close any open dropdown first, only then
-    // the menu itself. Console convention.
+    // the menu itself. Console convention. On the W3C path d-pad
+    // LEFT is folded into `back`, but on an adjustable row
+    // (slider/select) left means "decrease / previous option" —
+    // __rrMenuAdjust returns true when it consumed the press, and
+    // only then does back get skipped, so left keeps closing
+    // dropdowns from every other row. A bare navLeft (stick flick,
+    // or Steam's separate nav_left action) adjusts without ever
+    // reaching back.
     if (intent.back) {
-      w.__rrMenuBack?.();
+      const leftAdjusted = intent.navLeft && w.__rrMenuAdjust?.(-1) === true;
+      if (!leftAdjusted) w.__rrMenuBack?.();
+    } else if (intent.navLeft) {
+      w.__rrMenuAdjust?.(-1);
     }
     // System buttons (Start / Options / etc.) dismiss the menu
     // outright regardless of dropdown state — that's the

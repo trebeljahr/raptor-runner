@@ -19,6 +19,8 @@
  * it isn't run state — it survives resets.
  */
 
+import { syncEmbeddedDocs } from "./iframeAccessibility";
+
 let enabled = false;
 
 /** Apply high-contrast mode: caches the flag for the render paths
@@ -30,6 +32,7 @@ export function setHighContrastMode(on: boolean): void {
   if (!body) return;
   if (enabled) body.dataset.highContrast = "true";
   else delete body.dataset.highContrast;
+  syncEmbeddedDocs();
 }
 
 /** Cached high-contrast flag. Cheap enough to call per frame. */
