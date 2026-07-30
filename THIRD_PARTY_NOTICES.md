@@ -81,16 +81,14 @@ original work. Original assets are © 2026 Rico Trebeljahr; see
 [LICENSE](LICENSE) for redistribution terms.
 
 <!--
-  Two items to resolve before a paid storefront release. Neither is a
-  code problem, so neither can be fixed here:
+  One item to resolve before a paid storefront release:
 
-  1. thug-glasses.png is CC BY-SA 4.0. Share-alike is the one license in
-     this list that can propagate obligations to derivative work, and the
-     sprite was modified (background flood-filled). Confirm this is
-     acceptable for a paid closed-source release, or swap the sprite.
-  2. The raptor sprite permission was granted for what was then a free
-     browser game. Confirm it covers commercial and paid distribution
-     before charging for the game on Steam or itch.io.
+  thug-glasses.png is CC BY-SA 4.0. Share-alike is the one license in this
+  list that can propagate obligations to derivative work, and the sprite
+  was modified (background flood-filled). Confirm this is acceptable for a
+  paid closed-source release, or swap the sprite.
+
+  The raptor sprite permission is settled — Chris Masna granted full use.
 -->
 
 
