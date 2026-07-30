@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /*
  * export-achievement-icons.mjs — rasterize the in-game achievement icons
- * into the 64x64 achieved/unachieved pairs the Steamworks partner backend
- * wants, one pair per achievement in src/achievements.ts.
+ * into the achieved/unachieved pairs the Steamworks partner backend
+ * wants, one pair per achievement in src/achievements.ts. 256x256 per
+ * Valve's recommendation (64x64 is the accepted minimum).
  *
  * The catalog stores icons two ways (see AchievementDefinition):
  *   iconHTML  — inline SVG fragment on a 24x24 viewBox
@@ -40,7 +41,7 @@ const OUT = resolve(ROOT, "steam-assets", "achievements");
 // Matches --color-sand-contrast in src/styles/base.css — the tile the
 // icons sit on in the unlocked achievements list.
 const BACKGROUND = "#fbebc6";
-const SIZE = 64;
+const SIZE = 256;
 // The in-game tile pads the icon 4px inside a 48px box; keep the ratio.
 const PAD_SCALE = 1 - (2 * 4) / 48;
 
