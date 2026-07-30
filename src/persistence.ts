@@ -18,17 +18,29 @@ import {
   CAREER_RUNS_KEY,
   COINS_BALANCE_KEY,
   COINS_COLLECTED_KEY,
+  COINS_VOLUME_KEY,
   EQUIPPED_COSMETICS_KEY,
+  EVENTS_VOLUME_KEY,
+  FOOTSTEPS_VOLUME_KEY,
+  HIGH_CONTRAST_KEY,
   HIGH_SCORE_KEY,
   JUMP_MUTED_KEY,
+  JUMP_VOLUME_KEY,
+  MASTER_VOLUME_KEY,
   MUSIC_MUTED_KEY,
+  MUSIC_VOLUME_KEY,
   MUTED_KEY,
   OWNED_COSMETICS_KEY,
   RAIN_MUTED_KEY,
+  RAIN_VOLUME_KEY,
   RARE_EVENTS_SEEN_KEY,
+  REDUCE_MOTION_KEY,
+  TEXT_SCALE_KEY,
+  THUNDER_VOLUME_KEY,
   TOTAL_DAY_CYCLES_KEY,
   TOTAL_JUMPS_KEY,
   TOTAL_NIGHTS_KEY,
+  UI_VOLUME_KEY,
   UNLOCKED_BOW_TIE_KEY,
   UNLOCKED_PARTY_HAT_KEY,
   UNLOCKED_THUG_GLASSES_KEY,
@@ -206,6 +218,18 @@ const DURABLE_KEYS: string[] = [
   COINS_COLLECTED_KEY,
   OWNED_COSMETICS_KEY,
   EQUIPPED_COSMETICS_KEY,
+  TEXT_SCALE_KEY,
+  REDUCE_MOTION_KEY,
+  HIGH_CONTRAST_KEY,
+  MASTER_VOLUME_KEY,
+  MUSIC_VOLUME_KEY,
+  JUMP_VOLUME_KEY,
+  RAIN_VOLUME_KEY,
+  THUNDER_VOLUME_KEY,
+  FOOTSTEPS_VOLUME_KEY,
+  COINS_VOLUME_KEY,
+  UI_VOLUME_KEY,
+  EVENTS_VOLUME_KEY,
 ];
 
 /** Call once at boot, BEFORE any load*() function reads localStorage.
@@ -360,6 +384,52 @@ export function loadBoolFlag(key: string, fallback: boolean): boolean {
 
 export function saveBoolFlag(key: string, value: boolean): void {
   _persistSet(key, value ? "1" : "0");
+}
+
+// ── Generic number setting (volumes, text scale) ────────────
+
+/** Returns `fallback` if the key is missing or unparseable; an
+ *  out-of-range stored value is clamped rather than discarded so a
+ *  schema tweak (e.g. narrowing a slider's range) degrades to the
+ *  nearest legal value instead of silently resetting the player's
+ *  choice. */
+export function loadNumberSetting(key: string, fallback: number, min: number, max: number): number {
+  try {
+    const raw = _persistGet(key);
+    if (raw == null) return fallback;
+    const n = Number.parseFloat(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  } catch (_e) {
+    return fallback;
+  }
+}
+
+export function saveNumberSetting(key: string, value: number): void {
+  _persistSet(key, String(value));
+}
+
+// ── Generic string-enum setting ─────────────────────────────
+
+/** Returns `fallback` unless the stored value is one of `allowed` —
+ *  a value written by a newer build (or corrupted) never leaks an
+ *  unknown variant into the callers' switch statements. */
+export function loadStringSetting<T extends string>(
+  key: string,
+  fallback: T,
+  allowed: readonly T[],
+): T {
+  try {
+    const raw = _persistGet(key);
+    if (raw == null) return fallback;
+    return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
+  } catch (_e) {
+    return fallback;
+  }
+}
+
+export function saveStringSetting(key: string, value: string): void {
+  _persistSet(key, value);
 }
 
 // ── Coin balance ────────────────────────────────────────────

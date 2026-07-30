@@ -1854,6 +1854,49 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   outline: 2px solid rgba(80, 180, 205, 0.5);
   outline-offset: 1px;
 }
+/* Accessibility rows: a .menu-item shell holding a label on the
+         left and a native control (range / select) at the right edge —
+         same layout idea as the debug score editor. Only the surface
+         styling is overridden; keyboard behavior stays native. */
+.menu-panel .accessibility-row {
+  cursor: default;
+}
+.menu-panel .accessibility-row .inner {
+  flex: 1;
+}
+.menu-panel .accessibility-row label {
+  cursor: inherit;
+  flex-shrink: 0;
+}
+.menu-panel .accessibility-range {
+  flex: 1;
+  min-width: 0;
+  margin-left: auto;
+  accent-color: var(--color-dune);
+}
+.menu-panel .accessibility-value {
+  flex-shrink: 0;
+  min-width: 3.2em;
+  text-align: right;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.menu-panel .accessibility-select {
+  min-width: 0;
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #222;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.menu-panel .accessibility-range:focus-visible,
+.menu-panel .accessibility-select:focus-visible {
+  outline: 2px solid rgba(80, 180, 205, 0.5);
+  outline-offset: 1px;
+}
 .menu-panel .menu-highscore {
   display: block;
   width: fit-content;

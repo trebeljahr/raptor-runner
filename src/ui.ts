@@ -26,6 +26,11 @@
  * onReady gate has fired, but the capture keeps TypeScript honest.
  */
 
+import { REDUCE_MOTION_VALUES, TEXT_SCALE_MAX, TEXT_SCALE_MIN } from "./constants";
+import {
+  type AccessibilitySettingsCallbacks,
+  refreshAccessibilitySettings,
+} from "./ui/react/mountAccessibilitySettings";
 import { refreshAchievements } from "./ui/react/mountAchievements";
 import { refreshCosmeticsMenu } from "./ui/react/mountCosmeticsMenu";
 import { refreshCredits } from "./ui/react/mountCredits";
@@ -203,6 +208,9 @@ function onGameReady() {
   // Sync the sound button with the actual mute state now
   // that the Game API is fully loaded.
   refreshSoundUI();
+  // Accessibility rows read persisted values through window.Game —
+  // repaint them now that those values are hydrated.
+  syncAccessibilityUI();
 
   // If the user previously chose to have sound on, try to
   // start music immediately. Browsers may block autoplay
@@ -579,6 +587,62 @@ function toggleSound() {
   if (window.Game.unlockAudio) window.Game.unlockAudio();
   window.Game.setMuted(!window.Game.isMuted());
   syncSoundUI();
+}
+
+// ───────── Accessibility settings ─────────
+// Same architecture as the sound settings above, but the rows are
+// DATA rather than a fixed component: <AccessibilitySettings> renders
+// one control per descriptor in this table, so a future setting
+// (volume sliders, colorblind palettes, …) is a new entry here plus
+// its Game API pair — no component or markup restructuring. Each
+// set() routes through window.Game (which persists) and then
+// re-renders so every label/control repaints from the stored value.
+
+const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
+  rows: [
+    {
+      kind: "slider",
+      id: "text-scale",
+      label: "Text size",
+      min: TEXT_SCALE_MIN,
+      max: TEXT_SCALE_MAX,
+      step: 0.05,
+      format: (v: number) => `${Math.round(v * 100)}%`,
+      get: () => window.Game?.getTextScale?.() ?? 1,
+      set: (v: number) => {
+        window.Game?.setTextScale?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    {
+      kind: "select",
+      id: "reduce-motion",
+      label: "Reduce motion",
+      options: REDUCE_MOTION_VALUES.map((v) => ({
+        value: v,
+        label: v.charAt(0).toUpperCase() + v.slice(1),
+      })),
+      get: () => window.Game?.getReduceMotion?.() ?? "system",
+      set: (v: string) => {
+        window.Game?.setReduceMotion?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    {
+      kind: "toggle",
+      id: "high-contrast",
+      label: "High contrast",
+      get: () => window.Game?.isHighContrast?.() === true,
+      set: (v: boolean) => {
+        window.Game?.setHighContrast?.(v);
+        syncAccessibilityUI();
+      },
+    },
+  ],
+};
+
+function syncAccessibilityUI() {
+  refreshAccessibilitySettings(ACCESSIBILITY_SETTINGS_CALLBACKS);
 }
 
 // ───────── Fullscreen button ─────────
@@ -1688,6 +1752,7 @@ document.addEventListener(
 
 // Initial UI sync.
 refreshSoundUI();
+syncAccessibilityUI();
 
 // ───────── Share your score ─────────
 // The PNG slot (#score-card-slot + #score-card-preview) stays vanilla

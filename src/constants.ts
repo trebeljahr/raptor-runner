@@ -341,6 +341,42 @@ export const OWNED_COSMETICS_KEY = "raptor-runner:ownedCosmetics";
 /** JSON object {head, eyes, neck, back} → cosmetic id or null. */
 export const EQUIPPED_COSMETICS_KEY = "raptor-runner:equippedCosmetics";
 
+// ── Accessibility settings ─────────────────────────────────
+// All keys are declared up front — even the ones whose effects
+// aren't wired yet — so DURABLE_KEYS in persistence.ts and the
+// settings UI share one source of truth from day one instead of
+// each later feature inventing its own key ad hoc.
+/** UI text scale multiplier (see TEXT_SCALE_MIN/MAX below). */
+export const TEXT_SCALE_KEY = "raptor-runner:textScale";
+/** One of REDUCE_MOTION_VALUES. "system" defers to the OS-level
+ *  prefers-reduced-motion media query; "on"/"off" override it. */
+export const REDUCE_MOTION_KEY = "raptor-runner:reduceMotion";
+export const HIGH_CONTRAST_KEY = "raptor-runner:highContrast";
+// Volumes are linear gains stored as numbers in 0..1. Master scales
+// everything; the per-channel keys mirror the per-channel mute
+// flags above so the two systems stay symmetrical.
+export const MASTER_VOLUME_KEY = "raptor-runner:masterVolume";
+export const MUSIC_VOLUME_KEY = "raptor-runner:musicVolume";
+export const JUMP_VOLUME_KEY = "raptor-runner:jumpVolume";
+export const RAIN_VOLUME_KEY = "raptor-runner:rainVolume";
+export const THUNDER_VOLUME_KEY = "raptor-runner:thunderVolume";
+export const FOOTSTEPS_VOLUME_KEY = "raptor-runner:footstepsVolume";
+export const COINS_VOLUME_KEY = "raptor-runner:coinsVolume";
+export const UI_VOLUME_KEY = "raptor-runner:uiVolume";
+export const EVENTS_VOLUME_KEY = "raptor-runner:eventsVolume";
+
+/** Allowed values for REDUCE_MOTION_KEY. Order matters only for UI
+ *  presentation (system first, as the default). */
+export const REDUCE_MOTION_VALUES = ["system", "on", "off"] as const;
+export type ReduceMotionSetting = (typeof REDUCE_MOTION_VALUES)[number];
+
+// Text scale bounds. 1 is the as-designed size; the ceiling stops a
+// scaled-up menu from overflowing the panel on small landscape
+// phones (the tightest layout we ship).
+export const TEXT_SCALE_MIN = 0.8;
+export const TEXT_SCALE_MAX = 1.5;
+export const TEXT_SCALE_DEFAULT = 1;
+
 // ── Cosmetic unlock thresholds (single-run scores) ─────────
 // Thresholds are in meters (score-as-distance). ≈1000 m is a
 // comfortable early-run goal (100 cacti at the default spacing),

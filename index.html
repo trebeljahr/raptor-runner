@@ -899,6 +899,25 @@
           <div class="cosmetics-body menu-group-body" id="cosmetics-list"></div>
         </details>
 
+        <!-- Accessibility (collapsible). Rows are rendered by the
+             React <AccessibilitySettings> component
+             (src/ui/react/AccessibilitySettings.tsx) from the row
+             descriptors in ui.ts; the <details> wrapper and its
+             <summary> stay vanilla like the other menu groups. -->
+        <details id="accessibility-settings" class="accessibility-settings menu-group">
+          <summary class="accessibility-settings-summary menu-group-summary">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="4.5" r="2"></circle>
+              <path d="M4 8.5c2.7.8 5.3 1.2 8 1.2s5.3-.4 8-1.2"></path>
+              <path d="M12 9.7v4.3"></path>
+              <path d="M12 14l-3.5 7"></path>
+              <path d="M12 14l3.5 7"></path>
+            </svg>
+            Accessibility
+          </summary>
+          <div class="accessibility-settings-body menu-group-body"></div>
+        </details>
+
         <!-- Debug (collapsible). Only shown when body[data-debug="true"]
              is set (via ?debug=true). Individual `in-game-only` entries
              still self-hide on the start screen. -->

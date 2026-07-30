@@ -62,8 +62,10 @@ import {
   GROUND_BAND_COLORS,
   GROUND_BAND_HEIGHTS_PX,
   GROUND_HEIGHT_RATIO,
+  HIGH_CONTRAST_KEY,
   INITIAL_BG_VELOCITY,
   LIGHTNING_MIN_COOLDOWN_MS,
+  MASTER_VOLUME_KEY,
   METERS_PER_BG_UNIT_PER_FRAME,
   MOON_PHASE_CENTER,
   PARTY_HAT_SCORE_THRESHOLD,
@@ -73,13 +75,20 @@ import {
   RAINBOW_LIFETIME_SEC,
   RAINBOW_MAX_OPACITY,
   RAINBOW_SPAWN_CHANCE,
+  REDUCE_MOTION_KEY,
+  REDUCE_MOTION_VALUES,
   REVIVE_FIRST_COST,
   REVIVE_INVULN_FRAMES,
   REVIVE_SECOND_COST,
+  type ReduceMotionSetting,
   SKY_COLORS,
   SKY_CYCLE_SCORE,
   SKY_UPDATE_INTERVAL_FRAMES,
   STAR_ROTATION_PER_CYCLE,
+  TEXT_SCALE_DEFAULT,
+  TEXT_SCALE_KEY,
+  TEXT_SCALE_MAX,
+  TEXT_SCALE_MIN,
   THUG_GLASSES_SCORE_THRESHOLD,
   UNLOCKED_BOW_TIE_KEY,
   UNLOCKED_PARTY_HAT_KEY,
@@ -172,8 +181,10 @@ import {
   loadCoinsCollected,
   loadEquippedCosmetics,
   loadHighScore,
+  loadNumberSetting,
   loadOwnedCosmetics,
   loadRareEventsSeen,
+  loadStringSetting,
   loadTotalDayCycles,
   loadTotalJumps,
   loadTotalNightsSurvived,
@@ -185,8 +196,10 @@ import {
   saveEquippedCosmetics,
   // (below: existing imports from this module continue)
   saveHighScore,
+  saveNumberSetting,
   saveOwnedCosmetics,
   saveRareEventsSeen,
+  saveStringSetting,
   saveTotalDayCycles,
   saveTotalJumps,
   saveTotalNightsSurvived,
@@ -1754,6 +1767,32 @@ function onKeyDown(e: KeyboardEvent) {
 // Public API
 // ══════════════════════════════════════════════════════════════════
 
+// ── Accessibility settings ──────────────────────────────────
+// Storage-backed like the audio mute flags: defaults here, real
+// values loaded in init() after hydratePersistence() so the
+// Capacitor mirror has restored any evicted keys first. Setters
+// persist immediately; the actual rendering / motion / contrast
+// effects hang off these values in later work, so reading them is
+// the whole contract for now.
+const accessibility = {
+  textScale: TEXT_SCALE_DEFAULT as number,
+  reduceMotion: "system" as ReduceMotionSetting,
+  highContrast: false,
+  masterVolume: 1,
+};
+
+function loadAccessibilitySettings(): void {
+  accessibility.textScale = loadNumberSetting(
+    TEXT_SCALE_KEY,
+    TEXT_SCALE_DEFAULT,
+    TEXT_SCALE_MIN,
+    TEXT_SCALE_MAX,
+  );
+  accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
+  accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
+  accessibility.masterVolume = loadNumberSetting(MASTER_VOLUME_KEY, 1, 0, 1);
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GameCallback = (...args: any[]) => void;
 
@@ -1933,6 +1972,52 @@ const GameAPI = {
   },
   isThunderMuted() {
     return audio.thunderMuted;
+  },
+
+  // ── Accessibility settings ──────────────────────────────
+  // Same setter + getter shape as the mute channels above. Values
+  // are clamped/validated on the way in and persisted immediately;
+  // the visual/audio effects are wired up by the features that
+  // consume each value (text scaling, motion gating, contrast
+  // palette, volume mixing) — the API surface is settled here so
+  // the menu UI doesn't churn as those land.
+  setTextScale(scale: number) {
+    const n = Number(scale);
+    if (!Number.isFinite(n)) return;
+    accessibility.textScale = Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, n));
+    saveNumberSetting(TEXT_SCALE_KEY, accessibility.textScale);
+  },
+  getTextScale() {
+    return accessibility.textScale;
+  },
+
+  // Accepts plain string (the UI hands over a raw <select> value);
+  // anything outside the allowed set is ignored rather than stored.
+  setReduceMotion(mode: string) {
+    if (!(REDUCE_MOTION_VALUES as readonly string[]).includes(mode)) return;
+    accessibility.reduceMotion = mode as ReduceMotionSetting;
+    saveStringSetting(REDUCE_MOTION_KEY, accessibility.reduceMotion);
+  },
+  getReduceMotion() {
+    return accessibility.reduceMotion;
+  },
+
+  setHighContrast(on: boolean) {
+    accessibility.highContrast = on === true;
+    saveBoolFlag(HIGH_CONTRAST_KEY, accessibility.highContrast);
+  },
+  isHighContrast() {
+    return accessibility.highContrast;
+  },
+
+  setMasterVolume(volume: number) {
+    const n = Number(volume);
+    if (!Number.isFinite(n)) return;
+    accessibility.masterVolume = Math.min(1, Math.max(0, n));
+    saveNumberSetting(MASTER_VOLUME_KEY, accessibility.masterVolume);
+  },
+  getMasterVolume() {
+    return accessibility.masterVolume;
   },
 
   isDebug() {
@@ -3380,6 +3465,7 @@ async function init() {
   state.ownedCosmetics = loadOwnedCosmetics();
   state.equippedCosmetics = loadEquippedCosmetics();
   migrateLegacyCosmetics();
+  loadAccessibilitySettings();
 
   onResize();
   window.addEventListener("resize", onResize);
