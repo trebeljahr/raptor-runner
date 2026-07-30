@@ -19,9 +19,9 @@
  * The unachieved variant is the same image desaturated, which is the
  * de-facto standard on Steam.
  *
- * Output: steam-assets/achievements/<API_NAME>.jpg (+ _locked.jpg), with
- * PNG masters alongside, named by the Steam API name from toSteamApiName()
- * so files match the partner-backend entries one to one.
+ * Output: steam-assets/achievements/<NN>_<API_NAME>.jpg (+ _locked.jpg),
+ * numbered in catalog order and named by the Steam API name from
+ * toSteamApiName() so files match the partner-backend entries one to one.
  *
  * Usage:
  *   node scripts/export-achievement-icons.mjs
@@ -122,10 +122,12 @@ function renderSprite(assetFile, dest) {
 }
 
 function deriveVariants(pngPath, base) {
-  // Steam's own locked style: same art, no color.
-  execFileSync("magick", [pngPath, "-colorspace", "Gray", `${base}_locked.png`]);
+  // Steam's own locked style: same art, no color. Only the JPGs are kept —
+  // the partner backend takes JPG, and the PNG intermediates just clutter
+  // the folder during manual upload.
   execFileSync("magick", [pngPath, "-quality", "92", `${base}.jpg`]);
-  execFileSync("magick", [`${base}_locked.png`, "-quality", "92", `${base}_locked.jpg`]);
+  execFileSync("magick", [pngPath, "-colorspace", "Gray", "-quality", "92", `${base}_locked.jpg`]);
+  rmSync(pngPath);
 }
 
 const tmp = mkdtempSync(join(tmpdir(), "ach-icons-"));
