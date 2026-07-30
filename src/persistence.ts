@@ -24,6 +24,7 @@ import {
   FOOTSTEPS_VOLUME_KEY,
   HIGH_CONTRAST_KEY,
   HIGH_SCORE_KEY,
+  JUMP_KEYS_KEY,
   JUMP_MUTED_KEY,
   JUMP_VOLUME_KEY,
   MASTER_VOLUME_KEY,
@@ -230,6 +231,7 @@ const DURABLE_KEYS: string[] = [
   COINS_VOLUME_KEY,
   UI_VOLUME_KEY,
   EVENTS_VOLUME_KEY,
+  JUMP_KEYS_KEY,
 ];
 
 /** Call once at boot, BEFORE any load*() function reads localStorage.
@@ -430,6 +432,32 @@ export function loadStringSetting<T extends string>(
 
 export function saveStringSetting(key: string, value: string): void {
   _persistSet(key, value);
+}
+
+// ── Generic string-list setting (key bindings) ──────────────
+
+/** Stored comma-joined rather than as JSON: the values are
+ *  KeyboardEvent.code identifiers (never contain commas), and a
+ *  flat format survives hand-editing in devtools better than
+ *  JSON.parse's all-or-nothing failure mode. Falls back when the
+ *  key is missing or decodes to an empty list — an empty binding
+ *  set is never a valid stored state. */
+export function loadStringListSetting(key: string, fallback: readonly string[]): string[] {
+  try {
+    const raw = _persistGet(key);
+    if (raw == null) return [...fallback];
+    const items = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    return items.length > 0 ? items : [...fallback];
+  } catch (_e) {
+    return [...fallback];
+  }
+}
+
+export function saveStringListSetting(key: string, values: readonly string[]): void {
+  _persistSet(key, values.join(","));
 }
 
 // ── Coin balance ────────────────────────────────────────────

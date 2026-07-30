@@ -1922,9 +1922,48 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-size: 0.9rem;
 }
 .menu-panel .accessibility-range:focus-visible,
-.menu-panel .accessibility-select:focus-visible {
+.menu-panel .accessibility-select:focus-visible,
+.menu-panel .accessibility-keycap:focus-visible,
+.menu-panel .accessibility-keyreset:focus-visible {
   outline: 2px solid rgba(80, 180, 205, 0.5);
   outline-offset: 1px;
+}
+/* Key-binding row: the capture button shares the select surface so
+         the row reads as one family of controls; wrap is enabled so the
+         rejection hint can drop to its own line without squeezing the
+         binding text. */
+.menu-panel .accessibility-keybind .inner {
+  flex-wrap: wrap;
+}
+.menu-panel .accessibility-keycap,
+.menu-panel .accessibility-keyreset {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #222;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.menu-panel .accessibility-keycap {
+  margin-left: auto;
+  min-width: 7em;
+  text-align: center;
+}
+.menu-panel .accessibility-keycap.capturing {
+  border-style: dashed;
+  color: #555;
+  font-style: italic;
+}
+.menu-panel .accessibility-keyreset {
+  flex-shrink: 0;
+}
+.menu-panel .accessibility-hint {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: 0.8rem;
+  color: #8a4a12;
 }
 .menu-panel .menu-highscore {
   display: block;

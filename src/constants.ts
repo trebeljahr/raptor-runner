@@ -364,6 +364,19 @@ export const FOOTSTEPS_VOLUME_KEY = "raptor-runner:footstepsVolume";
 export const COINS_VOLUME_KEY = "raptor-runner:coinsVolume";
 export const UI_VOLUME_KEY = "raptor-runner:uiVolume";
 export const EVENTS_VOLUME_KEY = "raptor-runner:eventsVolume";
+/** Comma-joined list of KeyboardEvent.code values that trigger a
+ *  gameplay jump. Only the in-run jump action is remappable — menu,
+ *  start-screen, and score-card navigation keys stay hardcoded, and
+ *  gamepad bindings are a separate constant above. */
+export const JUMP_KEYS_KEY = "raptor-runner:jumpKeys";
+
+export const DEFAULT_JUMP_KEYS = ["Space", "KeyW", "ArrowUp"] as const;
+/** Codes that already carry a fixed meaning somewhere in the UI —
+ *  Escape (menu), F9 (cinematic mode), Enter (start / restart /
+ *  score-card select), Tab (focus navigation). The key-capture UI
+ *  rejects these with a hint and the Game setter filters them, so a
+ *  remap can never shadow a built-in control. */
+export const RESERVED_KEY_CODES = ["Escape", "F9", "Enter", "NumpadEnter", "Tab"] as const;
 
 /** Allowed values for REDUCE_MOTION_KEY. Order matters only for UI
  *  presentation (system first, as the default). */

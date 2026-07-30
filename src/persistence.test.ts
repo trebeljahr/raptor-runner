@@ -13,6 +13,7 @@ import {
   loadCareerRuns,
   loadHighScore,
   loadRareEventsSeen,
+  loadStringListSetting,
   loadTotalDayCycles,
   loadTotalJumps,
   loadUnlockedAchievements,
@@ -20,6 +21,7 @@ import {
   saveCareerRuns,
   saveHighScore,
   saveRareEventsSeen,
+  saveStringListSetting,
   saveTotalDayCycles,
   saveTotalJumps,
   saveUnlockedAchievements,
@@ -191,6 +193,33 @@ describe("loadBoolFlag / saveBoolFlag", () => {
     expect(loadBoolFlag(KEY, true)).toBe(false);
     window.localStorage.setItem(KEY, "");
     expect(loadBoolFlag(KEY, true)).toBe(false);
+  });
+});
+
+describe("loadStringListSetting / saveStringListSetting", () => {
+  const KEY = "raptor-runner:test-list";
+  const FALLBACK = ["Space", "KeyW"] as const;
+
+  it("returns a copy of the fallback when missing", () => {
+    const result = loadStringListSetting(KEY, FALLBACK);
+    expect(result).toEqual(["Space", "KeyW"]);
+    // Mutating the result must not corrupt the caller's default list.
+    result.push("KeyX");
+    expect(loadStringListSetting(KEY, FALLBACK)).toEqual(["Space", "KeyW"]);
+  });
+  it("round-trips a list comma-joined", () => {
+    saveStringListSetting(KEY, ["KeyJ", "ArrowUp"]);
+    expect(loadStringListSetting(KEY, FALLBACK)).toEqual(["KeyJ", "ArrowUp"]);
+    flushPersistenceWrites();
+    expect(window.localStorage.getItem(KEY)).toBe("KeyJ,ArrowUp");
+  });
+  it("drops empty entries and trims whitespace", () => {
+    window.localStorage.setItem(KEY, " KeyJ ,, ArrowUp ,");
+    expect(loadStringListSetting(KEY, FALLBACK)).toEqual(["KeyJ", "ArrowUp"]);
+  });
+  it("falls back when the stored value decodes to an empty list", () => {
+    window.localStorage.setItem(KEY, " , ,");
+    expect(loadStringListSetting(KEY, FALLBACK)).toEqual(["Space", "KeyW"]);
   });
 });
 

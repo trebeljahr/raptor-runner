@@ -26,7 +26,12 @@
  * onReady gate has fired, but the capture keeps TypeScript honest.
  */
 
-import { REDUCE_MOTION_VALUES, TEXT_SCALE_PRESETS } from "./constants";
+import {
+  DEFAULT_JUMP_KEYS,
+  REDUCE_MOTION_VALUES,
+  RESERVED_KEY_CODES,
+  TEXT_SCALE_PRESETS,
+} from "./constants";
 import {
   type AccessibilitySettingsCallbacks,
   refreshAccessibilitySettings,
@@ -652,6 +657,31 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
         window.Game?.setHighContrast?.(v);
         syncAccessibilityUI();
       },
+    },
+    // ── Jump key remapping ──────────────────────────────────
+    // Capturing a key REPLACES the whole binding (the default trio
+    // included) with the single pressed key — additive capture has
+    // no way to un-bind, and a stray old binding surprises more than
+    // a replaced one. Reset restores the Space/W/Up defaults. The
+    // Game setter refuses reserved codes and empty lists, so this
+    // row can never leave the player without a working jump key.
+    {
+      kind: "keycapture",
+      id: "jump-key",
+      label: "Jump key",
+      get: () => window.Game?.getJumpKeys?.() ?? [...DEFAULT_JUMP_KEYS],
+      set: (code: string) => {
+        window.Game?.setJumpKeys?.([code]);
+        syncAccessibilityUI();
+      },
+      reset: () => {
+        window.Game?.setJumpKeys?.([...DEFAULT_JUMP_KEYS]);
+        syncAccessibilityUI();
+      },
+      rejectionHint: (code: string) =>
+        (RESERVED_KEY_CODES as readonly string[]).includes(code)
+          ? "That key already has a job — try another."
+          : null,
     },
     // ── Volume sliders ──────────────────────────────────────
     // Grouped rather than one slider per channel: master + music +

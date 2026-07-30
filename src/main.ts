@@ -45,6 +45,7 @@ import {
   CINEMATIC_PHASES,
   CLOUD_PARALLAX_DIVISOR,
   CLOUD_SPAWN_INTERVAL,
+  DEFAULT_JUMP_KEYS,
   DELTA_TIME_CLAMP,
   DUNE_CACTUS_MIN_SPACING_PX,
   DUNE_CACTUS_SPACING_RANGE_PX,
@@ -64,6 +65,7 @@ import {
   GROUND_HEIGHT_RATIO,
   HIGH_CONTRAST_KEY,
   INITIAL_BG_VELOCITY,
+  JUMP_KEYS_KEY,
   LIGHTNING_MIN_COOLDOWN_MS,
   METERS_PER_BG_UNIT_PER_FRAME,
   MOON_PHASE_CENTER,
@@ -75,6 +77,7 @@ import {
   RAINBOW_SPAWN_CHANCE,
   REDUCE_MOTION_KEY,
   REDUCE_MOTION_VALUES,
+  RESERVED_KEY_CODES,
   REVIVE_FIRST_COST,
   REVIVE_INVULN_FRAMES,
   REVIVE_SECOND_COST,
@@ -182,6 +185,7 @@ import {
   loadNumberSetting,
   loadOwnedCosmetics,
   loadRareEventsSeen,
+  loadStringListSetting,
   loadStringSetting,
   loadTotalDayCycles,
   loadTotalJumps,
@@ -197,6 +201,7 @@ import {
   saveNumberSetting,
   saveOwnedCosmetics,
   saveRareEventsSeen,
+  saveStringListSetting,
   saveStringSetting,
   saveTotalDayCycles,
   saveTotalJumps,
@@ -1749,7 +1754,7 @@ function onKeyDown(e: KeyboardEvent) {
     }
   }
 
-  const isJumpKey = e.code === "Space" || e.code === "KeyW" || e.code === "ArrowUp";
+  const isJumpKey = accessibility.jumpKeys.includes(e.code);
   if (isJumpKey) {
     e.preventDefault();
     if (!raptor.jump()) raptor.bufferJump(performance.now());
@@ -1777,6 +1782,10 @@ const accessibility = {
   textScale: TEXT_SCALE_DEFAULT as number,
   reduceMotion: "system" as ReduceMotionSetting,
   highContrast: false,
+  /** KeyboardEvent.code values that trigger a gameplay jump. Never
+   *  empty — the setter and loader both fall back to the defaults
+   *  rather than leave the player without a jump key. */
+  jumpKeys: [...DEFAULT_JUMP_KEYS] as string[],
   // Volumes live on the audio singleton (audio.masterVolume /
   // audio.channelVolumes) — the mixer needs them at play time, so
   // audio.ts owns the state and this module only exposes the API.
@@ -1805,6 +1814,23 @@ function applyTextScale(scale: number): void {
   }
 }
 
+/** Dedupe and drop anything that can't be a usable jump binding:
+ *  non-strings, empty/comma-bearing values (commas are the storage
+ *  delimiter), and reserved codes that already mean something else.
+ *  Callers decide what an empty result means — the loader and setter
+ *  both refuse to let the binding list become empty. */
+function sanitizeJumpKeys(codes: readonly unknown[]): string[] {
+  const clean: string[] = [];
+  for (const code of codes) {
+    if (typeof code !== "string") continue;
+    const c = code.trim();
+    if (c.length === 0 || c.includes(",")) continue;
+    if ((RESERVED_KEY_CODES as readonly string[]).includes(c)) continue;
+    if (!clean.includes(c)) clean.push(c);
+  }
+  return clean;
+}
+
 function loadAccessibilitySettings(): void {
   accessibility.textScale = loadNumberSetting(
     TEXT_SCALE_KEY,
@@ -1816,6 +1842,8 @@ function loadAccessibilitySettings(): void {
   accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
   setReduceMotionMode(accessibility.reduceMotion);
   accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
+  const storedJumpKeys = sanitizeJumpKeys(loadStringListSetting(JUMP_KEYS_KEY, DEFAULT_JUMP_KEYS));
+  accessibility.jumpKeys = storedJumpKeys.length > 0 ? storedJumpKeys : [...DEFAULT_JUMP_KEYS];
   // Re-hydrate the audio mixer volumes: audio.init() already loaded
   // them, but that ran before hydratePersistence() — this pass picks
   // up any key the Capacitor mirror restored in between.
@@ -2054,6 +2082,23 @@ const GameAPI = {
   },
   isHighContrast() {
     return accessibility.highContrast;
+  },
+
+  /** Replace the gameplay jump bindings. Reserved codes (see
+   *  RESERVED_KEY_CODES) and duplicates are filtered; a call that
+   *  would leave zero usable bindings is rejected outright so the
+   *  player can never lock themselves out of jumping. Returns
+   *  whether the binding was applied. */
+  setJumpKeys(codes: string[]) {
+    if (!Array.isArray(codes)) return false;
+    const clean = sanitizeJumpKeys(codes);
+    if (clean.length === 0) return false;
+    accessibility.jumpKeys = clean;
+    saveStringListSetting(JUMP_KEYS_KEY, clean);
+    return true;
+  },
+  getJumpKeys() {
+    return [...accessibility.jumpKeys];
   },
 
   // ── Volume mixing ───────────────────────────────────────
