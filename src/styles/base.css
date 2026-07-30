@@ -44,3 +44,37 @@
 
   --font-display: "Unbounded Variable", system-ui, sans-serif;
 }
+
+/*
+ * High-contrast palette. Stamped on <body> by setHighContrastMode()
+ * (src/highContrast.ts) when the accessibility toggle is on, so every
+ * chrome surface re-derives from the same tokens — no per-component
+ * overrides needed.
+ *
+ * Direction per token follows its role in legacy.css:
+ *  - dune / dune-dim are ink (text, borders): pushed toward black so
+ *    body and secondary text clear WCAG AA against every light fill.
+ *  - sand / sand-dim / sand-contrast are paper (panel + row fills):
+ *    lifted lighter, keeping the warm cast so the menus still read
+ *    as desert rather than a generic dialog.
+ *  - sky is a fill under dune ink (hover/focus rows): lightened,
+ *    which raises text contrast AND its separation from sand rows.
+ *  - sky-dim is ink (links, focus outlines) on sand: darkened.
+ *  - sky-deep stays a "definitely selected" fill: darkened further
+ *    so the focus state survives the brighter surroundings.
+ *  - coin / cactus are status fills (buy buttons, equipped rows):
+ *    coin brightens under dune ink, cactus darkens under
+ *    sand-contrast ink.
+ */
+body[data-high-contrast="true"] {
+  --color-sand: #faefd2;
+  --color-sand-dim: #f0dfb2;
+  --color-sand-contrast: #fff8e4;
+  --color-sky: #7cd2e8;
+  --color-sky-dim: #1d5e70;
+  --color-sky-deep: #143d49;
+  --color-dune: #140c06;
+  --color-dune-dim: #3a2a1a;
+  --color-coin: #ffcd3c;
+  --color-cactus: #33591f;
+}

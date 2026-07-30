@@ -166,6 +166,7 @@ import {
   polygonsOverlap,
   randRange,
 } from "./helpers";
+import { highContrast, setHighContrastMode } from "./highContrast";
 import { IMAGE_SRCS, IMAGES } from "./images";
 import { applyPadFamilyBodyClass, familyFromGamepadId, type PadFamily } from "./input/padFamily";
 import {
@@ -1184,8 +1185,26 @@ function render() {
     fgCtx.restore();
   }
 
-  // Composite the tinted foreground over the background.
-  ctx.drawImage(fgCanvas, 0, 0, fgCanvas.width, fgCanvas.height, 0, 0, state.width, state.height);
+  // Composite the tinted foreground over the background. High
+  // contrast rides on this one existing draw (no extra full-canvas
+  // pass): a filter sharpens the silhouettes against the sky. It
+  // leans dark-and-saturated by day — obstacles push away from the
+  // bright sky — and crossfades to a brightness lift as the sky
+  // darkens, because darkening already-dark obstacles against the
+  // night sky would erase exactly the separation the mode is for.
+  // The sky-tint damping (see tintStrength) does the rest at night.
+  if (highContrast()) {
+    const sky = state.currentSky;
+    const skyLum = (sky[0] * 0.2126 + sky[1] * 0.7152 + sky[2] * 0.0722) / 255;
+    const darkness = 1 - Math.min(1, skyLum / 0.6);
+    const brightness = (0.93 + darkness * 0.37).toFixed(2);
+    ctx.save();
+    ctx.filter = `contrast(1.1) saturate(1.25) brightness(${brightness})`;
+    ctx.drawImage(fgCanvas, 0, 0, fgCanvas.width, fgCanvas.height, 0, 0, state.width, state.height);
+    ctx.restore();
+  } else {
+    ctx.drawImage(fgCanvas, 0, 0, fgCanvas.width, fgCanvas.height, 0, 0, state.width, state.height);
+  }
 
   // Confetti — drawn AFTER the tinted foreground so the
   // colors pop at any time of day (no sky-tint washing them
@@ -1842,6 +1861,7 @@ function loadAccessibilitySettings(): void {
   accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
   setReduceMotionMode(accessibility.reduceMotion);
   accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
+  setHighContrastMode(accessibility.highContrast);
   const storedJumpKeys = sanitizeJumpKeys(loadStringListSetting(JUMP_KEYS_KEY, DEFAULT_JUMP_KEYS));
   accessibility.jumpKeys = storedJumpKeys.length > 0 ? storedJumpKeys : [...DEFAULT_JUMP_KEYS];
   // Re-hydrate the audio mixer volumes: audio.init() already loaded
@@ -1864,6 +1884,12 @@ applyTextScale(
 // attribute, so an explicit "on"/"off" choice must land before the
 // start screen becomes interactive, not after init()'s awaits.
 setReduceMotionMode(loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES));
+
+// High contrast gets the same early stamp: the body attribute drives
+// the chrome palette, so the start screen should paint with the
+// player's contrast choice rather than flash the default tokens
+// until init()'s awaits resolve.
+setHighContrastMode(loadBoolFlag(HIGH_CONTRAST_KEY, false));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GameCallback = (...args: any[]) => void;
@@ -2079,6 +2105,7 @@ const GameAPI = {
   setHighContrast(on: boolean) {
     accessibility.highContrast = on === true;
     saveBoolFlag(HIGH_CONTRAST_KEY, accessibility.highContrast);
+    setHighContrastMode(accessibility.highContrast);
   },
   isHighContrast() {
     return accessibility.highContrast;

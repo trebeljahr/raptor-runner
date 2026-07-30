@@ -21,6 +21,7 @@ import {
   SUN_RADIUS_SCALE,
 } from "../constants";
 import { lerpColor, rgb } from "../helpers";
+import { highContrast } from "../highContrast";
 import { state } from "../state";
 
 /*
@@ -172,7 +173,13 @@ export function tintStrength() {
   const dz = sky[2] - dayBlue[2];
   const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
   const t = Math.min(1, distance / 250);
-  return 0.05 + t * t * 0.32;
+  const s = 0.05 + t * t * 0.32;
+  // The tint blends silhouettes toward the sky colour — exactly the
+  // figure/ground separation high-contrast mode exists to protect,
+  // and it peaks at night when obstacles are hardest to read. Halve
+  // it at the source so every consumer (both source-atop washes and
+  // the per-sprite tintFactor) stays consistent.
+  return highContrast() ? s * 0.5 : s;
 }
 
 /** Per-channel multiply factor that the global tint applies. */
