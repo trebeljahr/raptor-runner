@@ -132,7 +132,13 @@ export function Achievements({ onClose }: AchievementsProps) {
                   <AchievementIcon ach={a} hidden={isHidden} />
                 </div>
                 <div className="body">
-                  <div className="title">{isHidden ? "???" : a.title}</div>
+                  {/* Locked/unlocked is otherwise only conveyed by the
+                      grey-out CSS on the row — invisible to a screen
+                      reader. */}
+                  <div className="title">
+                    <span className="sr-only">{a.unlocked ? "Unlocked: " : "Locked: "}</span>
+                    {isHidden ? "???" : a.title}
+                  </div>
                   <div className="desc">
                     {isHidden ? "Keep playing to discover this secret..." : a.desc}
                   </div>

@@ -16,7 +16,7 @@
  * via flashShareLabel). The component is a dumb renderer — every click
  * delegates to a callback prop.
  */
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
 
 export interface ScoreCardActionsProps {
@@ -62,18 +62,6 @@ export function ScoreCardActions({
     onRestart();
   };
 
-  const handleHintKey = (e: KeyboardEvent) => {
-    // role=button + tabindex=0 gets Enter/Space keyboard activation
-    // in browsers, but div/p elements don't fire click on Space by
-    // default — mirror the vanilla behaviour that made the hint a
-    // clickable target for keyboard users too.
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      e.stopPropagation();
-      onRestart();
-    }
-  };
-
   return (
     <>
       <button
@@ -92,7 +80,7 @@ export function ScoreCardActions({
         type="button"
         hidden={reviveCost == null}
         disabled={!reviveAffordable}
-        aria-label="Revive with coins"
+        aria-label={`Revive for ${reviveCost ?? 0} coins`}
         onClick={handleRevive}
       >
         <span className="revive-btn-inner">
@@ -103,21 +91,20 @@ export function ScoreCardActions({
         </span>
         <span className="revive-btn-progress" aria-hidden="true"></span>
       </button>
-      <div
-        className="revive-balance"
-        aria-live="polite"
-        hidden={reviveCost == null || reviveBalance == null}
-      >
+      {/* No aria-live here on purpose: the coin-fill tween rewrites
+          this number every animation frame for ~1.2s, and a live
+          region would queue dozens of announcements. Screen readers
+          still get the settled value when reading the card. */}
+      <div className="revive-balance" hidden={reviveCost == null || reviveBalance == null}>
         You have <span>{reviveBalance ?? 0}</span>
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </div>
       <div className="score-card-actions">
-        <button
-          className="share-score-btn"
-          type="button"
-          aria-label="Share your score"
-          onClick={handleShare}
-        >
+        {/* No aria-label: the visible label IS the accessible name, so
+            the "Copied!" / "Shared!" feedback flashes are announced
+            (the label span is a polite live region) instead of being
+            masked by a static override. */}
+        <button className="share-score-btn" type="button" onClick={handleShare}>
           <span className="inner">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="18" cy="5" r="3"></circle>
@@ -126,7 +113,9 @@ export function ScoreCardActions({
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
-            <span className="label">{shareLabel}</span>
+            <span className="label" aria-live="polite">
+              {shareLabel}
+            </span>
           </span>
         </button>
         <button
@@ -159,11 +148,11 @@ export function ScoreCardActions({
         const hintHost = document.getElementById("score-card-hint-root");
         if (!hintHost) return null;
         return createPortal(
-          <p
+          <button
+            type="button"
             className="score-card-hint"
-            style={{ cursor: "pointer" }}
+            aria-label="Restart"
             onClick={handleRestart}
-            onKeyDown={handleHintKey}
           >
             <span className="kbd-hint">
               Press <kbd>Enter</kbd> to restart
@@ -177,7 +166,7 @@ export function ScoreCardActions({
               <kbd className="gp-select glyph-nintendo">A</kbd>
               <kbd className="gp-select glyph-generic">●</kbd> to restart
             </span>
-          </p>,
+          </button>,
           hintHost,
         );
       })()}

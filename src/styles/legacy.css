@@ -114,6 +114,24 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
 }
 
+/* ───────── Screen-reader-only text ─────────
+ * Visually hides an element while keeping it in the accessibility
+ * tree. Standard clip-rect recipe; used for state text (locked /
+ * unlocked, key-capture status) that sighted users already get
+ * from styling or the control itself. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ───────── Custom scrollbar ─────────
        * Matches the brand palette (sand track, dune thumb) so the
        * menu panels / credits / achievements scrollers feel like part
@@ -925,8 +943,15 @@ body[data-reduce-motion="on"] .score-display:hover .trophy-icon {
     2px 2px 0 var(--color-dune),
     0 4px 0 var(--color-dune);
 }
+/* Rendered as a real <button> (it restarts on activation), so the
+         UA button chrome is reset here — visually it stays the same
+         text-only hint the old <p> was. */
 .score-card-hint {
   margin: 0.6rem 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
   color: var(--color-sand-contrast);
   font-family: var(--font-display);
   font-weight: 500;
@@ -936,6 +961,12 @@ body[data-reduce-motion="on"] .score-display:hover .trophy-icon {
     1px -1px 0 var(--color-dune),
     -1px 1px 0 var(--color-dune),
     1px 1px 0 var(--color-dune);
+}
+.score-card-hint:focus-visible,
+.score-card-hint.kbd-focus {
+  outline: 2px solid var(--color-sand-contrast);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 .score-card-hint kbd {
   display: inline-block;
@@ -1921,11 +1952,16 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font: inherit;
   font-size: 0.9rem;
 }
+/* Solid deep teal, not the earlier 50%-alpha sky tint: a focus
+         indicator on a white control surface needs to clear the 3:1
+         non-text contrast bar, and the translucent ring measured well
+         under it. --color-sky-deep is the same token the shop's
+         d-pad focus ring uses. */
 .menu-panel .accessibility-range:focus-visible,
 .menu-panel .accessibility-select:focus-visible,
 .menu-panel .accessibility-keycap:focus-visible,
 .menu-panel .accessibility-keyreset:focus-visible {
-  outline: 2px solid rgba(80, 180, 205, 0.5);
+  outline: 2px solid var(--color-sky-deep);
   outline-offset: 1px;
 }
 /* Key-binding row: the capture button shares the select surface so

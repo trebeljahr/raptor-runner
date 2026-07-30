@@ -55,6 +55,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!muted}
         onClick={(e) => {
           stop(e);
           cb.onToggleSound();
@@ -80,6 +81,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!musicMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleMusic();
@@ -106,6 +108,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!jumpMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleJumpSound();
@@ -133,6 +136,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!rainSoundMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleRainSound();
@@ -160,6 +164,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!thunderMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleThunder();
@@ -184,6 +189,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!footstepsMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleFootsteps();
@@ -210,6 +216,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!coinsMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleCoinsSound();
@@ -235,6 +242,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!uiMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleUiSound();
@@ -260,6 +268,7 @@ export function SoundSettings({ callbacks: cb }: SoundSettingsProps) {
       <button
         className="menu-item"
         type="button"
+        aria-pressed={!eventsMuted}
         onClick={(e) => {
           stop(e);
           cb.onToggleEventsSound();

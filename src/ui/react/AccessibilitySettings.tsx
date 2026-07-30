@@ -187,6 +187,15 @@ function KeyCaptureRow({ row }: { row: AccessibilityKeyCaptureRow }) {
   const [hint, setHint] = useState<string | null>(null);
   const hintId = `accessibility-${row.id}-hint`;
   const current = row.get().map(formatKeyCode).join(", ");
+  // Live-region text for the capture flow. Kept in one always-mounted
+  // role="status" span (below) because a status region that mounts
+  // WITH its content is unreliably announced — the node has to exist
+  // first, then change. Rejection hints are visible; the armed-state
+  // prompt is redundant with the button text for sighted users, so
+  // the span goes screen-reader-only unless there's a hint to show.
+  const statusText = capturing
+    ? (hint ?? "Press a key to set the new binding. Press Escape to cancel.")
+    : (hint ?? "");
 
   // The capture listener lives on window in the CAPTURE phase so an
   // armed capture wins against every other keydown consumer — the
@@ -259,11 +268,13 @@ function KeyCaptureRow({ row }: { row: AccessibilityKeyCaptureRow }) {
         >
           Reset
         </button>
-        {hint ? (
-          <span className="accessibility-hint" id={hintId} role="status">
-            {hint}
-          </span>
-        ) : null}
+        <span
+          className={hint ? "accessibility-hint" : "accessibility-hint sr-only"}
+          id={hintId}
+          role="status"
+        >
+          {statusText}
+        </span>
       </span>
     </div>
   );

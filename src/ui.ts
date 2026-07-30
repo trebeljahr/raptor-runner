@@ -268,10 +268,17 @@ function scoreLoop() {
       }
       if (scoreValueEl) scoreValueEl.textContent = String(Math.floor(displayedScore));
     }
-    // Update the aria-label only when the REAL score
-    // changes, not on every tween frame, so assistive
-    // tech doesn't get spammed with intermediate values.
-    if (target !== lastAriaScore && scoreDisplay) {
+    // Update the aria-label only when the score crosses a 100 m
+    // milestone (plus once at 0 when the HUD appears). The real
+    // score ticks up every few frames during a run, and a live
+    // region that changes that often reads as a continuous stream
+    // — screen-reader users get a periodic progress call-out
+    // instead. The value spans themselves are aria-hidden so the
+    // per-frame tween writes never reach assistive tech.
+    if (
+      scoreDisplay &&
+      (lastAriaScore < 0 || Math.floor(target / 100) !== Math.floor(lastAriaScore / 100))
+    ) {
       const coinsForLabel = game.getCoinsBalance?.() ?? 0;
       scoreDisplay.setAttribute("aria-label", `Score: ${target} meters, ${coinsForLabel} coins`);
       lastAriaScore = target;
@@ -1861,6 +1868,53 @@ document.addEventListener(
       } else {
         toggleMenu();
       }
+    }
+  },
+  true,
+);
+
+// ── Tab focus trap for modal overlays ──────────────────
+// The menu and the .imprint-overlay family all declare
+// aria-modal="true", which tells screen readers the background is
+// inert — but nothing was actually stopping Tab from walking out of
+// the dialog onto the canvas / HUD buttons behind it. Wrap Tab (and
+// Shift+Tab) at the edges of the open overlay so keyboard focus
+// cycles inside it, matching what the aria-modal contract promises.
+// Capture phase so this wins even if a child stops propagation.
+function getModalFocusables(modal: HTMLElement): HTMLElement[] {
+  const nodes = modal.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, iframe, summary, [tabindex]:not([tabindex="-1"])',
+  );
+  const list: HTMLElement[] = [];
+  for (const el of nodes) {
+    if ("disabled" in el && (el as HTMLButtonElement).disabled) continue;
+    // Skips anything under display:none (pre-game gates, closed
+    // <details> bodies, hidden buttons).
+    if (!el.offsetParent) continue;
+    list.push(el);
+  }
+  return list;
+}
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (e.key !== "Tab") return;
+    const modal = document.querySelector<HTMLElement>(".menu-overlay.open, .imprint-overlay.open");
+    if (!modal) return;
+    const focusables = getModalFocusables(modal);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    const inside = !!active && modal.contains(active);
+    if (e.shiftKey) {
+      if (!inside || active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (!inside || active === last) {
+      e.preventDefault();
+      first.focus();
     }
   },
   true,

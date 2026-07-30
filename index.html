@@ -611,7 +611,13 @@
         <path d="M7 6H4a2 2 0 0 0-2 2v1a3 3 0 0 0 3 3h2" />
         <path d="M17 6h3a2 2 0 0 1 2 2v1a3 3 0 0 1-3 3h-2" />
       </svg>
-      <span id="score-value" class="score-value">0</span>
+      <!-- Both value spans are aria-hidden: their textContent is
+           rewritten every animation frame by the tween in ui.ts,
+           and text mutations inside a role="status" region would
+           each queue a screen-reader announcement. The container's
+           aria-label (updated at a throttled cadence by scoreLoop)
+           is the announced surface instead. -->
+      <span id="score-value" class="score-value" aria-hidden="true">0</span>
       <span class="score-unit" aria-hidden="true">m</span>
       <span class="score-display-sep" aria-hidden="true"></span>
       <img
@@ -620,17 +626,22 @@
         class="score-coin-icon"
         aria-hidden="true"
       />
-      <span id="score-coin-value" class="score-value">0</span>
+      <span id="score-coin-value" class="score-value" aria-hidden="true"
+        >0</span
+      >
     </div>
 
     <!-- Achievement toast stack: top-center, slides in/out when a
          new achievement unlocks. Queued — multiple toasts stack
-         vertically and auto-dismiss on their own timers. -->
+         vertically and auto-dismiss on their own timers.
+         aria-atomic=false so only the newly appended toast is
+         announced; atomic=true re-read every toast still on screen
+         each time another one landed. -->
     <div
       id="achievement-toasts"
       class="achievement-toasts"
       aria-live="polite"
-      aria-atomic="true"
+      aria-atomic="false"
     ></div>
 
     <!-- Top-right icon cluster: sound toggle + settings cog -->
@@ -641,7 +652,12 @@
         aria-label="Unmute"
         aria-pressed="false"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true"
+        >
           <path
             class="speaker"
             d="M10 3.5L5.5 7H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2.5L10 16.5V3.5Z"
@@ -713,6 +729,7 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
         >
           <circle cx="12" cy="12" r="3"></circle>
           <path

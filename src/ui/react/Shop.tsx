@@ -189,6 +189,10 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
 
   // biome-ignore lint/suspicious/noImplicitAnyLet: auto-suppressed during biome 2.x bump
   let action;
+  // aria-labels carry the item name — the grid renders one visually
+  // identical "Equip" / "Buy · N" button per item, and a screen-reader
+  // user tabbing through otherwise hears fourteen indistinguishable
+  // buttons with no way to tell which cosmetic each belongs to.
   if (equipped) {
     // Click toggles off — matches the cosmetics drawer so controller
     // players can unequip without backing out of the shop.
@@ -196,6 +200,7 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
       <button
         type="button"
         className="shop-item-action shop-item-action-equipped"
+        aria-label={`${def.name} equipped. Activate to unequip`}
         onClick={handleUnequip}
       >
         Equipped
@@ -203,13 +208,23 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
     );
   } else if (owned) {
     action = (
-      <button type="button" className="shop-item-action" onClick={handleEquip}>
+      <button
+        type="button"
+        className="shop-item-action"
+        aria-label={`Equip ${def.name}`}
+        onClick={handleEquip}
+      >
         Equip
       </button>
     );
   } else if (canAfford || debug) {
     action = (
-      <button type="button" className="shop-item-action" onClick={handleBuy}>
+      <button
+        type="button"
+        className="shop-item-action"
+        aria-label={`Buy ${def.name} for ${def.price} coins`}
+        onClick={handleBuy}
+      >
         <span className="shop-item-price">
           {isDebugFree ? `Buy · ${def.price} (debug)` : `Buy · ${def.price}`}
         </span>
@@ -222,7 +237,12 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
     // price. The CSS gives it a dashed, low-opacity look so it's
     // visibly non-actionable.
     action = (
-      <button type="button" className="shop-item-action shop-item-action-poor" aria-disabled="true">
+      <button
+        type="button"
+        className="shop-item-action shop-item-action-poor"
+        aria-disabled="true"
+        aria-label={`${def.name} costs ${def.price} coins — not enough coins`}
+      >
         <span className="shop-item-price">{def.price}</span>
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </button>
