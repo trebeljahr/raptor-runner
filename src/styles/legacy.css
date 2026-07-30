@@ -1722,10 +1722,10 @@ body.gamepad-connected .menu-panel .menu-hint {
   border-radius: 999px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
 }
-/* Generic face-button chip — a filled dot stands in for "any
-         button on the face cluster" so players reading the hint
-         don't have to translate from Xbox A → PlayStation Cross →
-         Switch Pro B in their heads. */
+/* Confirm-action chip in brand blue; the glyph inside comes from
+         the per-family variants below, so players see their own
+         pad's label instead of translating from Xbox A →
+         PlayStation Cross → Switch Pro B in their heads. */
 .menu-panel .menu-gamepad-hint kbd.gp-select {
   background: #50b4cd; /* game brand */
 }
@@ -1733,6 +1733,31 @@ body.gamepad-connected .menu-panel .menu-hint {
          the most universal "menu" indicator. */
 .menu-panel .menu-gamepad-hint kbd.gp-back {
   background: #555;
+}
+/* Per-family prompt glyphs. Each prompt spot renders four sibling
+         <kbd> variants (.glyph-xbox / .glyph-ps / .glyph-nintendo /
+         .glyph-generic) and the pad-family-* body class — set by
+         applyPadFamilyBodyClass() in src/input/padFamily.ts from the
+         gamepadconnected listener — reveals exactly one. Hiding goes
+         through body:not(...) rather than pairing a hide-all rule
+         with reveal rules, so a visible variant keeps whatever
+         display its context defines (inline-flex chips here,
+         inline-block boxes in the start/score hints). Global on
+         purpose: the same variants appear in the pause menu, the
+         start screen and the score card. */
+body:not(.pad-family-xbox) kbd.glyph-xbox,
+body:not(.pad-family-playstation) kbd.glyph-ps,
+body:not(.pad-family-nintendo) kbd.glyph-nintendo {
+  display: none;
+}
+/* The generic dot doubles as the defensive fallback: it hides only
+         while a known family is active, so a connected pad without a
+         family class (detection skipped or class cleared) still gets
+         a usable prompt. */
+body.pad-family-xbox kbd.glyph-generic,
+body.pad-family-playstation kbd.glyph-generic,
+body.pad-family-nintendo kbd.glyph-generic {
+  display: none;
 }
 /* Reveal when a controller is attached. The gameplay build path
          toggles body.gamepad-connected from the gamepadconnected

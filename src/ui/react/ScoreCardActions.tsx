@@ -168,8 +168,14 @@ export function ScoreCardActions({
             <span className="kbd-hint">
               Press <kbd>Enter</kbd> to restart
             </span>
+            {/* Restart = the family's confirm button; one <kbd> per
+                family, CSS reveals the one matching the pad-family-*
+                body class (see src/input/padFamily.ts). */}
             <span className="pad-hint">
-              <kbd className="gp-select">●</kbd> to restart
+              <kbd className="gp-select glyph-xbox">A</kbd>
+              <kbd className="gp-select glyph-ps">✕</kbd>
+              <kbd className="gp-select glyph-nintendo">A</kbd>
+              <kbd className="gp-select glyph-generic">●</kbd> to restart
             </span>
           </p>,
           hintHost,

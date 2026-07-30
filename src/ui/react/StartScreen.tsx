@@ -78,8 +78,15 @@ export function StartScreen({ callbacks: cb }: StartScreenProps) {
           Tip: press <kbd>Space</kbd> or tap to jump · <kbd>Esc</kbd> for menu
         </p>
         <p className="start-hint start-hint-touch">Tip: Tap to jump</p>
+        {/* Jump = the family's confirm button; one <kbd> per family,
+            CSS reveals the one matching the pad-family-* body class
+            (see src/input/padFamily.ts). The ☰ menu glyph is
+            universal across pads. */}
         <p className="start-hint start-hint-gamepad">
-          Tip: <kbd>●</kbd> to jump · <kbd>☰</kbd> for menu
+          Tip: <kbd className="glyph-xbox">A</kbd>
+          <kbd className="glyph-ps">✕</kbd>
+          <kbd className="glyph-nintendo">A</kbd>
+          <kbd className="glyph-generic">●</kbd> to jump · <kbd>☰</kbd> for menu
         </p>
       </div>
       <p className="start-byline">

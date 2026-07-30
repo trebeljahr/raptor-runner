@@ -157,6 +157,7 @@ import {
   randRange,
 } from "./helpers";
 import { IMAGE_SRCS, IMAGES } from "./images";
+import { applyPadFamilyBodyClass, familyFromGamepadId } from "./input/padFamily";
 import {
   hydratePersistence,
   loadBoolFlag,
@@ -3291,6 +3292,15 @@ async function init() {
   window.addEventListener("gamepadconnected", (e: GamepadEvent) => {
     _gamepad.connected = true;
     document.body.classList.add("gamepad-connected");
+    // Prompt glyphs follow the same URL override as input routing:
+    // forcing the Nintendo layout must flip the displayed letters
+    // too, or the hint would name buttons the routing ignores.
+    // `?gamepad=standard` only pins routing — "standard" spans both
+    // Xbox- and PlayStation-labeled pads, so the id heuristic still
+    // picks which labels to show.
+    applyPadFamilyBodyClass(
+      _gamepadLayoutForce === "nintendo" ? "nintendo" : familyFromGamepadId(e.gamepad.id),
+    );
     console.log("Gamepad connected:", e.gamepad.id);
   });
   window.addEventListener("gamepaddisconnected", () => {
@@ -3317,6 +3327,10 @@ async function init() {
       // getGamepads can throw (see pollGamepad); pausing is the
       // safe default when we cannot tell what remains.
     }
+    // Family glyphs reset only when the last pad leaves — while
+    // another pad remains attached, its prompts stay put instead of
+    // flashing to the generic set (a re-plug re-derives the family).
+    if (!padsRemain) applyPadFamilyBodyClass(null);
     if (!padsRemain && state.started && !state.paused && !state.gameOver) {
       (window as unknown as { __rrToggleMenu?: () => void }).__rrToggleMenu?.();
     }

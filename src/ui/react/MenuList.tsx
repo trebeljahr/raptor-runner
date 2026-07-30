@@ -466,11 +466,22 @@ export function MenuList({ callbacks: cb }: MenuListProps) {
         <span>
           <kbd>↕</kbd> Navigate
         </span>
+        {/* One <kbd> per controller family; the pad-family-* body
+            class (see src/input/padFamily.ts) reveals the matching
+            one via CSS. Nintendo shows the same letters as Xbox but
+            keeps its own class — the physical positions differ and
+            faceLayout() already routes them separately. */}
         <span>
-          <kbd className="gp-select">A</kbd> Select
+          <kbd className="gp-select glyph-xbox">A</kbd>
+          <kbd className="gp-select glyph-ps">✕</kbd>
+          <kbd className="gp-select glyph-nintendo">A</kbd>
+          <kbd className="gp-select glyph-generic">●</kbd> Select
         </span>
         <span>
-          <kbd className="gp-back">B</kbd> Back
+          <kbd className="gp-back glyph-xbox">B</kbd>
+          <kbd className="gp-back glyph-ps">○</kbd>
+          <kbd className="gp-back glyph-nintendo">B</kbd>
+          <kbd className="gp-back glyph-generic">◦</kbd> Back
         </span>
         <span>
           <kbd className="gp-back">☰</kbd> Close
