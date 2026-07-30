@@ -402,10 +402,23 @@ body {
 .start-btn:not(:disabled):not(:hover):not(:focus-visible):not(.kbd-focus) {
   animation: start-btn-pulse 3s ease-in-out infinite;
 }
+/* Every prefers-reduced-motion block below pairs the media query
+       * with the in-game setting: the game stamps
+       * body[data-reduce-motion="on"|"off"] for an explicit choice and
+       * removes the attribute when set to "system". Inside each media
+       * block, body:not([data-reduce-motion="off"]) lets an explicit
+       * "off" re-enable the animation even when the OS prefers reduced
+       * motion; the unqualified body[data-reduce-motion="on"] rule
+       * outside the media query forces it regardless of OS setting. */
 @media (prefers-reduced-motion: reduce) {
-  .start-btn:not(:disabled):not(:hover):not(:focus-visible):not(.kbd-focus) {
+  body:not([data-reduce-motion="off"])
+    .start-btn:not(:disabled):not(:hover):not(:focus-visible):not(.kbd-focus) {
     animation: none;
   }
+}
+body[data-reduce-motion="on"]
+  .start-btn:not(:disabled):not(:hover):not(:focus-visible):not(.kbd-focus) {
+  animation: none;
 }
 .start-btn .spinner {
   display: none;
@@ -685,10 +698,14 @@ body.needs-rotate .rotate-prompt {
   font-weight: 500;
 }
 @media (prefers-reduced-motion: reduce) {
-  .achievement-toast,
-  .achievement-toast.leaving {
+  body:not([data-reduce-motion="off"]) .achievement-toast,
+  body:not([data-reduce-motion="off"]) .achievement-toast.leaving {
     transition: none;
   }
+}
+body[data-reduce-motion="on"] .achievement-toast,
+body[data-reduce-motion="on"] .achievement-toast.leaving {
+  transition: none;
 }
 
 /* Top-left score pill: matches the HUD icon cluster in the
@@ -776,9 +793,12 @@ body.needs-rotate .rotate-prompt {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .score-display:hover .trophy-icon {
+  body:not([data-reduce-motion="off"]) .score-display:hover .trophy-icon {
     animation: none;
   }
+}
+body[data-reduce-motion="on"] .score-display:hover .trophy-icon {
+  animation: none;
 }
 
 /* Score-card panel: appears on game-over, holds the card
@@ -1259,12 +1279,18 @@ body.gamepad-connected .score-card-hint .pad-hint {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .share-score-btn {
+  body:not([data-reduce-motion="off"]) .share-score-btn {
     animation: none;
   }
-  .score-card-panel.visible {
+  body:not([data-reduce-motion="off"]) .score-card-panel.visible {
     animation: none;
   }
+}
+body[data-reduce-motion="on"] .share-score-btn {
+  animation: none;
+}
+body[data-reduce-motion="on"] .score-card-panel.visible {
+  animation: none;
 }
 /* Top-right HUD icons (sound, fullscreen, cog). Same flat
        * sand-on-dune panel treatment as the start-screen buttons +
@@ -1372,9 +1398,12 @@ body.gamepad-connected .score-card-hint .pad-hint {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fullscreen-btn:hover svg {
+  body:not([data-reduce-motion="off"]) .fullscreen-btn:hover svg {
     animation: none;
   }
+}
+body[data-reduce-motion="on"] .fullscreen-btn:hover svg {
+  animation: none;
 }
 
 /* Sound button: animated waves + mute X using CSS transitions.

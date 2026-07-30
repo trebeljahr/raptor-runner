@@ -51,6 +51,7 @@ import {
 } from "../constants";
 import { drawFourPointStar } from "../entities/coins";
 import { compactInPlace, randRange } from "../helpers";
+import { reduceMotion } from "../reducedMotion";
 import { state } from "../state";
 
 // ══════════════════════════════════════════════════════════════════
@@ -147,6 +148,10 @@ export function bakeShootingStarSprite(): void {
 }
 
 export function maybeSpawnShootingStar(frameScale: number): void {
+  // Fast peripheral streaks are exactly the kind of decorative
+  // motion the reduce-motion preference asks to avoid, and skipping
+  // the spawn has zero gameplay impact (pure easter egg).
+  if (reduceMotion()) return;
   if (Math.floor(state.smoothPhase) < 1) return;
   if (!state.isNight) return;
   if (state.rainIntensity > SHOOTING_STAR_RAIN_THRESHOLD) return; // no shooting stars in overcast
@@ -244,9 +249,14 @@ const CONFETTI_COLORS = [
 ];
 
 export function spawnConfettiBurst(worldX: number, worldY: number): void {
-  for (let i = 0; i < CONFETTI_BURST_COUNT; i++) {
+  // Reduced motion keeps the unlock celebration (it's feedback, not
+  // just juice) but damps it hard: a quarter of the pieces at gentler
+  // speeds reads as a puff instead of an explosion.
+  const reduced = reduceMotion();
+  const count = reduced ? Math.round(CONFETTI_BURST_COUNT / 4) : CONFETTI_BURST_COUNT;
+  for (let i = 0; i < count; i++) {
     const angle = randRange(-Math.PI, 0); // upward hemisphere
-    const speed = randRange(180, 520);
+    const speed = reduced ? randRange(120, 280) : randRange(180, 520);
     state.confetti.push({
       x: worldX,
       y: worldY,
@@ -359,7 +369,11 @@ export function drawConfetti(ctx: CanvasRenderingContext2D): void {
 export function spawnDust(x: number, y: number, scale = 1): void {
   const baseCount =
     DUST_BURST_MIN + Math.floor(Math.random() * (DUST_BURST_MAX - DUST_BURST_MIN + 1));
-  const count = Math.max(1, Math.round(baseCount * scale));
+  // Half density under reduced motion — the landing still reads
+  // (one or two motes ground the raptor visually) without the
+  // constant scatter of full footstep dust.
+  const density = reduceMotion() ? 0.5 : 1;
+  const count = Math.max(1, Math.round(baseCount * scale * density));
   const jitter = 12 * scale;
   for (let i = 0; i < count; i++) {
     const angle = Math.PI + Math.random() * Math.PI; // upper hemisphere fan
@@ -413,7 +427,9 @@ export function drawDust(ctx: CanvasRenderingContext2D): void {
 // ══════════════════════════════════════════════════════════════════
 
 export function spawnAsh(screenX: number, screenY: number, w: number, h: number): void {
-  const count = 12 + Math.floor(Math.random() * 8);
+  const baseCount = 12 + Math.floor(Math.random() * 8);
+  // Half density under reduced motion, same reasoning as dust.
+  const count = reduceMotion() ? Math.max(1, Math.round(baseCount / 2)) : baseCount;
   for (let i = 0; i < count; i++) {
     state.ash.push({
       x: screenX + (Math.random() - 0.5) * w,
@@ -496,8 +512,13 @@ export function spawnCoinCollectBurst(x: number, y: number): void {
     startRadius: 4,
     endRadius: 28,
   });
-  for (let i = 0; i < COIN_COLLECT_BURST_COUNT; i++) {
-    const angle = (i / COIN_COLLECT_BURST_COUNT) * Math.PI * 2 + randRange(-0.15, 0.15);
+  // Under reduced motion keep the ring (it's the pickup cue and
+  // stays local to the coin) but halve the radiating sparks.
+  const sparkCount = reduceMotion()
+    ? Math.max(1, Math.round(COIN_COLLECT_BURST_COUNT / 2))
+    : COIN_COLLECT_BURST_COUNT;
+  for (let i = 0; i < sparkCount; i++) {
+    const angle = (i / sparkCount) * Math.PI * 2 + randRange(-0.15, 0.15);
     const speed = randRange(COIN_COLLECT_SPARK_SPEED_MIN, COIN_COLLECT_SPARK_SPEED_MAX);
     state.coinSparks.push({
       kind: "spark",

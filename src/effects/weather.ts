@@ -28,6 +28,7 @@ import {
 } from "../constants";
 import { hapticThunder } from "../haptic";
 import { compactInPlace } from "../helpers";
+import { reduceMotion } from "../reducedMotion";
 import { duneHeight } from "../render/world";
 import { state } from "../state";
 
@@ -410,8 +411,12 @@ function _renderBoltToCache(points: any[]): void {
 
 export function drawLightning(ctx: CanvasRenderingContext2D) {
   if (state.lightning.alpha <= 0) return;
-  // White flash overlay (dims faster than bolt)
-  const flashAlpha = Math.max(0, state.lightning.alpha - 0.3) * 0.5;
+  // White flash overlay (dims faster than bolt). Suppressed under
+  // reduced motion: the full-screen luminance spike is the
+  // photosensitivity concern, while the bolt itself is small, local,
+  // and doubles as the storm's gameplay-visible weather cue — so the
+  // bolt keeps rendering either way.
+  const flashAlpha = reduceMotion() ? 0 : Math.max(0, state.lightning.alpha - 0.3) * 0.5;
   if (flashAlpha > 0) {
     ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
     ctx.fillRect(0, 0, state.width, state.height);

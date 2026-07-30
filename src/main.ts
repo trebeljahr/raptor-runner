@@ -205,6 +205,7 @@ import {
   saveTotalNightsSurvived,
   saveUnlockedAchievements,
 } from "./persistence";
+import { setReduceMotionMode } from "./reducedMotion";
 import {
   cloudVisualWidth,
   drawCloudMorphed,
@@ -1813,6 +1814,7 @@ function loadAccessibilitySettings(): void {
   );
   applyTextScale(accessibility.textScale);
   accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
+  setReduceMotionMode(accessibility.reduceMotion);
   accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
   accessibility.masterVolume = loadNumberSetting(MASTER_VOLUME_KEY, 1, 0, 1);
 }
@@ -1825,6 +1827,12 @@ function loadAccessibilitySettings(): void {
 applyTextScale(
   loadNumberSetting(TEXT_SCALE_KEY, TEXT_SCALE_DEFAULT, TEXT_SCALE_MIN, TEXT_SCALE_MAX),
 );
+
+// Same early-application treatment for reduce-motion: the start
+// screen's CSS pulse animation is governed by the body data
+// attribute, so an explicit "on"/"off" choice must land before the
+// start screen becomes interactive, not after init()'s awaits.
+setReduceMotionMode(loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GameCallback = (...args: any[]) => void;
@@ -2031,6 +2039,7 @@ const GameAPI = {
     if (!(REDUCE_MOTION_VALUES as readonly string[]).includes(mode)) return;
     accessibility.reduceMotion = mode as ReduceMotionSetting;
     saveStringSetting(REDUCE_MOTION_KEY, accessibility.reduceMotion);
+    setReduceMotionMode(accessibility.reduceMotion);
   },
   getReduceMotion() {
     return accessibility.reduceMotion;
