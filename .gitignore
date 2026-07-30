@@ -2,6 +2,9 @@ node_modules/
 dist/
 dev-dist/
 release/
+
+# Derived Steam store capsules — regenerate with scripts/make-steam-capsules.mjs
+steam-assets/
 coverage/
 *.log
 .DS_Store
