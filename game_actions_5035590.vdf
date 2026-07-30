@@ -1,0 +1,57 @@
+"In Game Actions"
+{
+	"actions"
+	{
+		"InGame"
+		{
+			"title"		"#Set_InGame"
+			"StickPadGyro"
+			{
+			}
+			"AnalogTrigger"
+			{
+			}
+			"Button"
+			{
+				"jump"			"#Action_Jump"
+				"menu_toggle"	"#Action_MenuToggle"
+			}
+		}
+		"Menus"
+		{
+			"title"		"#Set_Menus"
+			"StickPadGyro"
+			{
+			}
+			"AnalogTrigger"
+			{
+			}
+			"Button"
+			{
+				"nav_up"		"#Action_NavUp"
+				"nav_down"		"#Action_NavDown"
+				"nav_left"		"#Action_NavLeft"
+				"nav_right"		"#Action_NavRight"
+				"select"		"#Action_Select"
+				"back"			"#Action_Back"
+				"menu_toggle"	"#Action_MenuToggle"
+			}
+		}
+	}
+	"localization"
+	{
+		"english"
+		{
+			"Set_InGame"		"In Game"
+			"Set_Menus"			"Menus"
+			"Action_Jump"		"Jump"
+			"Action_MenuToggle"	"Toggle Menu"
+			"Action_NavUp"		"Navigate Up"
+			"Action_NavDown"	"Navigate Down"
+			"Action_NavLeft"	"Navigate Left"
+			"Action_NavRight"	"Navigate Right"
+			"Action_Select"		"Select"
+			"Action_Back"		"Back"
+		}
+	}
+}

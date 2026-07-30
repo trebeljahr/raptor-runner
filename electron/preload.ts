@@ -10,7 +10,7 @@
  * where this preload never executes.
  */
 
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   // Synchronous flag: the mere presence of window.electronAPI means
@@ -55,4 +55,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ): Promise<boolean> => ipcRenderer.invoke("steam:openOverlay", dialog),
   openSteamOverlayUrl: (url: string): Promise<boolean> =>
     ipcRenderer.invoke("steam:openOverlayUrl", url),
+
+  // Steam Input snapshot stream (~60 Hz, pushed by the main process
+  // only when Steam Input initialized). Returns an unsubscribe
+  // function. The wrapper keeps the IpcRendererEvent out of the page
+  // — nothing Electron-flavoured crosses the context bridge. The
+  // frame is plain JSON; the renderer types it as SteamInputFrame
+  // (src/electron.d.ts).
+  onSteamInputFrame: (cb: (frame: unknown) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, frame: unknown) => cb(frame);
+    ipcRenderer.on("steam-input:frame", listener);
+    return () => {
+      ipcRenderer.removeListener("steam-input:frame", listener);
+    };
+  },
+
+  // Activate a Steam Input action set ("InGame" | "Menus"). Resolves
+  // false when Steam Input is not live — never rejects.
+  setSteamActionSet: (name: string): Promise<boolean> =>
+    ipcRenderer.invoke("steam-input:set-action-set", name),
 });

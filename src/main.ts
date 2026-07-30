@@ -159,6 +159,11 @@ import {
 import { IMAGE_SRCS, IMAGES } from "./images";
 import { applyPadFamilyBodyClass, familyFromGamepadId } from "./input/padFamily";
 import {
+  familyFromSteamInputType,
+  STEAM_ACTION_SETS,
+  STEAM_DIGITAL_ACTIONS,
+} from "./input/steamActions";
+import {
   hydratePersistence,
   loadBoolFlag,
   loadCareerRuns,
@@ -214,6 +219,7 @@ import {
 } from "./services/gameServices";
 import { state } from "./state";
 import { pushAchievementToSteam, reconcileWithSteam } from "./steamBridge";
+import { getFreshSteamFrame, initSteamInput, syncSteamActionSet } from "./steamInput";
 import { track, trackPageview } from "./telemetry";
 
 // Fire the single pageview for this session. Gated inside
@@ -2731,63 +2737,61 @@ function faceLayout(gp: Gamepad): "nintendo" | "standard" {
   return /057e|nintendo|joy.?con|switch pro/i.test(gp.id) ? "nintendo" : "standard";
 }
 
+/**
+ * Per-frame controller intent, decoupled from the input source.
+ *
+ * pollGamepad() reads EITHER Steam Input snapshots (desktop builds
+ * running under Steam, see src/steamInput.ts) OR the W3C Gamepad API,
+ * normalizes whichever it read into this record, and dispatches the
+ * navigation branches from it. Plain fields are edges (fire once per
+ * press); the Held/scroll fields are level-state for continuous
+ * scrolling.
+ */
+type PadIntent = {
+  jump: boolean;
+  menuToggle: boolean;
+  select: boolean;
+  /** Cancel including d-pad left — closes sub-overlays, backs out of
+   *  menus. The game-over card needs LEFT for navigation, hence the
+   *  separate face-only variant below. */
+  back: boolean;
+  /** Cancel via the face button alone (game-over card). On the Steam
+   *  path both variants map to the semantic `back` action — d-pad
+   *  left is a separate nav_left action there, so LEFT cannot exit
+   *  the card by construction. */
+  backFace: boolean;
+  /** Focus-navigation edges: d-pad press or analog-stick flick. */
+  navUp: boolean;
+  navDown: boolean;
+  navLeft: boolean;
+  navRight: boolean;
+  /** D-pad-only edges for the focus walk inside scrollable
+   *  sub-overlays, where a stick flick must keep free-scrolling
+   *  instead of grabbing the focus ring. */
+  stepUp: boolean;
+  stepDown: boolean;
+  /** D-pad held: per-frame scroll fallback at the focus ring's edge. */
+  navUpHeld: boolean;
+  navDownHeld: boolean;
+  /** Stick held past the scroll threshold: free-scroll. Always false
+   *  on the Steam path — there the stick is bound to the nav actions
+   *  in the default configuration and feeds the held fields above. */
+  scrollUp: boolean;
+  scrollDown: boolean;
+};
+
+// Edge detection for Steam frames. Snapshots carry level state, so
+// edges are derived renderer-side against the previous frame —
+// exactly the prevButtons pattern of the W3C path.
+const _steamPrev: Record<string, boolean> = {};
+// Handoff priming, both directions. The first poll after an input-
+// source switch only seeds the incoming path's prev-state from the
+// current levels and emits nothing — a button held across the
+// handoff must neither misfire nor double-fire.
+let _steamNeedsPrime = true;
+let _w3cNeedsPrime = false;
+
 function pollGamepad() {
-  // Short-circuit when no gamepad is attached. `navigator.getGamepads()`
-  // can be surprisingly expensive on some platforms (driver poll) even
-  // when no devices are connected. The `gamepadconnected` listener
-  // flips _gamepad.connected back to true on attach, so the poll
-  // resumes transparently. Saves ~0.1–0.5ms per frame on Windows.
-  if (!_gamepad.connected) return;
-  let gp: Gamepad | undefined;
-  try {
-    const pads = navigator.getGamepads();
-    for (let i = 0; i < pads.length; i++) {
-      if (pads[i]) {
-        gp = pads[i]!;
-        break;
-      }
-    }
-  } catch (_) {
-    return;
-  }
-  if (!gp) return;
-
-  const prev = _gamepad.prevButtons;
-  const btns = gp.buttons;
-
-  const justPressed = (idx: number): boolean => {
-    if (idx >= btns.length) return false;
-    const nowPressed = btns[idx].value > 0.5 || btns[idx].pressed;
-    return nowPressed && !prev[idx];
-  };
-  const anyJustPressed = (indices: readonly number[]): boolean => {
-    for (const i of indices) if (justPressed(i)) return true;
-    return false;
-  };
-
-  // ── Analog stick navigation (debounced) ──────────────────
-  // axes[1] on Standard Mapping is the left-stick Y axis. -1 is
-  // full up, +1 is full down, with a small neutral band around 0.
-  // We edge-detect: each time the stick crosses the press
-  // threshold we emit exactly ONE navigation event; the stick has
-  // to return inside the deadzone before the next event fires.
-  // Without hysteresis a stick resting slightly past threshold
-  // would rapid-fire through the whole menu.
-  const axes = gp.axes || [];
-  const stickY = axes.length > 1 ? axes[1] : 0;
-  let stickPress: -1 | 0 | 1 = 0;
-  if (_gamepad.stickDir === 0) {
-    if (stickY <= -GAMEPAD_STICK_PRESS_THRESHOLD) {
-      _gamepad.stickDir = -1;
-      stickPress = -1;
-    } else if (stickY >= GAMEPAD_STICK_PRESS_THRESHOLD) {
-      _gamepad.stickDir = 1;
-      stickPress = 1;
-    }
-  } else if (Math.abs(stickY) < GAMEPAD_STICK_DEADZONE) {
-    _gamepad.stickDir = 0;
-  }
-
   const w = window as unknown as {
     __rrIsMenuOpen?: () => boolean;
     __rrToggleMenu?: () => void;
@@ -2814,29 +2818,200 @@ function pollGamepad() {
     __onStartKey?: () => void;
   };
 
-  // Continuous-state button helpers for scrolling — edge-detect
-  // is wrong here because we want held buttons to keep scrolling
-  // frame after frame.
-  const anyPressed = (indices: readonly number[]): boolean => {
-    for (const idx of indices) {
-      if (idx >= btns.length) continue;
-      if (btns[idx].value > 0.5 || btns[idx].pressed) return true;
+  let intent: PadIntent;
+  let usingSteam = false;
+
+  const sf = getFreshSteamFrame();
+  if (sf?.available && sf.controllerCount > 0) {
+    // ── Steam Input path ─────────────────────────────────────
+    // While fresh frames with a controller exist, the W3C read is
+    // SKIPPED entirely: Steam exposes an emulated Xbox pad to
+    // Chromium alongside the real device, so consuming both would
+    // double-fire every press — and the emulated pad's id ("Xbox 360
+    // Controller (XInput STANDARD GAMEPAD)") would poison the
+    // id-based family/layout heuristics for, say, a PS5 pad. The
+    // moment frames go stale (Steam quit, handles lost, controllers
+    // released) the untouched W3C path below resumes.
+    usingSteam = true;
+    _w3cNeedsPrime = true;
+    // Steam's own device type beats the Gamepad.id regex — through
+    // the emulated pad every controller would read as xbox.
+    applyPadFamilyBodyClass(familyFromSteamInputType(sf.inputType));
+    if (_steamNeedsPrime) {
+      for (const name of Object.values(STEAM_DIGITAL_ACTIONS)) {
+        _steamPrev[name] = sf.digital[name] === true;
+      }
+      _steamNeedsPrime = false;
+      return;
     }
-    return false;
-  };
+    const level = (name: string): boolean => sf.digital[name] === true;
+    const edge = (name: string): boolean => level(name) && !_steamPrev[name];
+    const A = STEAM_DIGITAL_ACTIONS;
+    // No layout swap here: with Steam Input, `select` means select
+    // and `back` means back — Valve's per-device default configs and
+    // the player's own rebinds absorb vendor button layouts.
+    intent = {
+      jump: edge(A.jump),
+      menuToggle: edge(A.menuToggle),
+      select: edge(A.select),
+      back: edge(A.back),
+      backFace: edge(A.back),
+      navUp: edge(A.navUp),
+      navDown: edge(A.navDown),
+      navLeft: edge(A.navLeft),
+      navRight: edge(A.navRight),
+      stepUp: edge(A.navUp),
+      stepDown: edge(A.navDown),
+      navUpHeld: level(A.navUp),
+      navDownHeld: level(A.navDown),
+      scrollUp: false,
+      scrollDown: false,
+    };
+    // Cursor-hide + prev-state update, mirroring the W3C loop below.
+    let anySteamEdge = false;
+    for (const name of Object.values(A)) {
+      const nowPressed = level(name);
+      if (nowPressed && !_steamPrev[name]) anySteamEdge = true;
+      _steamPrev[name] = nowPressed;
+    }
+    if (anySteamEdge) document.body.classList.add("pad-active");
+  } else {
+    // ── W3C Gamepad path ─────────────────────────────────────
+    _steamNeedsPrime = true;
+    // Short-circuit when no gamepad is attached. `navigator.getGamepads()`
+    // can be surprisingly expensive on some platforms (driver poll) even
+    // when no devices are connected. The `gamepadconnected` listener
+    // flips _gamepad.connected back to true on attach, so the poll
+    // resumes transparently. Saves ~0.1–0.5ms per frame on Windows.
+    if (!_gamepad.connected) return;
+    let gp: Gamepad | undefined;
+    try {
+      const pads = navigator.getGamepads();
+      for (let i = 0; i < pads.length; i++) {
+        if (pads[i]) {
+          gp = pads[i]!;
+          break;
+        }
+      }
+    } catch (_) {
+      return;
+    }
+    if (!gp) return;
+
+    const prev = _gamepad.prevButtons;
+    const btns = gp.buttons;
+    const axes = gp.axes || [];
+    const stickY = axes.length > 1 ? axes[1] : 0;
+
+    if (_w3cNeedsPrime) {
+      // Steam Input just went away mid-session — seed prev-state and
+      // stick hysteresis from the live pad and emit nothing.
+      for (let i = 0; i < prev.length; i++) {
+        prev[i] = i < btns.length && (btns[i].value > 0.5 || btns[i].pressed);
+      }
+      _gamepad.stickDir =
+        stickY <= -GAMEPAD_STICK_PRESS_THRESHOLD
+          ? -1
+          : stickY >= GAMEPAD_STICK_PRESS_THRESHOLD
+            ? 1
+            : 0;
+      _w3cNeedsPrime = false;
+      return;
+    }
+
+    const justPressed = (idx: number): boolean => {
+      if (idx >= btns.length) return false;
+      const nowPressed = btns[idx].value > 0.5 || btns[idx].pressed;
+      return nowPressed && !prev[idx];
+    };
+    const anyJustPressed = (indices: readonly number[]): boolean => {
+      for (const i of indices) if (justPressed(i)) return true;
+      return false;
+    };
+    // Continuous-state button helper for scrolling — edge-detect
+    // is wrong here because we want held buttons to keep scrolling
+    // frame after frame.
+    const anyPressed = (indices: readonly number[]): boolean => {
+      for (const idx of indices) {
+        if (idx >= btns.length) continue;
+        if (btns[idx].value > 0.5 || btns[idx].pressed) return true;
+      }
+      return false;
+    };
+
+    // ── Analog stick navigation (debounced) ──────────────────
+    // axes[1] on Standard Mapping is the left-stick Y axis. -1 is
+    // full up, +1 is full down, with a small neutral band around 0.
+    // We edge-detect: each time the stick crosses the press
+    // threshold we emit exactly ONE navigation event; the stick has
+    // to return inside the deadzone before the next event fires.
+    // Without hysteresis a stick resting slightly past threshold
+    // would rapid-fire through the whole menu.
+    let stickPress: -1 | 0 | 1 = 0;
+    if (_gamepad.stickDir === 0) {
+      if (stickY <= -GAMEPAD_STICK_PRESS_THRESHOLD) {
+        _gamepad.stickDir = -1;
+        stickPress = -1;
+      } else if (stickY >= GAMEPAD_STICK_PRESS_THRESHOLD) {
+        _gamepad.stickDir = 1;
+        stickPress = 1;
+      }
+    } else if (Math.abs(stickY) < GAMEPAD_STICK_DEADZONE) {
+      _gamepad.stickDir = 0;
+    }
+
+    // Per-pad face-button routing. See faceLayout(): Nintendo
+    // pads swap the physical A/B positions relative to the
+    // Standard Mapping indices. Selecting the arrays per-poll
+    // means a player hot-swapping an Xbox pad for a Switch Pro
+    // pad mid-session gets the right behaviour immediately —
+    // no remount required.
+    const layout = faceLayout(gp);
+    const selectButtons = layout === "nintendo" ? [1, 2, 3] : [0, 2, 3];
+    const backButtons = layout === "nintendo" ? [0, 14] : [1, 14];
+    // Face-cancel alone, without d-pad left — the game-over card
+    // uses LEFT as a navigation key (wraps to the previous action),
+    // so hooking its close to backButtons would make every LEFT
+    // press snap the player off the score card.
+    const faceCancel = layout === "nintendo" ? [0] : [1];
+
+    intent = {
+      jump: anyJustPressed(GAMEPAD_JUMP_BUTTONS),
+      menuToggle: anyJustPressed(GAMEPAD_MENU_TOGGLE_BUTTONS),
+      select: anyJustPressed(selectButtons),
+      back: anyJustPressed(backButtons),
+      backFace: anyJustPressed(faceCancel),
+      navUp: anyJustPressed(GAMEPAD_MENU_UP_BUTTONS) || stickPress === -1,
+      navDown: anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS) || stickPress === 1,
+      navLeft: anyJustPressed(GAMEPAD_MENU_LEFT_BUTTONS),
+      navRight: anyJustPressed(GAMEPAD_MENU_RIGHT_BUTTONS),
+      stepUp: anyJustPressed(GAMEPAD_MENU_UP_BUTTONS),
+      stepDown: anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS),
+      navUpHeld: anyPressed(GAMEPAD_MENU_UP_BUTTONS),
+      navDownHeld: anyPressed(GAMEPAD_MENU_DOWN_BUTTONS),
+      scrollUp: stickY < -0.3,
+      scrollDown: stickY > 0.3,
+    };
+
+    // Cursor-hide: any just-pressed pad button flips the body into
+    // "pad-active" mode, which CSS uses to hide the mouse cursor. A
+    // pointermove listener (wired in init) drops it again the moment
+    // the player reaches for the mouse — so both input devices "win"
+    // whichever was last used, no unplug needed. gp.buttons is a
+    // per-poll snapshot, so updating prev before dispatch is
+    // equivalent to updating it after — the intent above already
+    // captured this frame's edges.
+    for (let i = 0; i < btns.length && i < prev.length; i++) {
+      const nowPressed = btns[i].value > 0.5 || btns[i].pressed;
+      if (nowPressed && !prev[i]) {
+        document.body.classList.add("pad-active");
+      }
+      prev[i] = nowPressed;
+    }
+  }
 
   const subOverlayOpen = !!w.__rrSubOverlayOpen?.();
   const menuOpen = !!w.__rrIsMenuOpen?.();
-
-  // Per-pad face-button routing. See faceLayout(): Nintendo
-  // pads swap the physical A/B positions relative to the
-  // Standard Mapping indices. Selecting the arrays per-poll
-  // means a player hot-swapping an Xbox pad for a Switch Pro
-  // pad mid-session gets the right behaviour immediately —
-  // no remount required.
-  const layout = faceLayout(gp);
-  const selectButtons = layout === "nintendo" ? [1, 2, 3] : [0, 2, 3];
-  const backButtons = layout === "nintendo" ? [0, 14] : [1, 14];
 
   if (subOverlayOpen) {
     // ── Sub-overlay (credits / achievements / imprint / about) ─
@@ -2853,9 +3028,8 @@ function pollGamepad() {
     const scrollable = w.__rrActiveScrollable?.();
     if (scrollable) {
       const scrollPx = 14;
-      const stickYRaw = axes.length > 1 ? axes[1] : 0;
-      if (stickYRaw < -0.3) scrollable.scrollBy(0, -scrollPx);
-      if (stickYRaw > 0.3) scrollable.scrollBy(0, scrollPx);
+      if (intent.scrollUp) scrollable.scrollBy(0, -scrollPx);
+      if (intent.scrollDown) scrollable.scrollBy(0, scrollPx);
       // D-pad: one focus step per press (edge-detected). At the
       // ring's boundary the d-pad falls back to per-frame scrolling
       // while held — the ring is sparse (achievements has a single
@@ -2864,19 +3038,17 @@ function pollGamepad() {
       // the content between and beyond the focusables. An empty
       // ring reports "at edge" and a missing hook falls through to
       // scrolling, both reproducing the pre-focus-walk behaviour.
-      const upStart = anyJustPressed(GAMEPAD_MENU_UP_BUTTONS);
-      const downStart = anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS);
-      const upScroll = upStart
+      const upScroll = intent.stepUp
         ? !w.__rrSubOverlayFocusStep?.(-1)
-        : anyPressed(GAMEPAD_MENU_UP_BUTTONS) && (w.__rrSubOverlayFocusAtEdge?.(-1) ?? true);
-      const downScroll = downStart
+        : intent.navUpHeld && (w.__rrSubOverlayFocusAtEdge?.(-1) ?? true);
+      const downScroll = intent.stepDown
         ? !w.__rrSubOverlayFocusStep?.(1)
-        : anyPressed(GAMEPAD_MENU_DOWN_BUTTONS) && (w.__rrSubOverlayFocusAtEdge?.(1) ?? true);
+        : intent.navDownHeld && (w.__rrSubOverlayFocusAtEdge?.(1) ?? true);
       if (upScroll) scrollable.scrollBy(0, -scrollPx);
       if (downScroll) scrollable.scrollBy(0, scrollPx);
       // Confirm activates the focused link / button, same meaning
       // as in the button-modal branch. No-op on an empty ring.
-      if (anyJustPressed(selectButtons)) {
+      if (intent.select) {
         w.__rrSubOverlaySelect?.();
       }
     } else {
@@ -2886,104 +3058,82 @@ function pollGamepad() {
       // button. The helpers self-heal if the user clicked with a
       // mouse and focus drifted off the overlay — the next
       // gamepad press snaps focus back into the dialog.
-      if (
-        anyJustPressed(GAMEPAD_MENU_UP_BUTTONS) ||
-        anyJustPressed(GAMEPAD_MENU_LEFT_BUTTONS) ||
-        stickPress === -1
-      ) {
+      if (intent.navUp || intent.navLeft) {
         w.__rrSubOverlayFocusPrev?.();
       }
-      if (
-        anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS) ||
-        anyJustPressed(GAMEPAD_MENU_RIGHT_BUTTONS) ||
-        stickPress === 1
-      ) {
+      if (intent.navDown || intent.navRight) {
         w.__rrSubOverlayFocusNext?.();
       }
-      if (anyJustPressed(selectButtons)) {
+      if (intent.select) {
         w.__rrSubOverlaySelect?.();
       }
     }
     // Close triggers. Universally "back" across vendors:
     //   • Any system / menu button (Start / Back / Select / ±).
-    //   • backButtons: the "cancel" face button at the vendor's
-    //     A-is-confirm position plus D-pad left. Layout-aware —
-    //     index 1 on Xbox/PS (B / Circle), index 0 on Nintendo
-    //     (B, which sits at the BOTTOM on Switch Pro).
-    if (anyJustPressed(GAMEPAD_MENU_TOGGLE_BUTTONS) || anyJustPressed(backButtons)) {
+    //   • back: the "cancel" face button at the vendor's
+    //     A-is-confirm position plus D-pad left (semantic `back`
+    //     action on the Steam path).
+    if (intent.menuToggle || intent.back) {
       w.__rrCloseActiveSubOverlay?.();
     }
   } else if (menuOpen) {
     // ── In-menu navigation ─────────────────────────────────
-    // Select vs back indices are layout-aware (see faceLayout
-    // above): on Nintendo the physical labels A and B are at
-    // swapped Standard Mapping indices, so we swap which
-    // index we treat as "confirm" vs "cancel". The on-pad
-    // label meaning stays stable for the player.
-    if (anyJustPressed(GAMEPAD_MENU_UP_BUTTONS) || stickPress === -1) {
+    // Select vs back are layout-aware on the W3C path (see
+    // faceLayout above): on Nintendo the physical labels A and B
+    // are at swapped Standard Mapping indices, so we swap which
+    // index we treat as "confirm" vs "cancel". The on-pad label
+    // meaning stays stable for the player.
+    if (intent.navUp) {
       w.__rrMenuFocusPrev?.();
     }
-    if (anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS) || stickPress === 1) {
+    if (intent.navDown) {
       w.__rrMenuFocusNext?.();
     }
-    if (anyJustPressed(selectButtons)) {
+    if (intent.select) {
       w.__rrMenuSelect?.();
     }
     // Stepwise back: close any open dropdown first, only then
     // the menu itself. Console convention.
-    if (anyJustPressed(backButtons)) {
+    if (intent.back) {
       w.__rrMenuBack?.();
     }
     // System buttons (Start / Options / etc.) dismiss the menu
     // outright regardless of dropdown state — that's the
     // "resume gameplay now" path, not a back-navigation.
-    if (anyJustPressed(GAMEPAD_MENU_TOGGLE_BUTTONS)) {
+    if (intent.menuToggle) {
       w.__rrCloseMenu?.();
     }
   } else if (state.gameOver) {
     // ── Game-over score card navigation ────────────────────
     // Every direction cycles [Revive, Share, Play again]: D-pad
     // left/up = previous, right/down = next, plus the left-stick
-    // Y axis (stickPress) for players who default to analog.
-    // Face-A activates the focused button; the old "any face
-    // button = restart" shortcut used to skip past the Revive
-    // offer, which felt bad on controller.
-    const prev =
-      anyJustPressed(GAMEPAD_MENU_LEFT_BUTTONS) ||
-      anyJustPressed(GAMEPAD_MENU_UP_BUTTONS) ||
-      stickPress === -1;
-    const next =
-      anyJustPressed(GAMEPAD_MENU_RIGHT_BUTTONS) ||
-      anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS) ||
-      stickPress === 1;
-    if (prev) w.__rrScoreCardFocusPrev?.();
-    if (next) w.__rrScoreCardFocusNext?.();
-    if (anyJustPressed(selectButtons)) {
+    // flick for players who default to analog. Confirm activates
+    // the focused button; the old "any face button = restart"
+    // shortcut used to skip past the Revive offer, which felt bad
+    // on controller.
+    const prevNav = intent.navLeft || intent.navUp;
+    const nextNav = intent.navRight || intent.navDown;
+    if (prevNav) w.__rrScoreCardFocusPrev?.();
+    if (nextNav) w.__rrScoreCardFocusNext?.();
+    if (intent.select) {
       w.__rrScoreCardSelect?.();
     }
-    // Back / cancel to start screen — uses ONLY the face-B
-    // button here (Xbox/PS index 1, Nintendo index 0). The shared
-    // backButtons array includes d-pad LEFT (14), but on this
-    // card LEFT is a navigation key (wraps to the previous
-    // action), so hooking close to backButtons would make every
-    // LEFT press snap the player off the score card.
-    const faceCancel = layout === "nintendo" ? [0] : [1];
-    if (anyJustPressed(faceCancel)) {
+    // Back / cancel to start screen — the face-cancel button only
+    // (backFace), never d-pad LEFT, which navigates on this card.
+    if (intent.backFace) {
       w.__rrScoreCardHome?.();
     }
     // System buttons still open the main menu from the card.
-    if (anyJustPressed(GAMEPAD_MENU_TOGGLE_BUTTONS)) {
+    if (intent.menuToggle) {
       w.__rrToggleMenu?.();
     }
   } else {
     // ── Gameplay ───────────────────────────────────────────
-    for (const idx of GAMEPAD_JUMP_BUTTONS) {
-      if (justPressed(idx)) {
-        if (!state.started) {
-          w.__onStartKey?.();
-        } else {
-          if (!raptor.jump()) raptor.bufferJump(performance.now());
-        }
+    if (intent.jump) {
+      if (!state.started) {
+        w.__onStartKey?.();
+      } else {
+        if (!raptor.jump()) raptor.bufferJump(performance.now());
       }
     }
     // Any system button opens the menu — including on the start
@@ -2992,22 +3142,35 @@ function pollGamepad() {
     // button always does the menu. Accepting all four covers
     // different vendors' idea of "the menu button" — Xbox
     // View/Menu, PS Options/Share, Switch Pro +/−, etc.
-    if (anyJustPressed(GAMEPAD_MENU_TOGGLE_BUTTONS)) {
+    if (intent.menuToggle) {
       w.__rrToggleMenu?.();
     }
   }
 
-  // Cursor-hide: any just-pressed pad button flips the body into
-  // "pad-active" mode, which CSS uses to hide the mouse cursor. A
-  // pointermove listener (wired in init) drops it again the moment
-  // the player reaches for the mouse — so both input devices "win"
-  // whichever was last used, no unplug needed.
-  for (let i = 0; i < btns.length && i < prev.length; i++) {
-    const nowPressed = btns[i].value > 0.5 || btns[i].pressed;
-    if (nowPressed && !prev[i]) {
-      document.body.classList.add("pad-active");
-    }
-    prev[i] = nowPressed;
+  // Steam action sets follow the UI mode. Recomputed every frame so
+  // a missed transition self-heals within one poll; cheap because
+  // syncSteamActionSet only sends IPC on change. The start screen
+  // intentionally stays on InGame — its needs are exactly jump
+  // (start a run) and menu_toggle.
+  if (usingSteam) {
+    syncSteamActionSet(
+      subOverlayOpen || menuOpen || state.gameOver
+        ? STEAM_ACTION_SETS.menus
+        : STEAM_ACTION_SETS.inGame,
+    );
+  }
+}
+
+/**
+ * Pause (by opening the menu — the menu IS pause) when controller
+ * input goes away mid-run. Idempotent: !paused implies the menu is
+ * closed, so the toggle can only ever open it, and a second call
+ * while paused no-ops. Shared by the browser gamepaddisconnected
+ * handler and the Steam Input controllers-lost transition.
+ */
+function autoPauseOnControllerLoss(): void {
+  if (state.started && !state.paused && !state.gameOver) {
+    (window as unknown as { __rrToggleMenu?: () => void }).__rrToggleMenu?.();
   }
 }
 
@@ -3340,8 +3503,6 @@ async function init() {
     // full-controller-support criteria expect disconnects to be
     // handled. Another pad may still be attached (the departed one
     // shows up as a null slot), so only act when all are gone.
-    // Opening the menu IS pausing here; !paused implies the menu is
-    // closed, so the toggle can only ever open it.
     let padsRemain = false;
     try {
       padsRemain = navigator.getGamepads().some(Boolean);
@@ -3353,10 +3514,18 @@ async function init() {
     // another pad remains attached, its prompts stay put instead of
     // flashing to the generic set (a re-plug re-derives the family).
     if (!padsRemain) applyPadFamilyBodyClass(null);
-    if (!padsRemain && state.started && !state.paused && !state.gameOver) {
-      (window as unknown as { __rrToggleMenu?: () => void }).__rrToggleMenu?.();
-    }
+    if (!padsRemain) autoPauseOnControllerLoss();
   });
+
+  // Steam Input (desktop under Steam only): subscribe to the main-
+  // process snapshot stream that pollGamepad() consumes. A no-op in
+  // web/mobile builds (no electronAPI) and on Steam-less desktop
+  // sessions (no frames ever arrive), where the W3C path runs
+  // exactly as before. Controller loss goes through the same guard
+  // as gamepaddisconnected: when a Steam-owned controller unplugs,
+  // Steam also removes the emulated pad and BOTH notifications fire
+  // — the guard's idempotence makes the second one a no-op.
+  initSteamInput({ onControllersLost: autoPauseOnControllerLoss });
 
   // Cursor visibility arbiter: whichever input type fires LAST
   // wins. pollGamepad() adds .pad-active on any button just-press

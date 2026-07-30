@@ -27,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import steamworks from "steamworks.js";
+import { STEAM_ACTION_SETS, STEAM_DIGITAL_ACTIONS } from "./steamInputActions";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -82,6 +83,180 @@ if (resolvedAppId !== null) {
 } else {
   console.log("[steam] no app id configured, skipping Steam init");
 }
+
+// ── Steam Input ────────────────────────────────────────────────────
+// Semantic controller actions (see docs/STEAM_INPUT.md). The main
+// process owns every native handle — handles are bigints and never
+// cross IPC. The renderer receives plain-JSON level-state snapshots
+// pushed on "steam-input:frame" every ~16 ms and falls back to the
+// W3C Gamepad API whenever the snapshots stop, carry no controllers,
+// or carry available:false — so any failure below degrades to the
+// exact pre-Steam-Input behaviour. Main-process timers are not
+// background-throttled, so frames keep flowing when the window loses
+// focus.
+
+type SteamInputSnapshot = {
+  available: boolean;
+  controllerCount: number;
+  inputType: string;
+  digital: Record<string, boolean>;
+};
+
+const STEAM_SET_NAMES: string[] = Object.values(STEAM_ACTION_SETS);
+const STEAM_ACTION_NAMES: string[] = Object.values(STEAM_DIGITAL_ACTIONS);
+
+// Assigned only when input.init() succeeds. The IPC handler further
+// down is registered unconditionally so a renderer invoke resolves to
+// false instead of rejecting on DRM-free / Steam-less sessions.
+let steamInputApplyActionSet: ((name: string) => boolean) | null = null;
+let steamInputTimer: ReturnType<typeof setInterval> | null = null;
+
+if (steamClient) {
+  const input = steamClient.input;
+  let inputStarted = false;
+  try {
+    input.init();
+    inputStarted = true;
+    console.log("[steam-input] init ok");
+  } catch (err) {
+    console.warn("[steam-input] init failed, browser gamepad API only:", err);
+  }
+
+  if (inputStarted) {
+    type SteamController = ReturnType<typeof input.getControllers>[number];
+
+    const setHandles = new Map<string, bigint>();
+    const actionHandles = new Map<string, bigint>();
+    let handlesResolved = false;
+    let controllers: SteamController[] = [];
+    let lastRequestedSet: string = STEAM_ACTION_SETS.inGame;
+    let tick = 0;
+
+    // getActionSet / getDigitalAction return 0n until Steam has
+    // loaded the in-game actions manifest — which can happen seconds
+    // after launch, or never (VDF not uploaded / not installed
+    // locally). Retried ~1/s; while any handle is 0n the snapshots
+    // carry available:false so the renderer stays on the W3C path,
+    // and if Steam learns the manifest later the Steam path engages
+    // seamlessly.
+    const resolveHandles = (): void => {
+      try {
+        for (const name of STEAM_SET_NAMES) {
+          if ((setHandles.get(name) ?? 0n) === 0n) {
+            setHandles.set(name, input.getActionSet(name));
+          }
+        }
+        for (const name of STEAM_ACTION_NAMES) {
+          if ((actionHandles.get(name) ?? 0n) === 0n) {
+            actionHandles.set(name, input.getDigitalAction(name));
+          }
+        }
+        handlesResolved =
+          STEAM_SET_NAMES.every((n) => (setHandles.get(n) ?? 0n) !== 0n) &&
+          STEAM_ACTION_NAMES.every((n) => (actionHandles.get(n) ?? 0n) !== 0n);
+        if (handlesResolved) console.log("[steam-input] action handles resolved");
+      } catch (err) {
+        console.warn("[steam-input] handle resolution failed:", err);
+      }
+    };
+
+    const applyActionSet = (name: string): boolean => {
+      // Whitelist — never pass a raw renderer string to native code.
+      if (!STEAM_SET_NAMES.includes(name)) return false;
+      lastRequestedSet = name;
+      const handle = setHandles.get(name) ?? 0n;
+      if (handle === 0n) return false;
+      for (const c of controllers) {
+        try {
+          c.activateActionSet(handle);
+        } catch {
+          /* controller may have just detached — next enumeration drops it */
+        }
+      }
+      return true;
+    };
+    steamInputApplyActionSet = applyActionSet;
+
+    const pollTick = (): void => {
+      tick++;
+      if (!handlesResolved && tick % 60 === 1) resolveHandles();
+      // Controller enumeration is heavier than reading action state;
+      // every ~500 ms picks up hot-plugs without hammering the API.
+      if (tick % 32 === 1) {
+        const before = controllers.length;
+        try {
+          controllers = input.getControllers();
+        } catch {
+          controllers = [];
+        }
+        // A late-arriving controller must inherit the set the
+        // renderer last asked for, not the manifest default.
+        if (controllers.length > before) applyActionSet(lastRequestedSet);
+      }
+
+      // First controller wins, mirroring the renderer's first-pad-
+      // wins scan over navigator.getGamepads().
+      const digital: Record<string, boolean> = {};
+      let inputType = "Unknown";
+      const first = controllers.length > 0 ? controllers[0] : undefined;
+      if (handlesResolved && first) {
+        try {
+          inputType = String(first.getType());
+        } catch {
+          /* keep Unknown */
+        }
+        for (const name of STEAM_ACTION_NAMES) {
+          const handle = actionHandles.get(name) ?? 0n;
+          let pressed = false;
+          if (handle !== 0n) {
+            try {
+              pressed = first.isDigitalActionPressed(handle);
+            } catch {
+              pressed = false;
+            }
+          }
+          digital[name] = pressed;
+        }
+      } else {
+        for (const name of STEAM_ACTION_NAMES) digital[name] = false;
+      }
+
+      const snapshot: SteamInputSnapshot = {
+        available: handlesResolved && controllers.length > 0,
+        controllerCount: controllers.length,
+        inputType,
+        digital,
+      };
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send("steam-input:frame", snapshot);
+      }
+    };
+
+    steamInputTimer = setInterval(pollTick, 16);
+  }
+}
+
+// IPC: switch the active Steam Input action set. Registered even when
+// Steam Input never started so the renderer's invoke resolves (to
+// false) instead of rejecting.
+ipcMain.handle("steam-input:set-action-set", (_evt, name: string) => {
+  if (typeof name !== "string") return false;
+  return steamInputApplyActionSet ? steamInputApplyActionSet(name) : false;
+});
+
+app.on("will-quit", () => {
+  // Timer non-null implies input.init() succeeded, so shutdown() has
+  // something to tear down.
+  if (steamInputTimer !== null) {
+    clearInterval(steamInputTimer);
+    steamInputTimer = null;
+    try {
+      steamClient?.input.shutdown();
+    } catch {
+      /* Steam already gone — nothing to release */
+    }
+  }
+});
 
 // IPC: renderer asks whether Steam is usable this session.
 ipcMain.handle("steam:isAvailable", () => steamClient !== null);
