@@ -95,15 +95,37 @@ describe("game_actions_5035590.vdf stays in sync", () => {
     expect(sorted([...union])).toEqual(sorted(ACTION_NAMES));
   });
 
-  it("keeps menu_toggle reachable from both sets", () => {
-    // menu_toggle must resolve regardless of the active set, so the
-    // pause toggle works in gameplay AND backs the player out of
-    // menus. Steam action names are global; listing the action in
-    // both Button blocks makes both default configs bind it.
-    expect(buttonActions).toHaveLength(2);
-    for (const block of buttonActions) {
-      expect(block).toContain(STEAM_DIGITAL_ACTIONS.menuToggle);
-    }
+  // Which actions belong to which set. The union test above cannot
+  // see an action drifting BETWEEN the blocks — the code reads an
+  // action while its set is active, so e.g. `select` moving into the
+  // InGame block would keep the union intact while menu navigation
+  // silently dies under Steam. menu_toggle is deliberately in both:
+  // it must resolve regardless of the active set, so the pause toggle
+  // works in gameplay AND backs the player out of menus.
+  const A = STEAM_DIGITAL_ACTIONS;
+  const EXPECTED_SET_BUTTONS: Record<string, string[]> = {
+    [STEAM_ACTION_SETS.inGame]: [A.jump, A.menuToggle],
+    [STEAM_ACTION_SETS.menus]: [
+      A.navUp,
+      A.navDown,
+      A.navLeft,
+      A.navRight,
+      A.select,
+      A.back,
+      A.menuToggle,
+    ],
+  };
+
+  it("binds each set's Button block exactly as the code expects", () => {
+    // Set keys and Button blocks are scraped independently but occur
+    // in the same document order, so index-pairing them is sound for
+    // any well-formed manifest.
+    expect(setKeys).toHaveLength(buttonActions.length);
+    setKeys.forEach((set, i) => {
+      expect(sorted(buttonActions[i]), `Button block of set ${set}`).toEqual(
+        sorted(EXPECTED_SET_BUTTONS[set] ?? []),
+      );
+    });
   });
 
   it("localizes every referenced token", () => {

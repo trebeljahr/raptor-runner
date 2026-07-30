@@ -157,11 +157,12 @@ import {
   randRange,
 } from "./helpers";
 import { IMAGE_SRCS, IMAGES } from "./images";
-import { applyPadFamilyBodyClass, familyFromGamepadId } from "./input/padFamily";
+import { applyPadFamilyBodyClass, familyFromGamepadId, type PadFamily } from "./input/padFamily";
 import {
   familyFromSteamInputType,
   STEAM_ACTION_SETS,
   STEAM_DIGITAL_ACTIONS,
+  type SteamActionSetName,
 } from "./input/steamActions";
 import {
   hydratePersistence,
@@ -2738,6 +2739,18 @@ function faceLayout(gp: Gamepad): "nintendo" | "standard" {
 }
 
 /**
+ * Prompt-glyph family for the W3C path. The URL override that pins
+ * routing pins the display too: forcing the Nintendo layout must
+ * flip the displayed letters, or the hint would name buttons the
+ * routing ignores. `?gamepad=standard` only pins routing —
+ * "standard" spans both Xbox- and PlayStation-labeled pads, so the
+ * id heuristic still picks which labels to show.
+ */
+function w3cPadFamily(gp: Gamepad): PadFamily {
+  return _gamepadLayoutForce === "nintendo" ? "nintendo" : familyFromGamepadId(gp.id);
+}
+
+/**
  * Per-frame controller intent, decoupled from the input source.
  *
  * pollGamepad() reads EITHER Steam Input snapshots (desktop builds
@@ -2773,9 +2786,13 @@ type PadIntent = {
   /** D-pad held: per-frame scroll fallback at the focus ring's edge. */
   navUpHeld: boolean;
   navDownHeld: boolean;
-  /** Stick held past the scroll threshold: free-scroll. Always false
-   *  on the Steam path — there the stick is bound to the nav actions
-   *  in the default configuration and feeds the held fields above. */
+  /** Free-scroll levels. On the W3C path: stick held past the scroll
+   *  threshold. On the Steam path the stick is bound to the nav
+   *  actions in the default configuration, so these engage from held
+   *  nav after a repeat delay instead — the mid-ring escape hatch the
+   *  raw stick provides on the W3C path (without it, content between
+   *  two focusables that never hits the ring edge would be
+   *  unreachable there). */
   scrollUp: boolean;
   scrollDown: boolean;
 };
@@ -2790,6 +2807,18 @@ const _steamPrev: Record<string, boolean> = {};
 // handoff must neither misfire nor double-fire.
 let _steamNeedsPrime = true;
 let _w3cNeedsPrime = false;
+// The action set the renderer last asked Steam for. A change re-primes
+// the Steam edge state: an action absent from the outgoing set reads
+// false, so a face button held across a Menus→InGame switch would
+// otherwise resurface as a fresh jump edge once the switched set's
+// levels arrive.
+let _steamDesiredSet: SteamActionSetName | null = null;
+// Held-repeat delay for the Steam path's free-scroll intents, in
+// polls (~a third of a second at 60 Hz) — past any deliberate single
+// step, short enough to sweep long credits sections comfortably.
+const STEAM_NAV_SCROLL_HOLD_FRAMES = 20;
+let _steamNavUpHeldFrames = 0;
+let _steamNavDownHeldFrames = 0;
 
 function pollGamepad() {
   const w = window as unknown as {
@@ -2815,6 +2844,7 @@ function pollGamepad() {
     __rrSubOverlaySelect?: () => void;
     __rrSubOverlayFocusStep?: (dir: 1 | -1) => boolean;
     __rrSubOverlayFocusAtEdge?: (dir: 1 | -1) => boolean;
+    __rrSubOverlayFocusEntered?: () => boolean;
     __onStartKey?: () => void;
   };
 
@@ -2841,12 +2871,31 @@ function pollGamepad() {
       for (const name of Object.values(STEAM_DIGITAL_ACTIONS)) {
         _steamPrev[name] = sf.digital[name] === true;
       }
-      _steamNeedsPrime = false;
+      _steamNavUpHeldFrames = 0;
+      _steamNavDownHeldFrames = 0;
+      // Source-switch primes clear after one seed. Set-switch primes
+      // hold until the snapshot is stamped with the requested set:
+      // the IPC round trip plus the main-process poll grid means the
+      // switched set's levels arrive a frame or two later, and
+      // seeding from a pre-switch snapshot would let a held button
+      // through as a fresh edge anyway. Unstamped frames (older main
+      // process during dev) degrade to the one-frame prime.
+      if (
+        _steamDesiredSet === null ||
+        sf.activeSet === undefined ||
+        sf.activeSet === _steamDesiredSet
+      ) {
+        _steamNeedsPrime = false;
+      }
       return;
     }
     const level = (name: string): boolean => sf.digital[name] === true;
     const edge = (name: string): boolean => level(name) && !_steamPrev[name];
     const A = STEAM_DIGITAL_ACTIONS;
+    // Repeat counters for the delayed free-scroll fallback (see
+    // STEAM_NAV_SCROLL_HOLD_FRAMES).
+    _steamNavUpHeldFrames = level(A.navUp) ? _steamNavUpHeldFrames + 1 : 0;
+    _steamNavDownHeldFrames = level(A.navDown) ? _steamNavDownHeldFrames + 1 : 0;
     // No layout swap here: with Steam Input, `select` means select
     // and `back` means back — Valve's per-device default configs and
     // the player's own rebinds absorb vendor button layouts.
@@ -2864,8 +2913,8 @@ function pollGamepad() {
       stepDown: edge(A.navDown),
       navUpHeld: level(A.navUp),
       navDownHeld: level(A.navDown),
-      scrollUp: false,
-      scrollDown: false,
+      scrollUp: _steamNavUpHeldFrames > STEAM_NAV_SCROLL_HOLD_FRAMES,
+      scrollDown: _steamNavDownHeldFrames > STEAM_NAV_SCROLL_HOLD_FRAMES,
     };
     // Cursor-hide + prev-state update, mirroring the W3C loop below.
     let anySteamEdge = false;
@@ -2897,6 +2946,13 @@ function pollGamepad() {
       return;
     }
     if (!gp) return;
+
+    // Family follows the pad actually being read (first non-null
+    // slot), not connect-event order — with two pads attached the
+    // prompts must describe the pad that drives input, and this
+    // self-heals when the family-source pad disconnects while
+    // another remains. Mirrors the per-frame Steam-branch call above.
+    applyPadFamilyBodyClass(w3cPadFamily(gp));
 
     const prev = _gamepad.prevButtons;
     const btns = gp.buttons;
@@ -3028,8 +3084,6 @@ function pollGamepad() {
     const scrollable = w.__rrActiveScrollable?.();
     if (scrollable) {
       const scrollPx = 14;
-      if (intent.scrollUp) scrollable.scrollBy(0, -scrollPx);
-      if (intent.scrollDown) scrollable.scrollBy(0, scrollPx);
       // D-pad: one focus step per press (edge-detected). At the
       // ring's boundary the d-pad falls back to per-frame scrolling
       // while held — the ring is sparse (achievements has a single
@@ -3044,11 +3098,19 @@ function pollGamepad() {
       const downScroll = intent.stepDown
         ? !w.__rrSubOverlayFocusStep?.(1)
         : intent.navDownHeld && (w.__rrSubOverlayFocusAtEdge?.(1) ?? true);
-      if (upScroll) scrollable.scrollBy(0, -scrollPx);
-      if (downScroll) scrollable.scrollBy(0, scrollPx);
+      // One scrollBy per direction per frame, however many sources
+      // agree — stick free-scroll and the d-pad edge fallback must
+      // not stack into double speed.
+      if (intent.scrollUp || upScroll) scrollable.scrollBy(0, -scrollPx);
+      if (intent.scrollDown || downScroll) scrollable.scrollBy(0, scrollPx);
       // Confirm activates the focused link / button, same meaning
-      // as in the button-modal branch. No-op on an empty ring.
-      if (intent.select) {
+      // as in the button-modal branch — but only once the d-pad has
+      // actually entered the ring. These overlays open with focus
+      // parked on the excluded ✕ close button and the remembered
+      // ring index may be stale from another overlay (the shop), so
+      // an unentered confirm would click an invisible target —
+      // worst case a credits link opening an external page.
+      if (intent.select && w.__rrSubOverlayFocusEntered?.()) {
         w.__rrSubOverlaySelect?.();
       }
     } else {
@@ -3153,11 +3215,17 @@ function pollGamepad() {
   // intentionally stays on InGame — its needs are exactly jump
   // (start a run) and menu_toggle.
   if (usingSteam) {
-    syncSteamActionSet(
+    const desiredSet =
       subOverlayOpen || menuOpen || state.gameOver
         ? STEAM_ACTION_SETS.menus
-        : STEAM_ACTION_SETS.inGame,
-    );
+        : STEAM_ACTION_SETS.inGame;
+    if (desiredSet !== _steamDesiredSet) {
+      _steamDesiredSet = desiredSet;
+      // Re-prime the edge state across the switch — see
+      // _steamDesiredSet for why.
+      _steamNeedsPrime = true;
+    }
+    syncSteamActionSet(desiredSet);
   }
 }
 
@@ -3477,15 +3545,10 @@ async function init() {
   window.addEventListener("gamepadconnected", (e: GamepadEvent) => {
     _gamepad.connected = true;
     document.body.classList.add("gamepad-connected");
-    // Prompt glyphs follow the same URL override as input routing:
-    // forcing the Nintendo layout must flip the displayed letters
-    // too, or the hint would name buttons the routing ignores.
-    // `?gamepad=standard` only pins routing — "standard" spans both
-    // Xbox- and PlayStation-labeled pads, so the id heuristic still
-    // picks which labels to show.
-    applyPadFamilyBodyClass(
-      _gamepadLayoutForce === "nintendo" ? "nintendo" : familyFromGamepadId(e.gamepad.id),
-    );
+    // Prompt-glyph family is applied per-frame by pollGamepad from
+    // whichever pad it actually reads (see w3cPadFamily) — deriving
+    // it here from the just-connected pad would let a second, idle
+    // pad hijack the prompts away from the pad that drives input.
     console.log("Gamepad connected:", e.gamepad.id);
   });
   window.addEventListener("gamepaddisconnected", () => {
@@ -3510,9 +3573,9 @@ async function init() {
       // getGamepads can throw (see pollGamepad); pausing is the
       // safe default when we cannot tell what remains.
     }
-    // Family glyphs reset only when the last pad leaves — while
-    // another pad remains attached, its prompts stay put instead of
-    // flashing to the generic set (a re-plug re-derives the family).
+    // Family glyphs clear only when the last pad leaves — while
+    // another pad remains attached, the poller re-derives the family
+    // from the pad it now reads on the next frame.
     if (!padsRemain) applyPadFamilyBodyClass(null);
     if (!padsRemain) autoPauseOnControllerLoss();
   });

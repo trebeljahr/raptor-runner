@@ -917,6 +917,20 @@ window.__rrSubOverlaySelect = () => {
   if (!target || target.getAttribute("aria-disabled") === "true") return;
   if (typeof target.click === "function") target.click();
 };
+// Whether the focus ring holds real focus right now. The scrollable
+// overlays (credits / achievements) open with focus parked on the
+// excluded ✕ close button, and the remembered ring index above may be
+// stale from a different overlay — so the poller gates confirm on
+// this check there: Select's index fallback must not click a target
+// nobody can see. The modal overlays (shop / reset-confirm) place
+// visible focus on open and keep the fallback as mouse-drift
+// self-healing instead.
+window.__rrSubOverlayFocusEntered = (): boolean => {
+  const items = getActiveSubOverlayButtons();
+  if (!items.length) return false;
+  const active = document.activeElement;
+  return active instanceof HTMLElement && items.includes(active);
+};
 // Non-wrapping focus walk for the SCROLLABLE sub-overlays
 // (credits / achievements). Unlike the Next/Prev pair above, a
 // step past either end reports false instead of wrapping — the

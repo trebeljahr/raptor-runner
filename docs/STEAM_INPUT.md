@@ -58,8 +58,9 @@ Moving parts:
 2. Steam must be running and logged into an account that owns app
    5035590.
 3. Run `STEAM_APP_ID=5035590 pnpm electron:preview`. The env override
-   is required: the repo's `steam_appid.txt` still says 480 and is
-   handled in a separate task — do not edit it.
+   is required: the repo's `steam_appid.txt` intentionally still says
+   480 (Spacewar) until the store setup lands — use the override
+   instead of editing the file.
 4. Watch the terminal for `[steam-input] init ok` followed (possibly
    seconds later) by `[steam-input] action handles resolved`. Until
    handles resolve, the game intentionally stays on the W3C gamepad

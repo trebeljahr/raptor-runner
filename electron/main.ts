@@ -99,6 +99,12 @@ type SteamInputSnapshot = {
   available: boolean;
   controllerCount: number;
   inputType: string;
+  /** The set applyActionSet last pushed to the controllers. The
+   *  renderer holds its edge-state prime after requesting a switch
+   *  until this reflects the request — actions absent from a set read
+   *  false, so without the stamp a button held across the switch
+   *  would resurface as a fresh edge. */
+  activeSet: string;
   digital: Record<string, boolean>;
 };
 
@@ -225,6 +231,7 @@ if (steamClient) {
         available: handlesResolved && controllers.length > 0,
         controllerCount: controllers.length,
         inputType,
+        activeSet: lastRequestedSet,
         digital,
       };
       for (const w of BrowserWindow.getAllWindows()) {

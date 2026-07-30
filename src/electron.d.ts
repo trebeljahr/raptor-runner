@@ -20,6 +20,12 @@ declare global {
     readonly controllerCount: number;
     /** Raw steamworks.js InputType string, e.g. "PS5Controller". */
     readonly inputType: string;
+    /** The action set the main process had activated when this frame
+     *  was polled. Lets the renderer hold its edge-state prime until
+     *  snapshots reflect a requested set switch. Optional so a stale
+     *  compiled main process degrades to one-frame priming instead of
+     *  wedging the Steam path. */
+    readonly activeSet?: string;
     /** Pressed-right-now per digital action name (src/input/steamActions.ts). */
     readonly digital: Record<string, boolean>;
   }

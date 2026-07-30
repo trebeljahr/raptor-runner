@@ -37,5 +37,9 @@ declare global {
      *  edge (or empty ring), which tells the poller to scroll instead. */
     __rrSubOverlayFocusStep?: (dir: 1 | -1) => boolean;
     __rrSubOverlayFocusAtEdge?: (dir: 1 | -1) => boolean;
+    /** True while a ring item actually holds focus — gates confirm in
+     *  scrollable sub-overlays so an unentered ring cannot click an
+     *  invisible target. */
+    __rrSubOverlayFocusEntered?: () => boolean;
   }
 }
