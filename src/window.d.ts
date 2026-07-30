@@ -33,5 +33,9 @@ declare global {
     __rrSubOverlayFocusNext?: () => void;
     __rrSubOverlayFocusPrev?: () => void;
     __rrSubOverlaySelect?: () => void;
+    /** Non-wrapping focus walk for scrollable sub-overlays; false = ring
+     *  edge (or empty ring), which tells the poller to scroll instead. */
+    __rrSubOverlayFocusStep?: (dir: 1 | -1) => boolean;
+    __rrSubOverlayFocusAtEdge?: (dir: 1 | -1) => boolean;
   }
 }

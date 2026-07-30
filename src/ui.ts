@@ -845,15 +845,20 @@ window.__rrCloseActiveSubOverlay = () => {
   return false;
 };
 
-// ── Gamepad nav inside button-driven sub-overlays ─────
+// ── Gamepad nav inside sub-overlays ─────
 // Shop (buy / equip) and reset-confirm (yes / no) have
 // interactive buttons rather than scrollable content, so the
 // gamepad poller routes d-pad/face-button presses to focus-walk
 // helpers instead of the scroll path used by credits/achievements.
+// The scrollable overlays aren't button-free either, though:
+// credits embeds attribution links and achievements has the
+// "View on Steam" button, all nested inside the scroll container
+// — the same ring (and the FocusStep/FocusAtEdge hooks below)
+// makes those reachable by pad too.
 // The .imprint-close ✕ is excluded from the ring because the
 // "cancel" face button already closes the overlay; including it
 // would steal a d-pad slot for no gain.
-function getActiveSubOverlayButtons(): HTMLButtonElement[] {
+function getActiveSubOverlayButtons(): HTMLElement[] {
   const active = document.querySelector(".imprint-overlay.open");
   if (!active) return [];
   // Walk the action buttons (not the cards around them) — the focus
@@ -861,10 +866,13 @@ function getActiveSubOverlayButtons(): HTMLButtonElement[] {
   // / can't-afford shop buttons use aria-disabled, not disabled, so
   // they stay in the nav ring: the player can still see what's
   // locked behind what price, pressing the face button is a no-op.
-  const all = active.querySelectorAll<HTMLButtonElement>("button:not(.imprint-close)");
-  const list: HTMLButtonElement[] = [];
+  // a[href] covers the credits links; anchors inside the imprint /
+  // about iframes live in a separate document, so those overlays
+  // still come back empty (pure scroll surfaces).
+  const all = active.querySelectorAll<HTMLElement>("button:not(.imprint-close), a[href]");
+  const list: HTMLElement[] = [];
   for (const el of all) {
-    if (el.disabled) continue;
+    if ("disabled" in el && (el as HTMLButtonElement).disabled) continue;
     if (!el.offsetParent) continue;
     list.push(el);
   }
@@ -889,7 +897,7 @@ function currentSubOverlayFocusIdx() {
   const items = getActiveSubOverlayButtons();
   if (!items.length) return 0;
   const active = document.activeElement;
-  const matchIdx = active instanceof HTMLButtonElement ? items.indexOf(active) : -1;
+  const matchIdx = active instanceof HTMLElement ? items.indexOf(active) : -1;
   if (matchIdx !== -1) return matchIdx;
   return Math.min(Math.max(0, _subOverlayFocusIdx), items.length - 1);
 }
@@ -908,6 +916,43 @@ window.__rrSubOverlaySelect = () => {
   // would fire and bubble to any parent handlers otherwise.
   if (!target || target.getAttribute("aria-disabled") === "true") return;
   if (typeof target.click === "function") target.click();
+};
+// Non-wrapping focus walk for the SCROLLABLE sub-overlays
+// (credits / achievements). Unlike the Next/Prev pair above, a
+// step past either end reports false instead of wrapping — the
+// poller uses that (and FocusAtEdge for held buttons) to fall
+// back to scrolling the container, so the d-pad can still sweep
+// through long stretches of non-interactive content. Wrapping
+// would trap a pad-only reader between the focusables.
+window.__rrSubOverlayFocusStep = (dir: 1 | -1): boolean => {
+  const items = getActiveSubOverlayButtons();
+  if (!items.length) return false;
+  const active = document.activeElement;
+  const cur = active instanceof HTMLElement ? items.indexOf(active) : -1;
+  // Ring not entered yet (overlays park focus on the excluded ✕
+  // close button on open, and mouse clicks can drop it on body):
+  // either direction lands on the first item so the entry point
+  // is predictable.
+  if (cur === -1) {
+    focusSubOverlayIndex(0);
+    return true;
+  }
+  const next = cur + dir;
+  if (next < 0 || next >= items.length) return false;
+  focusSubOverlayIndex(next);
+  return true;
+};
+window.__rrSubOverlayFocusAtEdge = (dir: 1 | -1): boolean => {
+  const items = getActiveSubOverlayButtons();
+  // No focusables (imprint / about iframes, or every ring item
+  // hidden on this build) → always "at edge" so held d-pad keeps
+  // scrolling exactly as it did before the focus walk existed.
+  if (!items.length) return true;
+  const active = document.activeElement;
+  const cur = active instanceof HTMLElement ? items.indexOf(active) : -1;
+  if (cur === -1) return false;
+  const next = cur + dir;
+  return next < 0 || next >= items.length;
 };
 
 // ── Gamepad navigation ──────────────────────────────

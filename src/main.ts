@@ -2809,6 +2809,8 @@ function pollGamepad() {
     __rrSubOverlayFocusNext?: () => void;
     __rrSubOverlayFocusPrev?: () => void;
     __rrSubOverlaySelect?: () => void;
+    __rrSubOverlayFocusStep?: (dir: 1 | -1) => boolean;
+    __rrSubOverlayFocusAtEdge?: (dir: 1 | -1) => boolean;
     __onStartKey?: () => void;
   };
 
@@ -2838,25 +2840,45 @@ function pollGamepad() {
 
   if (subOverlayOpen) {
     // ── Sub-overlay (credits / achievements / imprint / about) ─
-    // D-pad up/down + left-stick scroll the overlay's scrollable
-    // child (or the iframe inside for imprint / about). System
-    // buttons and the "cancel" face button (Xbox B, PS Circle,
-    // gamepad index 1) close the overlay — that matches the
-    // universal "back" affordance on every vendor.
-    //
-    // Continuous while held; no edge detection here, so reading
-    // a full screen of credits is one gesture rather than 40
-    // button-mashes. 14 px per frame ≈ 840 px/sec = one screen
-    // in ~1 second, which lines up with feel-right scroll speed
-    // for controller users.
+    // Hybrid navigation. The left stick free-scrolls the overlay's
+    // scrollable child (or the iframe inside for imprint / about),
+    // continuous while held: 14 px per frame ≈ 840 px/sec = one
+    // screen in ~1 second, which lines up with feel-right scroll
+    // speed for controller users. The d-pad instead walks the focus
+    // ring — credits links and the achievements "View on Steam"
+    // button sit INSIDE the scroll container, and a scroll-only
+    // d-pad left them mouse/keyboard-only. System buttons and the
+    // "cancel" face button close the overlay — the universal "back"
+    // affordance on every vendor.
     const scrollable = w.__rrActiveScrollable?.();
     if (scrollable) {
       const scrollPx = 14;
       const stickYRaw = axes.length > 1 ? axes[1] : 0;
-      const upHeld = anyPressed(GAMEPAD_MENU_UP_BUTTONS) || stickYRaw < -0.3;
-      const downHeld = anyPressed(GAMEPAD_MENU_DOWN_BUTTONS) || stickYRaw > 0.3;
-      if (upHeld) scrollable.scrollBy(0, -scrollPx);
-      if (downHeld) scrollable.scrollBy(0, scrollPx);
+      if (stickYRaw < -0.3) scrollable.scrollBy(0, -scrollPx);
+      if (stickYRaw > 0.3) scrollable.scrollBy(0, scrollPx);
+      // D-pad: one focus step per press (edge-detected). At the
+      // ring's boundary the d-pad falls back to per-frame scrolling
+      // while held — the ring is sparse (achievements has a single
+      // in-list button; imprint / about have none at all), so
+      // without the fallback a pad-only player could never reach
+      // the content between and beyond the focusables. An empty
+      // ring reports "at edge" and a missing hook falls through to
+      // scrolling, both reproducing the pre-focus-walk behaviour.
+      const upStart = anyJustPressed(GAMEPAD_MENU_UP_BUTTONS);
+      const downStart = anyJustPressed(GAMEPAD_MENU_DOWN_BUTTONS);
+      const upScroll = upStart
+        ? !w.__rrSubOverlayFocusStep?.(-1)
+        : anyPressed(GAMEPAD_MENU_UP_BUTTONS) && (w.__rrSubOverlayFocusAtEdge?.(-1) ?? true);
+      const downScroll = downStart
+        ? !w.__rrSubOverlayFocusStep?.(1)
+        : anyPressed(GAMEPAD_MENU_DOWN_BUTTONS) && (w.__rrSubOverlayFocusAtEdge?.(1) ?? true);
+      if (upScroll) scrollable.scrollBy(0, -scrollPx);
+      if (downScroll) scrollable.scrollBy(0, scrollPx);
+      // Confirm activates the focused link / button, same meaning
+      // as in the button-modal branch. No-op on an empty ring.
+      if (anyJustPressed(selectButtons)) {
+        w.__rrSubOverlaySelect?.();
+      }
     } else {
       // No scrollable content → this is a modal dialog (reset-
       // confirm). Wire d-pad in all four directions to button
