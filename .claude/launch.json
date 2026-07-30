@@ -37,6 +37,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "52774"],
       "port": 52774
+    },
+    {
+      "name": "volume-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "52741"],
+      "port": 52741
     }
   ]
 }

@@ -598,6 +598,9 @@ function toggleSound() {
 // set() routes through window.Game (which persists) and then
 // re-renders so every label/control repaints from the stored value.
 
+/** 0..1 → "85%" readout shared by all volume sliders. */
+const formatPercent = (v: number) => `${Math.round(v * 100)}%`;
+
 const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
   rows: [
     {
@@ -647,6 +650,77 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
       get: () => window.Game?.isHighContrast?.() === true,
       set: (v: boolean) => {
         window.Game?.setHighContrast?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    // ── Volume sliders ──────────────────────────────────────
+    // Grouped rather than one slider per channel: master + music +
+    // ambience + a single "effects" level that fans out to every
+    // Web-Audio SFX channel (jump, footsteps, coins, UI, events,
+    // thunder). The nine per-channel MUTE toggles in the sound
+    // settings section stay the fine-grained control; sliders at
+    // that granularity would be noise for most players.
+    {
+      kind: "slider",
+      id: "master-volume",
+      label: "Volume",
+      min: 0,
+      max: 1,
+      step: 0.05,
+      format: formatPercent,
+      get: () => window.Game?.getMasterVolume?.() ?? 1,
+      set: (v: number) => {
+        window.Game?.setMasterVolume?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    {
+      kind: "slider",
+      id: "music-volume",
+      label: "Music",
+      min: 0,
+      max: 1,
+      step: 0.05,
+      format: formatPercent,
+      get: () => window.Game?.getMusicVolume?.() ?? 1,
+      set: (v: number) => {
+        window.Game?.setMusicVolume?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    {
+      kind: "slider",
+      id: "effects-volume",
+      label: "Effects",
+      min: 0,
+      max: 1,
+      step: 0.05,
+      format: formatPercent,
+      // The group reads the jump channel as its representative value —
+      // this slider is the only writer of the six channels, so they
+      // only diverge if a future build adds per-channel sliders.
+      get: () => window.Game?.getJumpVolume?.() ?? 1,
+      set: (v: number) => {
+        window.Game?.setJumpVolume?.(v);
+        window.Game?.setFootstepsVolume?.(v);
+        window.Game?.setCoinsVolume?.(v);
+        window.Game?.setUiVolume?.(v);
+        window.Game?.setEventsVolume?.(v);
+        window.Game?.setThunderVolume?.(v);
+        syncAccessibilityUI();
+      },
+    },
+    {
+      kind: "slider",
+      id: "rain-volume",
+      label: "Rain",
+      min: 0,
+      max: 1,
+      step: 0.05,
+      format: formatPercent,
+      get: () => window.Game?.getRainVolume?.() ?? 1,
+      set: (v: number) => {
+        window.Game?.setRainVolume?.(v);
         syncAccessibilityUI();
       },
     },

@@ -20,17 +20,26 @@ import {
   COIN_STREAK_PITCH_STEP,
   COIN_STREAK_RESET_MS,
   COINS_MUTED_KEY,
+  COINS_VOLUME_KEY,
   EVENTS_MUTED_KEY,
+  EVENTS_VOLUME_KEY,
   FOOTSTEPS_MUTED_KEY,
+  FOOTSTEPS_VOLUME_KEY,
   JUMP_MUTED_KEY,
+  JUMP_VOLUME_KEY,
+  MASTER_VOLUME_KEY,
   MUSIC_MUTED_KEY,
+  MUSIC_VOLUME_KEY,
   MUTED_KEY,
   RAIN_AUDIO_MAX_VOLUME,
   RAIN_MUTED_KEY,
+  RAIN_VOLUME_KEY,
   THUNDER_MUTED_KEY,
+  THUNDER_VOLUME_KEY,
   UI_MUTED_KEY,
+  UI_VOLUME_KEY,
 } from "./constants";
-import { saveBoolFlag } from "./persistence";
+import { loadNumberSetting, saveBoolFlag, saveNumberSetting } from "./persistence";
 
 // webkitAudioContext is still the only Web Audio constructor on old
 // Safari — declare it so TS doesn't complain.
@@ -43,6 +52,60 @@ declare global {
 /** Callback invoked when the player un-mutes while a run is in
  *  progress — used to invalidate the Sound of Silence streak. */
 export type UnmuteDuringRunCallback = () => void;
+
+// ── Volume channels ────────────────────────────────────────
+//
+// Every mute channel has a matching 0..1 volume. The Web-Audio-backed
+// channels each own a GainNode routed through a shared master gain
+// (per-shot sources connect to their channel node, so their hand-tuned
+// per-shot gains become the channel's base mix level). Music and rain
+// live on <audio> elements which can't route through the graph without
+// a MediaElementSource — instead their effective element volume is
+// computed as base × channel × master, including inside the fade
+// helpers, which keeps the existing pop-free ramp machinery intact.
+
+export const VOLUME_CHANNELS = [
+  "music",
+  "jump",
+  "rain",
+  "thunder",
+  "footsteps",
+  "coins",
+  "ui",
+  "events",
+] as const;
+export type VolumeChannel = (typeof VOLUME_CHANNELS)[number];
+
+/** The channels mixed through the Web Audio gain graph. */
+type SfxChannel = Exclude<VolumeChannel, "music" | "rain">;
+const SFX_CHANNELS: readonly SfxChannel[] = [
+  "jump",
+  "thunder",
+  "footsteps",
+  "coins",
+  "ui",
+  "events",
+];
+
+const VOLUME_KEY_BY_CHANNEL: Record<VolumeChannel, string> = {
+  music: MUSIC_VOLUME_KEY,
+  jump: JUMP_VOLUME_KEY,
+  rain: RAIN_VOLUME_KEY,
+  thunder: THUNDER_VOLUME_KEY,
+  footsteps: FOOTSTEPS_VOLUME_KEY,
+  coins: COINS_VOLUME_KEY,
+  ui: UI_VOLUME_KEY,
+  events: EVENTS_VOLUME_KEY,
+};
+
+/** Historical fixed music level — now the base the music channel and
+ *  master volumes scale against, so default sliders sound identical
+ *  to the pre-volume-control mix. */
+const MUSIC_BASE_VOLUME = 0.5;
+
+function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n));
+}
 
 // ── Pop-free volume ramps ──────────────────────────────────
 //
@@ -165,6 +228,22 @@ export const audio = {
   uiMuted: false as boolean,
   eventsMuted: false as boolean,
   thunderMuted: false as boolean,
+  // 0..1 linear volumes, independent of the mute flags above: muting
+  // never rewrites a volume, so un-muting restores the exact level
+  // the player had dialed in.
+  masterVolume: 1 as number,
+  channelVolumes: {
+    music: 1,
+    jump: 1,
+    rain: 1,
+    thunder: 1,
+    footsteps: 1,
+    coins: 1,
+    ui: 1,
+    events: 1,
+  } as Record<VolumeChannel, number>,
+  _masterGain: null as GainNode | null,
+  _channelGainNodes: null as Record<SfxChannel, GainNode> | null,
   _audioCtx: null as AudioContext | null,
   _jumpBuffer: null as AudioBuffer | null,
   _jumpVolume: 0.67,
@@ -180,9 +259,12 @@ export const audio = {
 
   init() {
     this.music = document.getElementById("game-music") as HTMLAudioElement | null;
-    if (this.music) this.music.volume = 0.5;
-    // Load per-channel mute preferences from localStorage.
+    // Load per-channel mute + volume preferences from localStorage
+    // before touching element volumes, so the music element starts at
+    // the player's effective level rather than flashing full volume.
     this._loadChannelPrefs();
+    this.loadVolumePrefs();
+    if (this.music) this.music.volume = this._musicTarget();
     // Pre-decode the jump SFX into a Web Audio buffer. The
     // AudioContext is created lazily on the first user gesture
     // (required by autoplay policy), but we fetch + decode the
@@ -225,6 +307,104 @@ export const audio = {
     }
   },
 
+  /** Hydrate master + per-channel volumes from storage and push them
+   *  into the live graph/elements. Called at init() and again after
+   *  hydratePersistence() (main.ts) in case the Capacitor mirror
+   *  restored keys that had been evicted from localStorage. */
+  loadVolumePrefs() {
+    this.masterVolume = loadNumberSetting(MASTER_VOLUME_KEY, 1, 0, 1);
+    for (const ch of VOLUME_CHANNELS) {
+      this.channelVolumes[ch] = loadNumberSetting(VOLUME_KEY_BY_CHANNEL[ch], 1, 0, 1);
+    }
+    this._applyVolumes();
+  },
+
+  /** Effective music element volume: base mix level × channel × master. */
+  _musicTarget(): number {
+    return MUSIC_BASE_VOLUME * this.channelVolumes.music * this.masterVolume;
+  },
+
+  /** Effective rain element volume at full intensity. The game loop
+   *  scales this by the live rain intensity every frame, so it is the
+   *  single source for "how loud can rain get". */
+  rainTargetVolume(): number {
+    return RAIN_AUDIO_MAX_VOLUME * this.channelVolumes.rain * this.masterVolume;
+  },
+
+  /** Output node for a Web-Audio-mixed channel. Falls back to the raw
+   *  destination if the gain graph never got built (Web Audio missing
+   *  entirely — in which case none of the callers run anyway). */
+  _sfxOut(channel: SfxChannel): AudioNode {
+    const node = this._channelGainNodes ? this._channelGainNodes[channel] : null;
+    return node ?? (this._audioCtx as AudioContext).destination;
+  },
+
+  /** Push the current volume values into the gain graph and the two
+   *  <audio> elements. Gain changes use a 30 ms ramp — an instant
+   *  gain.value assignment while sources are playing produces an
+   *  audible zipper/click. */
+  _applyVolumes() {
+    const ctx = this._audioCtx;
+    if (ctx && this._masterGain) {
+      const t = ctx.currentTime;
+      const setSmooth = (g: GainNode, v: number) => {
+        try {
+          g.gain.cancelScheduledValues(t);
+          g.gain.setValueAtTime(g.gain.value, t);
+          g.gain.linearRampToValueAtTime(v, t + 0.03);
+        } catch {
+          g.gain.value = v;
+        }
+      };
+      setSmooth(this._masterGain, this.masterVolume);
+      if (this._channelGainNodes) {
+        for (const ch of SFX_CHANNELS) {
+          setSmooth(this._channelGainNodes[ch], this.channelVolumes[ch]);
+        }
+      }
+    }
+    // Music/rain elements: only retarget while they're audibly
+    // playing — the paused/muted paths pick up the new target the
+    // next time their ramp helpers run.
+    if (
+      this.music &&
+      !this.music.paused &&
+      !this.muted &&
+      !this.musicMuted &&
+      this._musicShouldBePlaying
+    ) {
+      rampVolume(this.music, this._musicTarget(), 60);
+    }
+    if (this.rain && this._isRainPlaying && !this.rain.paused) {
+      // The game loop rescales this by rain intensity on its next
+      // frame; ramping here covers paused-game states (menu open)
+      // where that loop isn't running.
+      rampVolume(this.rain, this.rainTargetVolume(), 60);
+    }
+  },
+
+  setMasterVolume(volume: number) {
+    const n = Number(volume);
+    if (!Number.isFinite(n)) return;
+    this.masterVolume = clamp01(n);
+    saveNumberSetting(MASTER_VOLUME_KEY, this.masterVolume);
+    this._applyVolumes();
+  },
+
+  setChannelVolume(channel: VolumeChannel, volume: number) {
+    const n = Number(volume);
+    if (!Number.isFinite(n)) return;
+    if (!(channel in this.channelVolumes)) return;
+    this.channelVolumes[channel] = clamp01(n);
+    saveNumberSetting(VOLUME_KEY_BY_CHANNEL[channel], this.channelVolumes[channel]);
+    this._applyVolumes();
+  },
+
+  getChannelVolume(channel: VolumeChannel): number {
+    const v = this.channelVolumes[channel];
+    return typeof v === "number" ? v : 1;
+  },
+
   /** Fetch jump.mp3, decode it into an AudioBuffer, and stash it
    *  for instant playback via Web Audio. Falls back gracefully if
    *  Web Audio isn't available (old browsers). */
@@ -253,6 +433,31 @@ export const audio = {
       if (Ctx) this._audioCtx = new Ctx();
     } catch (_e) {
       /* Web Audio not available */
+    }
+    if (this._audioCtx && !this._masterGain) {
+      // Shared mixer graph: per-shot sources → channel gain → master
+      // gain → destination. Built once, alongside the context, so
+      // every play method can route through it unconditionally.
+      try {
+        const ctx = this._audioCtx;
+        const master = ctx.createGain();
+        master.gain.value = this.masterVolume;
+        master.connect(ctx.destination);
+        this._masterGain = master;
+        const nodes = {} as Record<SfxChannel, GainNode>;
+        for (const ch of SFX_CHANNELS) {
+          const g = ctx.createGain();
+          g.gain.value = this.channelVolumes[ch];
+          g.connect(master);
+          nodes[ch] = g;
+        }
+        this._channelGainNodes = nodes;
+      } catch (_e) {
+        // Leave the graph unbuilt — _sfxOut falls back to destination
+        // and everything plays at full channel volume.
+        this._masterGain = null;
+        this._channelGainNodes = null;
+      }
     }
   },
 
@@ -290,10 +495,10 @@ export const audio = {
       if (this._audioCtx && this._audioCtx.state === "suspended") {
         this._audioCtx.resume().catch(() => {});
       }
-      rampUpAndPlay(this.music, 0.5);
+      rampUpAndPlay(this.music, this._musicTarget());
       // Resume rain if it was playing
       if (this.rain && this._isRainPlaying) {
-        rampUpAndPlay(this.rain, RAIN_AUDIO_MAX_VOLUME);
+        rampUpAndPlay(this.rain, this.rainTargetVolume());
       }
     }
   },
@@ -337,10 +542,11 @@ export const audio = {
     if (!this.music) return;
     if (this.muted || this.musicMuted) return;
     this._musicShouldBePlaying = true;
-    if (!this.music.paused && this.music.volume > 0.49) return;
+    const target = this._musicTarget();
+    if (!this.music.paused && this.music.volume >= target - 0.01) return;
     this.music.volume = 0;
     const p = this.music.play();
-    const fade = () => rampVolume(this.music!, 0.5, 400);
+    const fade = () => rampVolume(this.music!, target, 400);
     if (p && typeof p.then === "function") {
       p.then(fade).catch(() => {});
     } else {
@@ -369,7 +575,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, t0);
       gain.gain.linearRampToValueAtTime(0.4, t0 + 0.003);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._sfxOut("ui"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -406,7 +612,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, t0);
       gain.gain.linearRampToValueAtTime(this._jumpVolume, t0 + 0.004);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._sfxOut("jump"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -546,7 +752,9 @@ export const audio = {
         const gain = this._audioCtx.createGain();
         gain.gain.value = 0;
         src.connect(gain);
-        gain.connect(this._audioCtx.destination);
+        // Warm through the master gain so the graph compilation covers
+        // the real playback topology.
+        gain.connect(this._masterGain ?? this._audioCtx.destination);
         src.start(0);
         src.stop(this._audioCtx.currentTime + 0.01);
       } catch {
@@ -611,9 +819,9 @@ export const audio = {
       if (this.rain && this._isRainPlaying) rampDownAndPause(this.rain);
     } else {
       this._musicShouldBePlaying = true;
-      rampUpAndPlay(this.music, 0.5);
+      rampUpAndPlay(this.music, this._musicTarget());
       if (this.rain && this._isRainPlaying) {
-        rampUpAndPlay(this.rain, RAIN_AUDIO_MAX_VOLUME);
+        rampUpAndPlay(this.rain, this.rainTargetVolume());
       }
     }
   },
@@ -671,7 +879,7 @@ export const audio = {
   initRain() {
     this.rain = document.getElementById("rain-audio") as HTMLAudioElement | null;
     if (this.rain) {
-      this.rain.volume = RAIN_AUDIO_MAX_VOLUME;
+      this.rain.volume = this.rainTargetVolume();
       this.rain.loop = true;
     }
   },
@@ -680,7 +888,7 @@ export const audio = {
     if (this._isRainPlaying) return;
     if (this.muted || this.musicMuted || this.rainMuted) return;
     if (!this.rain) return;
-    rampUpAndPlay(this.rain, RAIN_AUDIO_MAX_VOLUME);
+    rampUpAndPlay(this.rain, this.rainTargetVolume());
     this._isRainPlaying = true;
   },
 
@@ -722,7 +930,7 @@ export const audio = {
       const gain = this._audioCtx.createGain();
       gain.gain.value = 0.5;
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("thunder"));
       src.start(0);
     } catch (_e) {
       /* non-critical */
@@ -798,7 +1006,7 @@ export const audio = {
       // 1.8 was too loud against the music.
       gain.gain.value = 0.75 * (0.88 + Math.random() * 0.24);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._sfxOut("footsteps"));
       this._activeStepGains.add(gain);
       src.onended = () => {
         this._activeStepGains.delete(gain);
@@ -870,7 +1078,7 @@ export const audio = {
       const gain = this._audioCtx.createGain();
       gain.gain.value = 0.6;
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("jump"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -966,7 +1174,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, now);
       gain.gain.linearRampToValueAtTime(COIN_CHAIN_END_GAIN, now + 0.005);
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("coins"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1037,7 +1245,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, now);
       gain.gain.linearRampToValueAtTime(target, now + 0.005);
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("coins"));
       this._coinFillGains.push(gain);
       const cleanup = () => {
         const i = this._coinFillGains.indexOf(gain);
@@ -1127,7 +1335,7 @@ export const audio = {
       const gain = this._audioCtx.createGain();
       gain.gain.value = 0.55;
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("jump"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1183,7 +1391,7 @@ export const audio = {
       const gain = this._audioCtx.createGain();
       gain.gain.value = 0.6;
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("ui"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1241,7 +1449,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, startAt);
       gain.gain.linearRampToValueAtTime(0.35, startAt + 0.005);
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("coins"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1293,7 +1501,7 @@ export const audio = {
       const gain = this._audioCtx.createGain();
       gain.gain.value = 0.28;
       src.connect(gain);
-      gain.connect(this._audioCtx.destination);
+      gain.connect(this._sfxOut("events"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1384,7 +1592,7 @@ export const audio = {
       gain.gain.setValueAtTime(0, t0);
       gain.gain.linearRampToValueAtTime(this._santaTargetGain, t0 + 0.3);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._sfxOut("events"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1465,7 +1673,7 @@ export const audio = {
       const gain = ctx.createGain();
       gain.gain.value = 0.5;
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._sfxOut("events"));
       src.onended = () => {
         try {
           src.disconnect();
@@ -1541,7 +1749,7 @@ export const audio = {
         gain.gain.setValueAtTime(0, t0);
         gain.gain.linearRampToValueAtTime(this._cometTargetGain, t0 + 0.4);
         src.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(this._sfxOut("events"));
         src.onended = () => {
           try {
             src.disconnect();
@@ -1626,7 +1834,7 @@ export const audio = {
       bodyGain.gain.linearRampToValueAtTime(0.08, t0 + 0.004);
       bodyGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
       body.connect(bodyGain);
-      bodyGain.connect(ctx.destination);
+      bodyGain.connect(this._sfxOut("ui"));
       body.onended = () => {
         try {
           body.disconnect();
@@ -1644,7 +1852,7 @@ export const audio = {
       tickGain.gain.linearRampToValueAtTime(0.05, t0 + 0.002);
       tickGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.018);
       tick.connect(tickGain);
-      tickGain.connect(ctx.destination);
+      tickGain.connect(this._sfxOut("ui"));
       tick.onended = () => {
         try {
           tick.disconnect();
@@ -1732,7 +1940,7 @@ export const audio = {
       !this.musicMuted &&
       !this.rainMuted
     ) {
-      rampUpAndPlay(this.rain, RAIN_AUDIO_MAX_VOLUME);
+      rampUpAndPlay(this.rain, this.rainTargetVolume());
     }
     // ── Music watchdog ──────────────────────────────────────
     // If the game code has asked music to be playing but the
@@ -1746,19 +1954,20 @@ export const audio = {
     // rampDownAndPause that setMuted(true) / setMusicMuted(true)
     // triggers.
     if (this._musicShouldBePlaying && this.music && !this.muted && !this.musicMuted) {
+      const target = this._musicTarget();
       if (this.music.paused) {
         this.music.volume = 0;
         const p = this.music.play();
-        const fade = () => rampVolume(this.music!, 0.5, 400);
+        const fade = () => rampVolume(this.music!, target, 400);
         if (p && typeof p.then === "function") {
           p.then(fade).catch(() => {});
         } else {
           fade();
         }
-      } else if (this.music.volume < 0.05) {
-        // Playing but silent — a prior rampVolume got superseded
-        // before reaching the target. Nudge it back up.
-        rampVolume(this.music, 0.5, 300);
+      } else if (this.music.volume < target - 0.05) {
+        // Playing but noticeably under target — a prior rampVolume
+        // got superseded before finishing. Nudge it back up.
+        rampVolume(this.music, target, 300);
       }
     }
   },

@@ -65,11 +65,9 @@ import {
   HIGH_CONTRAST_KEY,
   INITIAL_BG_VELOCITY,
   LIGHTNING_MIN_COOLDOWN_MS,
-  MASTER_VOLUME_KEY,
   METERS_PER_BG_UNIT_PER_FRAME,
   MOON_PHASE_CENTER,
   PARTY_HAT_SCORE_THRESHOLD,
-  RAIN_AUDIO_MAX_VOLUME,
   RAIN_FADE_IN_RATE,
   RAIN_FADE_OUT_RATE,
   RAINBOW_LIFETIME_SEC,
@@ -576,7 +574,7 @@ function update(now: number) {
   if (state.rainIntensity > 0.01 && !audio._isRainPlaying) audio.startRain();
   else if (state.rainIntensity < 0.01 && audio._isRainPlaying) audio.stopRain();
   if (audio.rain && audio._isRainPlaying) {
-    audio.rain.volume = RAIN_AUDIO_MAX_VOLUME * state.rainIntensity;
+    audio.rain.volume = audio.rainTargetVolume() * state.rainIntensity;
   }
 
   // Slow rotation of the night-sky dome, tied to the cycle phase
@@ -1779,7 +1777,9 @@ const accessibility = {
   textScale: TEXT_SCALE_DEFAULT as number,
   reduceMotion: "system" as ReduceMotionSetting,
   highContrast: false,
-  masterVolume: 1,
+  // Volumes live on the audio singleton (audio.masterVolume /
+  // audio.channelVolumes) — the mixer needs them at play time, so
+  // audio.ts owns the state and this module only exposes the API.
 };
 
 /**
@@ -1816,7 +1816,10 @@ function loadAccessibilitySettings(): void {
   accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
   setReduceMotionMode(accessibility.reduceMotion);
   accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
-  accessibility.masterVolume = loadNumberSetting(MASTER_VOLUME_KEY, 1, 0, 1);
+  // Re-hydrate the audio mixer volumes: audio.init() already loaded
+  // them, but that ran before hydratePersistence() — this pass picks
+  // up any key the Capacitor mirror restored in between.
+  audio.loadVolumePrefs();
 }
 
 // Text scale is also applied synchronously at module evaluation —
@@ -2053,14 +2056,64 @@ const GameAPI = {
     return accessibility.highContrast;
   },
 
+  // ── Volume mixing ───────────────────────────────────────
+  // Mirrors the mute-channel API shape: one setter + getter per
+  // channel, clamped 0..1, persisted by audio.ts. Volumes compose
+  // WITH the mute flags — muting a channel never overwrites its
+  // volume, so un-muting restores the player's dialed-in level.
   setMasterVolume(volume: number) {
-    const n = Number(volume);
-    if (!Number.isFinite(n)) return;
-    accessibility.masterVolume = Math.min(1, Math.max(0, n));
-    saveNumberSetting(MASTER_VOLUME_KEY, accessibility.masterVolume);
+    audio.setMasterVolume(volume);
   },
   getMasterVolume() {
-    return accessibility.masterVolume;
+    return audio.masterVolume;
+  },
+  setMusicVolume(volume: number) {
+    audio.setChannelVolume("music", volume);
+  },
+  getMusicVolume() {
+    return audio.getChannelVolume("music");
+  },
+  setJumpVolume(volume: number) {
+    audio.setChannelVolume("jump", volume);
+  },
+  getJumpVolume() {
+    return audio.getChannelVolume("jump");
+  },
+  setRainVolume(volume: number) {
+    audio.setChannelVolume("rain", volume);
+  },
+  getRainVolume() {
+    return audio.getChannelVolume("rain");
+  },
+  setThunderVolume(volume: number) {
+    audio.setChannelVolume("thunder", volume);
+  },
+  getThunderVolume() {
+    return audio.getChannelVolume("thunder");
+  },
+  setFootstepsVolume(volume: number) {
+    audio.setChannelVolume("footsteps", volume);
+  },
+  getFootstepsVolume() {
+    return audio.getChannelVolume("footsteps");
+  },
+  setCoinsVolume(volume: number) {
+    audio.setChannelVolume("coins", volume);
+  },
+  getCoinsVolume() {
+    return audio.getChannelVolume("coins");
+  },
+  setUiVolume(volume: number) {
+    audio.setChannelVolume("ui", volume);
+  },
+  getUiVolume() {
+    return audio.getChannelVolume("ui");
+  },
+  setEventsVolume(volume: number) {
+    audio.setChannelVolume("events", volume);
+  },
+  getEventsVolume() {
+    return audio.getChannelVolume("events");
   },
 
   isDebug() {
