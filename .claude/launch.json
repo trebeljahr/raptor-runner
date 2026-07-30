@@ -31,6 +31,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "58731"],
       "port": 58731
+    },
+    {
+      "name": "a11y-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "52774"],
+      "port": 52774
     }
   ]
 }

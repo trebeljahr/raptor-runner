@@ -1781,6 +1781,29 @@ const accessibility = {
   masterVolume: 1,
 };
 
+/**
+ * Push the text scale into the DOM. All chrome text (menus, HUD,
+ * overlays) is sized in rem, so scaling the root font-size — as a
+ * percentage, so OS/browser font settings still compose — carries
+ * everything. --text-scale exists for the handful of legacy.css
+ * clamp() declarations whose preferred term is vw/vh-based: those
+ * don't track the root font-size, so the stylesheet multiplies
+ * them by this property instead.
+ */
+function applyTextScale(scale: number): void {
+  const root = document.documentElement;
+  if (scale === 1) {
+    // At the default size leave the root untouched rather than
+    // pinning font-size to "100%" — an explicit inline value would
+    // shadow any stylesheet-level override a platform shell adds.
+    root.style.removeProperty("font-size");
+    root.style.removeProperty("--text-scale");
+  } else {
+    root.style.fontSize = `${scale * 100}%`;
+    root.style.setProperty("--text-scale", String(scale));
+  }
+}
+
 function loadAccessibilitySettings(): void {
   accessibility.textScale = loadNumberSetting(
     TEXT_SCALE_KEY,
@@ -1788,10 +1811,20 @@ function loadAccessibilitySettings(): void {
     TEXT_SCALE_MIN,
     TEXT_SCALE_MAX,
   );
+  applyTextScale(accessibility.textScale);
   accessibility.reduceMotion = loadStringSetting(REDUCE_MOTION_KEY, "system", REDUCE_MOTION_VALUES);
   accessibility.highContrast = loadBoolFlag(HIGH_CONTRAST_KEY, false);
   accessibility.masterVolume = loadNumberSetting(MASTER_VOLUME_KEY, 1, 0, 1);
 }
+
+// Text scale is also applied synchronously at module evaluation —
+// ahead of init()'s awaits — so the start screen never flashes at
+// the default size for players who scaled it up. init()'s
+// loadAccessibilitySettings() re-reads it after hydratePersistence()
+// in case the Capacitor mirror restored an evicted key.
+applyTextScale(
+  loadNumberSetting(TEXT_SCALE_KEY, TEXT_SCALE_DEFAULT, TEXT_SCALE_MIN, TEXT_SCALE_MAX),
+);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GameCallback = (...args: any[]) => void;
@@ -1986,6 +2019,7 @@ const GameAPI = {
     if (!Number.isFinite(n)) return;
     accessibility.textScale = Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, n));
     saveNumberSetting(TEXT_SCALE_KEY, accessibility.textScale);
+    applyTextScale(accessibility.textScale);
   },
   getTextScale() {
     return accessibility.textScale;

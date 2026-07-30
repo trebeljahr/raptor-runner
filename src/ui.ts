@@ -26,7 +26,7 @@
  * onReady gate has fired, but the capture keeps TypeScript honest.
  */
 
-import { REDUCE_MOTION_VALUES, TEXT_SCALE_MAX, TEXT_SCALE_MIN } from "./constants";
+import { REDUCE_MOTION_VALUES, TEXT_SCALE_PRESETS } from "./constants";
 import {
   type AccessibilitySettingsCallbacks,
   refreshAccessibilitySettings,
@@ -601,16 +601,28 @@ function toggleSound() {
 const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
   rows: [
     {
-      kind: "slider",
+      kind: "select",
       id: "text-scale",
       label: "Text size",
-      min: TEXT_SCALE_MIN,
-      max: TEXT_SCALE_MAX,
-      step: 0.05,
-      format: (v: number) => `${Math.round(v * 100)}%`,
-      get: () => window.Game?.getTextScale?.() ?? 1,
-      set: (v: number) => {
-        window.Game?.setTextScale?.(v);
+      options: TEXT_SCALE_PRESETS.map((v) => ({
+        value: String(v),
+        label: `${Math.round(v * 100)}%`,
+      })),
+      get: () => {
+        // Snap the displayed choice to the nearest preset: the Game
+        // setter accepts any value in range (a build that allowed a
+        // continuous slider may have stored e.g. 1.2), and a <select>
+        // with an unlisted value would render blank.
+        const current = window.Game?.getTextScale?.() ?? 1;
+        let nearest: number = TEXT_SCALE_PRESETS[0];
+        for (const preset of TEXT_SCALE_PRESETS) {
+          if (Math.abs(preset - current) < Math.abs(nearest - current)) nearest = preset;
+        }
+        return String(nearest);
+      },
+      set: (v: string) => {
+        const n = Number.parseFloat(v);
+        if (Number.isFinite(n)) window.Game?.setTextScale?.(n);
         syncAccessibilityUI();
       },
     },

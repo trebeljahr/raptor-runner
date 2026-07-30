@@ -372,10 +372,17 @@ export type ReduceMotionSetting = (typeof REDUCE_MOTION_VALUES)[number];
 
 // Text scale bounds. 1 is the as-designed size; the ceiling stops a
 // scaled-up menu from overflowing the panel on small landscape
-// phones (the tightest layout we ship).
-export const TEXT_SCALE_MIN = 0.8;
+// phones (the tightest layout we ship). The floor is also 1 —
+// shrinking below the designed size never helps readability, so
+// the setting only goes up.
+export const TEXT_SCALE_MIN = 1;
 export const TEXT_SCALE_MAX = 1.5;
 export const TEXT_SCALE_DEFAULT = 1;
+/** The sizes offered in the settings UI. The Game setter accepts
+ *  any value in [MIN, MAX] (stored values are clamped, not
+ *  snapped), but the menu presents these fixed steps because a
+ *  continuous slider makes "put it back how it was" hard. */
+export const TEXT_SCALE_PRESETS = [1, 1.15, 1.3, 1.5] as const;
 
 // ── Cosmetic unlock thresholds (single-run scores) ─────────
 // Thresholds are in meters (score-as-distance). ≈1000 m is a
