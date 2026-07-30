@@ -62,13 +62,23 @@ web (Vite → static deploy), desktop (Electron), mobile (Capacitor).
 | Web dev   | `pnpm dev`               | `import.meta.env.DEV === true`       |
 | Web prod  | `pnpm build`             | typechecks first, then `vite build`  |
 | Desktop   | `pnpm electron:build`    | `VITE_TARGET=electron`               |
+| Desktop release | `pnpm release:desktop` | preflight → build → verify signing |
 | Mobile    | `pnpm cap:run:ios/android` | `VITE_TARGET=capacitor`            |
 
 `pnpm typecheck` runs `tsc --noEmit` against the whole tree.
 `pnpm test` runs Vitest once (no watch).
 
+Shipping a desktop build: use `pnpm release:desktop`, not
+`electron:build`. See [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
+
 ## Things that bite
 
+- **Code signing fails silently, on both desktop platforms.**
+  electron-builder skips notarization without an error when no
+  credentials are present, and signing with the wrong certificate type
+  produces a valid-looking signature that Gatekeeper still rejects. A
+  broken artifact exits 0 and looks identical to a good one. Never trust
+  a build; run `pnpm verify:signing`.
 - **The repo lives in a worktree-friendly layout.** Worktrees under
   `.claude/worktrees/` use the parent's `node_modules` if you don't run
   `pnpm install` inside the worktree. Always `pnpm install` once after
