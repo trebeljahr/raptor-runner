@@ -40,10 +40,59 @@ itch.io distribution.
 All MIT-licensed; used only at build time to produce the `dist/` bundle.
 See `package.json` for the full devDependency list.
 
+## Bundled fonts
+
+### Unbounded (`@fontsource-variable/unbounded`)
+
+- License: SIL Open Font License 1.1
+- Copyright 2022 The Unbounded Project Authors
+- https://github.com/googlefonts/unbounded
+
+Subset `.woff2` files are shipped in `dist/assets/`. The OFL requires the
+license text to travel with the font; the full text is in
+`node_modules/@fontsource-variable/unbounded/LICENSE`.
+
 ## Game assets
 
-All original pixel-art sprites, audio, and in-game typography are
-© 2026 Rico Trebeljahr. See [LICENSE](LICENSE) for redistribution terms.
+Raptor Runner's assets are a mix of third-party licensed work, generated
+work, and original work. They are **not** uniformly Rico Trebeljahr's
+copyright, and this file should not claim otherwise.
+
+**The authoritative attribution list is `src/credits.ts`**
+(`ATTRIBUTION_SECTIONS`), which is the single source rendered into both the
+in-game credits overlay and the Credits section of `imprint.html`. Keep it
+that way: adding an attribution here instead of there means the game itself
+stops showing it, which is what the licenses actually require.
+
+Third-party assets currently credited there include:
+
+- **Raptor sprite and running animation** — by Chris Masna ("Run Forrest
+  Run" on DeviantArt), used with explicit permission.
+- **Cactus, party hat, bow tie, flower, and coin sprites** — Freepik,
+  under the Freepik Free License, which requires attribution.
+- **"Thug life" sunglasses** — Wikimedia Commons, by Aboulharakat,
+  licensed CC BY-SA 4.0.
+- **Music** — "L'Étoile danse Pt. 1" by Meydän, CC BY 4.0.
+- **Sound effects** — various, from Pixabay and itch.io, several under
+  CC BY 3.0. Pixabay's link-attribution URLs must be preserved verbatim.
+
+Everything not attributed in `src/credits.ts` is either generated or
+original work. Original assets are © 2026 Rico Trebeljahr; see
+[LICENSE](LICENSE) for redistribution terms.
+
+<!--
+  Two items to resolve before a paid storefront release. Neither is a
+  code problem, so neither can be fixed here:
+
+  1. thug-glasses.png is CC BY-SA 4.0. Share-alike is the one license in
+     this list that can propagate obligations to derivative work, and the
+     sprite was modified (background flood-filled). Confirm this is
+     acceptable for a paid closed-source release, or swap the sprite.
+  2. The raptor sprite permission was granted for what was then a free
+     browser game. Confirm it covers commercial and paid distribution
+     before charging for the game on Steam or itch.io.
+-->
+
 
 ---
 

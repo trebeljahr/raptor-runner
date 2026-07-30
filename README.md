@@ -1,6 +1,6 @@
 # Raptor Runner
 
-A pixel-art homage to the Chrome "No Internet" dinosaur game, with a full
+A handcrafted homage to the Chrome "No Internet" dinosaur game, with a full
 day/night cycle, a starry sky, weather, rare events, cosmetics, and a
 shop. Plays in the browser, ships as a desktop app via Electron, and as a
 mobile app via Capacitor — one TypeScript codebase, three targets.

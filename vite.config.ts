@@ -153,7 +153,7 @@ export default defineConfig({
               name: "Raptor Runner",
               short_name: "Raptor",
               description:
-                "A pixel-art homage to the Chrome 'No Internet' dinosaur game, with a full day/night cycle and a starry sky.",
+                "A handcrafted homage to the Chrome 'No Internet' dinosaur game, with a full day/night cycle and a starry sky.",
               start_url: "/",
               scope: "/",
               display: "standalone",
