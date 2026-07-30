@@ -133,8 +133,10 @@ try {
   const catalog = await loadCatalog(tmp);
   mkdirSync(OUT, { recursive: true });
 
-  for (const ach of catalog) {
-    const api = toSteamApiName(ach.id);
+  for (const [i, ach] of catalog.entries()) {
+    // Number prefix follows catalog order, which is also the row order in
+    // the vault entry sheet — keeps manual partner-backend upload in sync.
+    const api = `${String(i + 1).padStart(2, "0")}_${toSteamApiName(ach.id)}`;
     const base = join(OUT, api);
     const png = `${base}.png`;
 
