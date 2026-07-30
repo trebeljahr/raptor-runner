@@ -3302,6 +3302,24 @@ async function init() {
     // the user hasn't touched the mouse yet.
     document.body.classList.remove("pad-active");
     console.log("Gamepad disconnected");
+    // If that was the last pad, pause instead of letting the run
+    // die unattended — a controller running out of battery mid-run
+    // shouldn't cost the player their score, and Steam's
+    // full-controller-support criteria expect disconnects to be
+    // handled. Another pad may still be attached (the departed one
+    // shows up as a null slot), so only act when all are gone.
+    // Opening the menu IS pausing here; !paused implies the menu is
+    // closed, so the toggle can only ever open it.
+    let padsRemain = false;
+    try {
+      padsRemain = navigator.getGamepads().some(Boolean);
+    } catch (_) {
+      // getGamepads can throw (see pollGamepad); pausing is the
+      // safe default when we cannot tell what remains.
+    }
+    if (!padsRemain && state.started && !state.paused && !state.gameOver) {
+      (window as unknown as { __rrToggleMenu?: () => void }).__rrToggleMenu?.();
+    }
   });
 
   // Cursor visibility arbiter: whichever input type fires LAST
