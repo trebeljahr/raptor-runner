@@ -74,11 +74,24 @@ export interface AccessibilityKeyCaptureRow {
   rejectionHint: (code: string) => string | null;
 }
 
+/** One-shot action row (e.g. "open Steam's controller configurator").
+ *  `visible` is re-evaluated on every render — rows whose action only
+ *  makes sense in some sessions (Steam running, controller present)
+ *  disappear entirely instead of rendering a dead button. */
+export interface AccessibilityActionRow {
+  kind: "action";
+  id: string;
+  label: string;
+  press: () => void;
+  visible?: () => boolean;
+}
+
 export type AccessibilityRow =
   | AccessibilityToggleRow
   | AccessibilitySliderRow
   | AccessibilitySelectRow
-  | AccessibilityKeyCaptureRow;
+  | AccessibilityKeyCaptureRow
+  | AccessibilityActionRow;
 
 export interface AccessibilitySettingsCallbacks {
   rows: AccessibilityRow[];
@@ -104,6 +117,24 @@ function ToggleRow({ row }: { row: AccessibilityToggleRow }) {
         <span>
           {row.label}: {on ? "on" : "off"}
         </span>
+      </span>
+    </button>
+  );
+}
+
+function ActionRow({ row }: { row: AccessibilityActionRow }) {
+  if (row.visible && !row.visible()) return null;
+  return (
+    <button
+      className="menu-item"
+      type="button"
+      onClick={(e) => {
+        stop(e);
+        row.press();
+      }}
+    >
+      <span className="inner">
+        <span>{row.label}</span>
       </span>
     </button>
   );
@@ -297,6 +328,8 @@ export function AccessibilitySettings({ callbacks }: AccessibilitySettingsProps)
             return <SelectRow key={row.id} row={row} />;
           case "keycapture":
             return <KeyCaptureRow key={row.id} row={row} />;
+          case "action":
+            return <ActionRow key={row.id} row={row} />;
           default:
             return null;
         }

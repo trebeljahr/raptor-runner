@@ -251,6 +251,21 @@ ipcMain.handle("steam-input:set-action-set", (_evt, name: string) => {
   return steamInputApplyActionSet ? steamInputApplyActionSet(name) : false;
 });
 
+// IPC: open Steam's controller configurator for this app so the
+// player can rebind actions. steamworks.js wraps no ShowBindingPanel,
+// so the steam:// URL scheme stands in: the OS hands it to the Steam
+// client, which opens the configurator (Big Picture window on
+// desktop, the native overlay on Steam Deck). Gated on steamClient —
+// on DRM-free / Steam-less sessions the renderer gets false and the
+// UI never offers the button anyway.
+ipcMain.handle("steam-input:open-binding-panel", () => {
+  if (!steamClient || resolvedAppId === null) return false;
+  shell.openExternal(`steam://controllerconfig/${resolvedAppId}`).catch(() => {
+    /* Steam client gone mid-session — nothing sensible to do */
+  });
+  return true;
+});
+
 app.on("will-quit", () => {
   // Timer non-null implies input.init() succeeded, so shutdown() has
   // something to tear down.

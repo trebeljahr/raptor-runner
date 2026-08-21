@@ -239,7 +239,13 @@ import {
 } from "./services/gameServices";
 import { state } from "./state";
 import { pushAchievementToSteam, reconcileWithSteam } from "./steamBridge";
-import { getFreshSteamFrame, initSteamInput, syncSteamActionSet } from "./steamInput";
+import {
+  getFreshSteamFrame,
+  initSteamInput,
+  isSteamInputLive,
+  openSteamBindingPanel,
+  syncSteamActionSet,
+} from "./steamInput";
 import { track, trackPageview } from "./telemetry";
 
 // Fire the single pageview for this session. Gated inside
@@ -2133,6 +2139,20 @@ const GameAPI = {
   },
   getJumpKeys() {
     return [...accessibility.jumpKeys];
+  },
+
+  // ── Steam controller rebinding ──────────────────────────
+  // Controller bindings live in Steam's configurator, not in-game:
+  // steamworks.js exposes no action-origin APIs, so an in-game
+  // rebind UI could neither show current bindings nor write new
+  // ones. Instead the settings menu deep-links to Steam's own UI.
+  // canOpen gates on the Steam Input path being live so the row
+  // only appears when rebinding would actually affect the game.
+  canOpenSteamControllerConfig() {
+    return isSteamInputLive();
+  },
+  openSteamControllerConfig() {
+    openSteamBindingPanel();
   },
 
   // ── Volume mixing ───────────────────────────────────────

@@ -57,10 +57,10 @@ Moving parts:
    create the directory if missing), then restart Steam.
 2. Steam must be running and logged into an account that owns app
    5035590.
-3. Run `STEAM_APP_ID=5035590 pnpm electron:preview`. The env override
-   is required: the repo's `steam_appid.txt` intentionally still says
-   480 (Spacewar) until the store setup lands — use the override
-   instead of editing the file.
+3. Run `pnpm electron:preview`. The repo's `steam_appid.txt` carries
+   the real app id (5035590) since the store went into beta;
+   `STEAM_APP_ID` remains available as an override for testing
+   against a different app id.
 4. Watch the terminal for `[steam-input] init ok` followed (possibly
    seconds later) by `[steam-input] action handles resolved`. Until
    handles resolve, the game intentionally stays on the W3C gamepad
@@ -98,6 +98,18 @@ remap-*unaware* — a player who moves "jump" to L1 in the Steam
 configurator still sees the Cross glyph. For the store wizard's
 "displays appropriate glyphs" question the honest answer is: yes
 per device family via the Steam Input device type; no per binding.
+
+`ShowBindingPanel` is equally absent from the binding, so in-game
+rebinding is handled by deep link instead: the accessibility settings
+show a "Controller bindings (Steam)" row (only while the Steam Input
+path is live) that opens `steam://controllerconfig/<appid>` via the
+OS — the Steam client resolves it to its own configurator (Big
+Picture window on desktop, native overlay UI on Steam Deck).
+
+Closing the remaining gaps (action origins for remap-aware prompts,
+Valve glyph art, `GetCurrentActionSet` read-back) requires forking
+steamworks.js and extending its Rust `input` module — upstream
+master, checked 2026-08, exposes nothing beyond the 0.4.0 surface.
 
 ## Failure modes (manual test matrix)
 

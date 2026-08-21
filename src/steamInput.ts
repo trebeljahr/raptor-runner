@@ -71,6 +71,28 @@ export function getFreshSteamFrame(): SteamInputFrame | null {
 }
 
 /**
+ * True while the Steam Input path is actually driving the game: a
+ * fresh snapshot whose handles resolved and with >= 1 controller.
+ * The UI uses this to decide whether offering Steam's rebinding
+ * configurator makes sense.
+ */
+export function isSteamInputLive(): boolean {
+  const frame = getFreshSteamFrame();
+  return frame !== null && frame.available && frame.controllerCount > 0;
+}
+
+/**
+ * Deep-link into Steam's controller configurator for this app.
+ * Fire-and-forget; a no-op on non-Electron builds and on preloads
+ * compiled before the bridge method existed.
+ */
+export function openSteamBindingPanel(): void {
+  window.electronAPI?.openSteamBindingPanel?.().catch(() => {
+    /* Steam gone — the button simply does nothing */
+  });
+}
+
+/**
  * Ask the main process to activate an action set. Cached — only one
  * IPC round-trip per actual transition, so it is safe (and intended)
  * to call every frame with the currently-desired set. On failure the

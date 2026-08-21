@@ -12,10 +12,8 @@
  *  project slug ever moves. */
 export const ITCH_STORE_URL = "https://trebeljahr.itch.io/raptor-runner";
 
-/** Steam store page. Using the resolved app id from steam_appid.txt;
- *  once a real Steamworks app id is provisioned, swap this. Until
- *  then the link points at the current placeholder. */
-export const STEAM_STORE_URL = "https://store.steampowered.com/app/480/Raptor_Runner/";
+/** Steam store page — app 5035590, same id as steam_appid.txt. */
+export const STEAM_STORE_URL = "https://store.steampowered.com/app/5035590/Raptor_Runner/";
 
 /** Steam wishlist add — Steam's own "add to wishlist" flow. Opens
  *  the same page as STEAM_STORE_URL plus the ?wishlist=1 hint that

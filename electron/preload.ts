@@ -74,4 +74,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // false when Steam Input is not live — never rejects.
   setSteamActionSet: (name: string): Promise<boolean> =>
     ipcRenderer.invoke("steam-input:set-action-set", name),
+
+  // Open Steam's controller configurator (rebinding UI) for this app.
+  // Resolves false when Steam isn't running — never rejects.
+  openSteamBindingPanel: (): Promise<boolean> =>
+    ipcRenderer.invoke("steam-input:open-binding-panel"),
 });

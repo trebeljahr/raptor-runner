@@ -53,6 +53,9 @@ declare global {
     onSteamInputFrame(cb: (frame: SteamInputFrame) => void): () => void;
     /** Activate a Steam Input action set. False when Steam Input is not live. */
     setSteamActionSet(name: string): Promise<boolean>;
+    /** Open Steam's controller configurator. False when Steam isn't running.
+     *  Optional: preloads compiled before this API existed lack it. */
+    openSteamBindingPanel?(): Promise<boolean>;
   }
 
   interface Window {

@@ -708,6 +708,21 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
           ? "That key already has a job — try another."
           : null,
     },
+    // ── Steam controller rebinding ──────────────────────────
+    // Controller bindings are owned by Steam's configurator (the
+    // game reads semantic actions, see docs/STEAM_INPUT.md), so this
+    // row deep-links there rather than hosting a rebind UI of its
+    // own. Hidden unless the Steam Input path is live — web, mobile,
+    // and DRM-free desktop sessions never see it.
+    {
+      kind: "action",
+      id: "steam-controller-config",
+      label: "Controller bindings (Steam)",
+      visible: () => window.Game?.canOpenSteamControllerConfig?.() === true,
+      press: () => {
+        window.Game?.openSteamControllerConfig?.();
+      },
+    },
     // ── Volume sliders ──────────────────────────────────────
     // Grouped rather than one slider per channel: master + music +
     // ambience + a single "effects" level that fans out to every
@@ -894,6 +909,9 @@ function openMenuBase() {
   // Re-render the React menu list so it re-reads live state
   // (install-availability, fullscreen label, etc.).
   syncMenuList();
+  // Same for the accessibility rows — the Steam rebinding row's
+  // visibility depends on whether Steam Input is live right now.
+  syncAccessibilityUI();
   // Refresh the fullscreen toggle label so it's honest if the
   // player hit ESC or Cmd-Ctrl-F outside the menu. No-op on web.
   refreshFullscreenState();
