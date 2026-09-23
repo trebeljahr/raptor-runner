@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://raptorrunner.com/sitemap.xml

@@ -9,7 +9,7 @@
  * before the game can start.
  *
  * Gating: we only send when running on the production web host
- * (raptor.trebeljahr.com). Dev, Electron (file://), and Capacitor
+ * (raptorrunner.com). Dev, Electron (file://), and Capacitor
  * (capacitor://) all no-op so desktop/mobile installs don't
  * pollute the web dashboard with identifier-less pageviews that
  * can't be geolocated or deduplicated meaningfully.
@@ -22,7 +22,7 @@
  * tears down.
  */
 
-const PLAUSIBLE_DOMAIN = "raptor.trebeljahr.com";
+const PLAUSIBLE_DOMAIN = "raptorrunner.com";
 const PLAUSIBLE_ENDPOINT = "https://plausible.trebeljahr.com/api/event";
 
 type Props = Record<string, string | number | boolean>;

@@ -103,7 +103,7 @@ self.onmessage = async (e: MessageEvent) => {
     ctx.fillText("Raptor Runner", 60, 100);
     ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
     ctx.font = '26px "Helvetica Neue", Helvetica, Arial, sans-serif';
-    ctx.fillText("raptor.trebeljahr.com", 62, 142);
+    ctx.fillText("raptorrunner.com", 62, 142);
     ctx.restore();
 
     // ── Score block (bottom-right) ──────────────────────────────

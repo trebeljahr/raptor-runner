@@ -26,6 +26,7 @@
  * onReady gate has fired, but the capture keeps TypeScript honest.
  */
 
+import { SITE_URL } from "./config/externalLinks";
 import {
   DEFAULT_JUMP_KEYS,
   REDUCE_MOTION_VALUES,
@@ -54,9 +55,7 @@ import { refreshStartScreen } from "./ui/react/mountStartScreen";
 // released). The legacy VITE_STEAM_STORE_URL is still honoured as a
 // fallback so existing .env.local overrides keep working.
 const STEAM_STORE_URL: string =
-  import.meta.env.VITE_DESKTOP_STORE_URL ||
-  import.meta.env.VITE_STEAM_STORE_URL ||
-  "https://raptor.trebeljahr.com";
+  import.meta.env.VITE_DESKTOP_STORE_URL || import.meta.env.VITE_STEAM_STORE_URL || SITE_URL;
 
 // These four elements are required by index.html and are present
 // before this module runs (the script is loaded after the elements
@@ -2477,7 +2476,7 @@ function buildShareText(score: number) {
   if (isDesktopApp()) {
     return `🦖 I scored ${score} in Raptor Runner — can you beat me? ${STEAM_STORE_URL}`;
   }
-  return `Can you beat my highscore of ${score} at https://raptor.trebeljahr.com?`;
+  return `Can you beat my highscore of ${score} at ${SITE_URL}?`;
 }
 
 async function handleShareClick() {

@@ -135,7 +135,7 @@ function generateScoreCardBlobMainThread(deathSnapshotReady: boolean) {
   cctx.fillText("Raptor Runner", 60, 100);
   cctx.fillStyle = "rgba(255, 255, 255, 0.8)";
   cctx.font = '26px "Helvetica Neue", Helvetica, Arial, sans-serif';
-  cctx.fillText("raptor.trebeljahr.com", 62, 142);
+  cctx.fillText("raptorrunner.com", 62, 142);
   cctx.restore();
 
   // ── Score block (bottom right) ────────────────────────────

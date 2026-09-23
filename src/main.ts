@@ -3543,7 +3543,7 @@ async function init() {
   // Debug mode is gated on `import.meta.env.DEV` (true only for
   // `npm run dev` / `dev:web` / `dev:desktop`). Production bundles
   // from `vite build` get DEV=false, which makes the URL query
-  // a dead knob — no way for a player on raptor.trebeljahr.com
+  // a dead knob — no way for a player on raptorrunner.com
   // to flip on hitboxes, noCollisions, score-edit, or the debug
   // menu rows by appending `?debug=true`. Rollup/Vite's dead-code
   // elimination also strips the debug branches from the prod

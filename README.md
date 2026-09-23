@@ -5,7 +5,7 @@ day/night cycle, a starry sky, weather, rare events, cosmetics, and a
 shop. Plays in the browser, ships as a desktop app via Electron, and as a
 mobile app via Capacitor — one TypeScript codebase, three targets.
 
-Live build: [raptor.trebeljahr.com](https://raptor.trebeljahr.com)
+Live build: [raptorrunner.com](https://raptorrunner.com)
 
 ## Stack
 
@@ -36,7 +36,11 @@ shipped bundle.
 
 ## Distribution
 
-- Web: deployed to `raptor.trebeljahr.com`
+- Web: deployed to `raptorrunner.com` via GitHub Pages (`.github/workflows/deploy.yml`).
+  The custom domain comes from `public/CNAME`; `www.raptorrunner.com` is a
+  CNAME to the Pages host and GitHub 301s it to the apex. The retired host
+  `raptor.trebeljahr.com` is a Cloudflare redirect rule (301, path preserved)
+  to the apex — keep that rule, players still have the old URL bookmarked.
 - Desktop: `pnpm electron:build` — outputs to `release/`
 - Mobile: `pnpm cap:run:ios` / `pnpm cap:run:android`
 - itch.io: `pnpm itch:push:mac` / `:win` / `:linux` / `:android`

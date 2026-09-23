@@ -30,3 +30,7 @@ export const PORTFOLIO_URL = "https://portfolio.trebeljahr.com";
 
 /** Public GitHub mirror. */
 export const GITHUB_URL = "https://github.com/trebeljahr/velociraptor";
+
+/** Canonical web home. raptor.trebeljahr.com is retired and 301s here,
+ *  so every share text, legal link and og:url should use this one. */
+export const SITE_URL = "https://raptorrunner.com";

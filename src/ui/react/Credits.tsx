@@ -18,6 +18,7 @@
  * dangerouslySetInnerHTML is the correct tool here.
  */
 import { type MouseEvent, useEffect, useRef } from "react";
+import { SITE_URL } from "../../config/externalLinks";
 import { ATTRIBUTION_SECTIONS } from "../../credits";
 
 export interface CreditsCallbacks {
@@ -111,17 +112,13 @@ export function Credits({ callbacks: cb }: CreditsProps) {
           <h2>Legal</h2>
           <ul className="credits-links">
             <li>
-              <a
-                href="https://raptor.trebeljahr.com/imprint.html"
-                target="_blank"
-                rel="noreferrer noopener"
-              >
+              <a href={`${SITE_URL}/imprint.html`} target="_blank" rel="noreferrer noopener">
                 Imprint / Impressum
               </a>
             </li>
             <li>
               <a
-                href="https://raptor.trebeljahr.com/imprint.html#privacy"
+                href={`${SITE_URL}/imprint.html#privacy`}
                 target="_blank"
                 rel="noreferrer noopener"
               >
