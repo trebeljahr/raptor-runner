@@ -19,6 +19,14 @@ export default defineConfig({
   },
   test: {
     environment: "happy-dom",
+    // Node 25+ ships a native globalThis.localStorage getter that
+    // returns undefined unless --localstorage-file is set. Vitest only
+    // copies happy-dom globals onto keys the Node global doesn't
+    // already own (localStorage isn't in its override list), so the
+    // native getter wins and window.localStorage is undefined. Turning
+    // Web Storage off in the workers lets happy-dom's Storage through.
+    // No-op on Node 24, where the feature is still opt-in.
+    execArgv: ["--no-experimental-webstorage"],
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
