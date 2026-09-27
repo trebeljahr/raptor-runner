@@ -408,6 +408,13 @@ function ensureRainbowCache(): HTMLCanvasElement | null {
   const outerR = state.height * 0.55;
   const thickness = Math.max(15, state.width * 0.025);
   const innerR = outerR - thickness;
+  // A 0-size or not-yet-laid-out viewport (hidden tab, iframe,
+  // hidden Electron window, webview before layout) drives innerR
+  // negative, which createRadialGradient rejects with IndexSizeError
+  // — and a 0-width canvas can't be drawImage'd either. Skip the
+  // bake without touching the cache key so the first call after a
+  // real resize builds it.
+  if (state.width <= 0 || state.height <= 0 || innerR <= 0) return null;
   const key = `${state.width}|${state.height}|${cx}|${cy}|${outerR}|${innerR}`;
   if (_rainbowCache && _rainbowCacheKey === key) return _rainbowCache;
   const canvas =
@@ -938,6 +945,12 @@ function update(now: number) {
 }
 
 function render() {
+  // Nothing is visible in a 0-size viewport, and the offscreen sky /
+  // fg canvases are 0 wide there — drawImage on them throws
+  // InvalidStateError, and since loop() reschedules only after
+  // render() returns, one throw would stop the game for good.
+  if (state.width <= 0 || state.height <= 0) return;
+
   // === Background pass (no tint) =================================
   // Sky background (single blit of the cached gradient buffer).
   if (skyCanvas) ctx.drawImage(skyCanvas, 0, 0);
