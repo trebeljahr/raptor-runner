@@ -23,7 +23,7 @@ export const STEAM_WISHLIST_URL = `${STEAM_STORE_URL}?snr=1_wishlist_`;
 /** Support / donate destination. Using the newsletter page on
  *  ricos.site — same target the byline links to, so one tip jar to
  *  maintain. Swap for ko-fi / buymeacoffee / Patreon if desired. */
-export const DONATE_URL = "https://ricos.site/support";
+export const DONATE_URL = "https://ricos.site/donate/raptor-runner";
 
 /** Author's portfolio. Used in the about-page credit + byline. */
 export const PORTFOLIO_URL = "https://portfolio.trebeljahr.com";
