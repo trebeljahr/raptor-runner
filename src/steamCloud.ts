@@ -11,8 +11,8 @@
  *     through the normal per-key validation and legacy migrations.
  *   - After boot: every persistence write schedules a debounced
  *     (~2 s trailing) snapshot push to the main process, which
- *     writes save.json atomically. pagehide flushes synchronously
- *     so the last run's progress isn't lost on quit.
+ *     writes save.json atomically. pagehide requests a final flush;
+ *     localStorage remains authoritative if shutdown interrupts IPC.
  *
  * Mirrors the src/steamBridge.ts design: every window.electronAPI
  * access is guarded, so the web build no-ops, and the main process
@@ -46,7 +46,7 @@ export type CloudSnapshot = {
  *  newer than this one, or a non-finite timestamp. A corrupt cloud
  *  file must degrade to "local wins", never to a crash. */
 export function parseCloudSnapshot(raw: string | null | undefined): CloudSnapshot | null {
-  if (typeof raw !== "string" || raw.length === 0) return null;
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 256 * 1024) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -55,13 +55,15 @@ export function parseCloudSnapshot(raw: string | null | undefined): CloudSnapsho
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const obj = parsed as { version?: unknown; savedAt?: unknown; data?: unknown };
-  if (typeof obj.version !== "number" || !Number.isFinite(obj.version)) return null;
+  if (typeof obj.version !== "number" || !Number.isSafeInteger(obj.version) || obj.version < 1)
+    return null;
   // A higher version means a future build changed the wire format in
   // a way our loaders may not understand — refuse rather than guess.
   if (obj.version > PERSISTENCE_SCHEMA_VERSION) return null;
-  if (typeof obj.savedAt !== "number" || !Number.isFinite(obj.savedAt)) return null;
+  if (typeof obj.savedAt !== "number" || !Number.isSafeInteger(obj.savedAt) || obj.savedAt < 0)
+    return null;
   if (obj.data === null || typeof obj.data !== "object" || Array.isArray(obj.data)) return null;
-  const data: DurableSnapshotData = {};
+  const data: DurableSnapshotData = Object.create(null);
   for (const [key, value] of Object.entries(obj.data as Record<string, unknown>)) {
     if (typeof value === "string") data[key] = value;
   }
@@ -112,8 +114,8 @@ function readLocalSavedAt(): number | null {
   try {
     const raw = window.localStorage.getItem(CLOUD_SAVED_AT_KEY);
     if (raw == null) return null;
-    const n = Number.parseFloat(raw);
-    return Number.isFinite(n) ? n : null;
+    const n = Number(raw);
+    return Number.isSafeInteger(n) && n >= 0 ? n : null;
   } catch {
     return null;
   }
@@ -129,11 +131,12 @@ function writeLocalSavedAt(savedAt: number): void {
 
 /** Snapshot localStorage and hand it to the main process. The main
  *  side also keeps the last received snapshot to re-flush on quit,
- *  so a lost invoke during shutdown still lands on disk. */
+ *  so a failed disk write can be retried on quit. IPC interrupted by
+ * shutdown is best-effort; the local save remains available next boot. */
 function pushSnapshot(): void {
   const api = typeof window !== "undefined" ? window.electronAPI : undefined;
   if (!api) return;
-  const savedAt = Date.now();
+  const savedAt = Math.max(Date.now(), (readLocalSavedAt() ?? 0) + 1);
   const snapshot = buildCloudSnapshot(exportDurableSnapshot(), savedAt);
   writeLocalSavedAt(savedAt);
   api.writeCloudSave(JSON.stringify(snapshot)).catch(() => {
@@ -167,7 +170,19 @@ function flushPendingPush(): void {
  *   - the main process reports Steam never initialized (itch.io /
  *     DRM-free copy of the same binary).
  */
+export function stopSteamCloud(): void {
+  _active = false;
+  if (_pushTimer !== null) clearTimeout(_pushTimer);
+  _pushTimer = null;
+  setPersistenceWriteListener(null);
+  if (typeof window !== "undefined") {
+    window.removeEventListener("pagehide", flushPendingPush);
+    window.removeEventListener("beforeunload", flushPendingPush);
+  }
+}
+
 export async function initSteamCloud(): Promise<void> {
+  stopSteamCloud();
   const api = typeof window !== "undefined" ? window.electronAPI : undefined;
   if (!api || typeof api.readCloudSave !== "function") return;
 
@@ -182,6 +197,9 @@ export async function initSteamCloud(): Promise<void> {
   try {
     const raw = await api.readCloudSave();
     const cloud = parseCloudSnapshot(raw);
+    // Preserve files this build cannot understand. In particular, an older
+    // binary must never replace a future schema with its own local snapshot.
+    if (raw !== null && cloud === null) return;
     if (cloud !== null && shouldImportCloudSnapshot(cloud, readLocalSavedAt(), hasDurableData())) {
       importDurableSnapshot(cloud.data);
       // Stamp the imported time so the next boot's comparison treats
@@ -191,6 +209,7 @@ export async function initSteamCloud(): Promise<void> {
     }
   } catch (err) {
     console.warn("[steam-cloud] boot reconcile failed, keeping local state:", err);
+    return;
   }
 
   _active = true;
@@ -203,4 +222,5 @@ export async function initSteamCloud(): Promise<void> {
   // idempotent flush.
   window.addEventListener("pagehide", flushPendingPush);
   window.addEventListener("beforeunload", flushPendingPush);
+  if (hasDurableData()) schedulePush();
 }

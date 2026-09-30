@@ -37,32 +37,69 @@ const ENTRY_FILE = path.resolve(__dirname, "../dist/index.html");
 const isAchievementName = (value: unknown): value is string =>
   typeof value === "string" && /^ACH_[A-Z0-9_]{1,96}$/.test(value);
 
+const MAX_CLOUD_SAVE_BYTES = 256 * 1024;
+
+function isCloudSave(value: unknown): value is string {
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > MAX_CLOUD_SAVE_BYTES)
+    return false;
+  try {
+    const save = JSON.parse(value);
+    return (
+      save !== null &&
+      typeof save === "object" &&
+      !Array.isArray(save) &&
+      save.version === 1 &&
+      Number.isSafeInteger(save.savedAt) &&
+      save.savedAt >= 0 &&
+      save.data !== null &&
+      typeof save.data === "object" &&
+      !Array.isArray(save.data) &&
+      Object.values(save.data).every((entry) => typeof entry === "string")
+    );
+  } catch {
+    return false;
+  }
+}
+
 const IPC_ARGUMENTS: Record<string, (args: unknown[]) => boolean> = {
+  "cloud-save:read": (args) => args.length === 0,
+  "cloud-save:write": (args) => args.length === 1 && isCloudSave(args[0]),
   "app:quit": (args) => args.length === 0,
   "window:isFullscreen": (args) => args.length === 0,
   "window:setFullscreen": (args) => args.length === 1 && typeof args[0] === "boolean",
   "steam:isAvailable": (args) => args.length === 0,
   "steam-input:open-binding-panel": (args) => args.length === 0,
-  "steam-input:set-action-set": (args) => args.length === 1 &&
-    typeof args[0] === "string" && STEAM_SET_NAMES.includes(args[0]),
-  "steam:openOverlay": (args) => args.length === 1 && typeof args[0] === "string" &&
+  "steam-input:set-action-set": (args) =>
+    args.length === 1 && typeof args[0] === "string" && STEAM_SET_NAMES.includes(args[0]),
+  "steam:openOverlay": (args) =>
+    args.length === 1 &&
+    typeof args[0] === "string" &&
     Object.prototype.hasOwnProperty.call(OVERLAY_DIALOG_MAP, args[0]),
   "steam:openOverlayUrl": (args) => args.length === 1 && isWebUrl(args[0]),
   "steam:activateAchievement": (args) => args.length === 1 && isAchievementName(args[0]),
-  "steam:getAchievementStates": (args) => args.length === 1 && Array.isArray(args[0]) &&
-    args[0].length <= 256 && args[0].every(isAchievementName),
+  "steam:getAchievementStates": (args) =>
+    args.length === 1 &&
+    Array.isArray(args[0]) &&
+    args[0].length <= 256 &&
+    args[0].every(isAchievementName),
 };
 
 // Trust is pinned to the launch target, never to the page currently displayed.
 let mainWindow: BrowserWindow | null = null;
 
 function isWebUrl(value: unknown): value is string {
-  if (typeof value !== "string" || value.length > 4096 ||
-      value.trim() !== value || /[\u0000-\u001f\u007f]/.test(value)) return false;
+  if (
+    typeof value !== "string" ||
+    value.length > 4096 ||
+    value.trim() !== value ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  )
+    return false;
   try {
     const url = new URL(value);
-    return (url.protocol === "https:" || url.protocol === "http:") &&
-      !url.username && !url.password;
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password
+    );
   } catch {
     return false;
   }
@@ -72,8 +109,7 @@ function isApplicationUrl(value: string): boolean {
   try {
     const url = new URL(value);
     if (isDev) {
-      return isWebUrl(value) && isWebUrl(DEV_URL) &&
-        url.origin === new URL(DEV_URL).origin;
+      return isWebUrl(value) && isWebUrl(DEV_URL) && url.origin === new URL(DEV_URL).origin;
     }
     if (url.protocol !== "file:" || url.host || url.username || url.password) return false;
     const target = fileURLToPath(url);
@@ -91,9 +127,14 @@ function handle<Args extends unknown[], Result>(
   ipcMain.handle(channel, (event, ...args: unknown[]) => {
     const win = mainWindow;
     const frame = event.senderFrame;
-    if (!win || win.isDestroyed() || event.sender !== win.webContents ||
-        !frame || frame !== win.webContents.mainFrame ||
-        !isApplicationUrl(frame.url)) {
+    if (
+      !win ||
+      win.isDestroyed() ||
+      event.sender !== win.webContents ||
+      !frame ||
+      frame !== win.webContents.mainFrame ||
+      !isApplicationUrl(frame.url)
+    ) {
       throw new Error("Untrusted native bridge sender");
     }
     const validate = IPC_ARGUMENTS[channel];
@@ -543,19 +584,24 @@ function writeCloudSaveAtomic(content: string): boolean {
 }
 
 // IPC: latest cloud file content, or null when there is none (first
-// launch on this machine), it is unreadable, or Steam is absent.
-ipcMain.handle("cloud-save:read", () => {
+// launch on this machine), or Steam is absent. Other read errors propagate
+// so the renderer cannot overwrite a file it has not reconciled.
+handle("cloud-save:read", () => {
   if (!steamClient) return null;
   try {
+    if (fs.statSync(cloudSavePath()).size > MAX_CLOUD_SAVE_BYTES) {
+      throw new Error("Cloud save exceeds supported size");
+    }
     return fs.readFileSync(cloudSavePath(), "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
 });
 
 // IPC: persist a renderer snapshot. The renderer debounces, so each
 // invoke is meant to hit disk immediately.
-ipcMain.handle("cloud-save:write", (_evt, content: string) => {
+handle("cloud-save:write", (_evt, content: string) => {
   if (!steamClient) return false;
   if (typeof content !== "string") return false;
   lastCloudSnapshot = content;
@@ -564,8 +610,7 @@ ipcMain.handle("cloud-save:write", (_evt, content: string) => {
 
 app.on("will-quit", () => {
   // Belt-and-suspenders for shutdown races: if the last renderer
-  // snapshot never made it to disk (write threw, or the renderer's
-  // final invoke landed after its window died), flush it now.
+  // received snapshot never made it to disk because a write failed, retry it.
   if (lastCloudSnapshot !== null && lastCloudSnapshot !== lastCloudWritten) {
     writeCloudSaveAtomic(lastCloudSnapshot);
   }
@@ -589,21 +634,18 @@ handle("steam:activateAchievement", (_evt, apiName: string) => {
 // a record of { apiName: unlocked } for every name the renderer asks
 // about. Returns an empty object when Steam isn't available so the
 // renderer doesn't need a special null code path.
-handle(
-  "steam:getAchievementStates",
-  (_evt, apiNames: string[]): Record<string, boolean> => {
-    const out: Record<string, boolean> = {};
-    if (!steamClient) return out;
-    for (const name of apiNames) {
-      try {
-        out[name] = steamClient.achievement.isActivated(name);
-      } catch {
-        out[name] = false;
-      }
+handle("steam:getAchievementStates", (_evt, apiNames: string[]): Record<string, boolean> => {
+  const out: Record<string, boolean> = {};
+  if (!steamClient) return out;
+  for (const name of apiNames) {
+    try {
+      out[name] = steamClient.achievement.isActivated(name);
+    } catch {
+      out[name] = false;
     }
-    return out;
-  },
-);
+  }
+  return out;
+});
 
 function createWindow(): void {
   const isMac = process.platform === "darwin";
