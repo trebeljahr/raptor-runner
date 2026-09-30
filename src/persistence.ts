@@ -18,9 +18,12 @@ import {
   CAREER_RUNS_KEY,
   COINS_BALANCE_KEY,
   COINS_COLLECTED_KEY,
+  COINS_MUTED_KEY,
   COINS_VOLUME_KEY,
   EQUIPPED_COSMETICS_KEY,
+  EVENTS_MUTED_KEY,
   EVENTS_VOLUME_KEY,
+  FOOTSTEPS_MUTED_KEY,
   FOOTSTEPS_VOLUME_KEY,
   HIGH_CONTRAST_KEY,
   HIGH_SCORE_KEY,
@@ -37,10 +40,12 @@ import {
   RARE_EVENTS_SEEN_KEY,
   REDUCE_MOTION_KEY,
   TEXT_SCALE_KEY,
+  THUNDER_MUTED_KEY,
   THUNDER_VOLUME_KEY,
   TOTAL_DAY_CYCLES_KEY,
   TOTAL_JUMPS_KEY,
   TOTAL_NIGHTS_KEY,
+  UI_MUTED_KEY,
   UI_VOLUME_KEY,
   UNLOCKED_BOW_TIE_KEY,
   UNLOCKED_PARTY_HAT_KEY,
@@ -192,6 +197,32 @@ function _persistSet(key: string, value: string): void {
   _pendingWrites.set(key, value);
   _scheduleFlush();
   mirrorWrite(key, value);
+  if (_writeListener) {
+    try {
+      _writeListener(key, value);
+    } catch {
+      /* a broken listener must never take down a save */
+    }
+  }
+}
+
+// ── Write notifications (Steam Cloud mirror) ────────────────
+//
+// Same shape as the Capacitor mirror above, but pull- rather than
+// push-flavoured: instead of importing a platform backend, we let one
+// live at arm's length behind a callback so this module stays a leaf
+// of the graph. src/steamCloud.ts registers here to learn "something
+// durable changed" and debounces its own uploads.
+
+let _writeListener: ((key: string, value: string) => void) | null = null;
+
+/** Register (or clear, with null) the single persistence-write
+ *  listener. Fires once per logical save with the key and the exact
+ *  string that will land in localStorage. */
+export function setPersistenceWriteListener(
+  listener: ((key: string, value: string) => void) | null,
+): void {
+  _writeListener = listener;
 }
 
 /** The complete list of keys we mirror. Kept here so
@@ -209,6 +240,11 @@ const DURABLE_KEYS: string[] = [
   MUSIC_MUTED_KEY,
   JUMP_MUTED_KEY,
   RAIN_MUTED_KEY,
+  FOOTSTEPS_MUTED_KEY,
+  COINS_MUTED_KEY,
+  UI_MUTED_KEY,
+  EVENTS_MUTED_KEY,
+  THUNDER_MUTED_KEY,
   UNLOCKED_PARTY_HAT_KEY,
   UNLOCKED_THUG_GLASSES_KEY,
   WEAR_PARTY_HAT_KEY,
@@ -245,6 +281,74 @@ export async function hydratePersistence(): Promise<void> {
     await hydrateKeys(DURABLE_KEYS);
   } catch {
     /* fall through — continue with whatever localStorage has */
+  }
+}
+
+// ── Durable snapshot (Steam Cloud mirror) ───────────────────
+//
+// The cloud mirror ships the raw stored strings, not decoded values:
+// every load*() above already tolerates arbitrary input, so a
+// snapshot written by any past or future build imports through the
+// exact same per-key validation/clamping path a hand-edited
+// localStorage would. Bump the version only if that stops being true
+// (i.e. a load*() function ever becomes unable to read an old wire
+// format) — an import with a higher version than we understand is
+// refused wholesale (see src/steamCloud.ts).
+
+export const PERSISTENCE_SCHEMA_VERSION = 1;
+
+export type DurableSnapshotData = { [key: string]: string };
+
+/** Read every durable key's raw stored string. Flushes the pending
+ *  queue first so the snapshot always reflects the latest saves. */
+export function exportDurableSnapshot(): DurableSnapshotData {
+  _flushPending();
+  const out: DurableSnapshotData = {};
+  for (const key of DURABLE_KEYS) {
+    try {
+      const value = window.localStorage.getItem(key);
+      if (value != null) out[key] = value;
+    } catch {
+      /* storage unavailable — key stays absent */
+    }
+  }
+  return out;
+}
+
+/** True when any durable key holds data on this machine. The cloud
+ *  boot reconcile uses this to tell a genuinely fresh machine (safe
+ *  to adopt the cloud file wholesale) apart from a machine that has
+ *  pre-mirror progress but no sync stamp yet — importing over the
+ *  latter would silently destroy real local progress. */
+export function hasDurableData(): boolean {
+  _flushPending();
+  for (const key of DURABLE_KEYS) {
+    try {
+      if (window.localStorage.getItem(key) != null) return true;
+    } catch {
+      /* storage unavailable — treat the key as absent */
+    }
+  }
+  return false;
+}
+
+/** Write a snapshot's raw strings back into localStorage. Only keys
+ *  in DURABLE_KEYS are honoured — a cloud file can never plant
+ *  arbitrary keys — and non-string values are skipped. Call BEFORE
+ *  the boot-time load*() pass so the imported values flow through
+ *  the normal per-key validation (and migrateLegacyCosmetics). */
+export function importDurableSnapshot(data: DurableSnapshotData): void {
+  for (const key of DURABLE_KEYS) {
+    const value = data[key];
+    if (typeof value !== "string") continue;
+    try {
+      window.localStorage.setItem(key, value);
+      // Drop any queued write for the key so _persistGet doesn't
+      // serve a stale pre-import value over the fresh one.
+      _pendingWrites.delete(key);
+    } catch {
+      /* storage unavailable — skip, same policy as _flushPending */
+    }
   }
 }
 

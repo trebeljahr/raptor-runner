@@ -33,6 +33,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSteamAchievementStates: (apiNames: string[]): Promise<Record<string, boolean>> =>
     ipcRenderer.invoke("steam:getAchievementStates", apiNames),
 
+  // Steam Cloud save mirror (src/steamCloud.ts). Read resolves null
+  // when no save.json exists or Steam never initialized; write
+  // resolves false in the same cases — never rejects on the DRM-free
+  // build.
+  readCloudSave: (): Promise<string | null> => ipcRenderer.invoke("cloud-save:read"),
+  writeCloudSave: (content: string): Promise<boolean> =>
+    ipcRenderer.invoke("cloud-save:write", content),
+
   // Quit the app. Called from the desktop-only Quit button.
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 

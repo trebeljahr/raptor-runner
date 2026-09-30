@@ -35,6 +35,12 @@ declare global {
     isSteam(): Promise<boolean>;
     unlockSteamAchievement(apiName: string): Promise<boolean>;
     getSteamAchievementStates(apiNames: string[]): Promise<Record<string, boolean>>;
+    /** Steam Cloud mirror: latest save.json content, or null when the
+     *  file is absent/unreadable or Steam never initialized. */
+    readCloudSave(): Promise<string | null>;
+    /** Steam Cloud mirror: persist a snapshot atomically. False when
+     *  the write failed or Steam never initialized. */
+    writeCloudSave(content: string): Promise<boolean>;
     quit(): Promise<void>;
     setFullscreen(on: boolean): Promise<boolean>;
     isFullscreen(): Promise<boolean>;

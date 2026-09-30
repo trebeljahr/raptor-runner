@@ -239,6 +239,7 @@ import {
 } from "./services/gameServices";
 import { state } from "./state";
 import { pushAchievementToSteam, reconcileWithSteam } from "./steamBridge";
+import { initSteamCloud } from "./steamCloud";
 import {
   getFreshSteamFrame,
   initSteamInput,
@@ -3625,6 +3626,12 @@ async function init() {
   // before the sync load block below reads it. No-op on web (resolves
   // immediately). See src/mobile/durable.ts for why this exists.
   await hydratePersistence();
+  // Steam Cloud reconcile sits at the same point as Capacitor
+  // hydration and for the same reason: a newer save.json (pulled by
+  // Auto-Cloud from another machine) must land in localStorage
+  // before the load*() block below copies it into `state`. No-op on
+  // web (no electronAPI) and on Steam-less desktop builds.
+  await initSteamCloud();
 
   const savedMuted = audio.loadSavedMuted();
   if (savedMuted != null) {

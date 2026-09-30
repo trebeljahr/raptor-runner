@@ -508,6 +508,69 @@ handle("window:isFullscreen", (evt) => {
   return process.platform === "darwin" ? win.isSimpleFullScreen() : win.isFullScreen();
 });
 
+// ── Steam Cloud save mirror ────────────────────────────────────────
+// The renderer pushes {version, savedAt, data} snapshots of its
+// localStorage persistence (src/steamCloud.ts) and we keep them in
+// save.json under userData, where Steam Auto-Cloud picks the file up.
+// Gated on steamClient: the identical binary shipped DRM-free must
+// never grow a save.json (players could mistake it for a working
+// cloud save). Writes go through a tmp file + rename so a crash
+// mid-write can't leave Auto-Cloud a half-written JSON — and the tmp
+// name never matches Auto-Cloud's exact-filename pattern.
+
+function cloudSavePath(): string {
+  return path.join(app.getPath("userData"), "save.json");
+}
+
+// Last snapshot the renderer sent vs last content that landed on
+// disk. will-quit re-flushes only when they differ (a failed write),
+// so the common quit path costs nothing extra.
+let lastCloudSnapshot: string | null = null;
+let lastCloudWritten: string | null = null;
+
+function writeCloudSaveAtomic(content: string): boolean {
+  const finalPath = cloudSavePath();
+  const tmpPath = finalPath + ".tmp";
+  try {
+    fs.writeFileSync(tmpPath, content, "utf8");
+    fs.renameSync(tmpPath, finalPath);
+    lastCloudWritten = content;
+    return true;
+  } catch (err) {
+    console.warn("[steam-cloud] save.json write failed:", err);
+    return false;
+  }
+}
+
+// IPC: latest cloud file content, or null when there is none (first
+// launch on this machine), it is unreadable, or Steam is absent.
+ipcMain.handle("cloud-save:read", () => {
+  if (!steamClient) return null;
+  try {
+    return fs.readFileSync(cloudSavePath(), "utf8");
+  } catch {
+    return null;
+  }
+});
+
+// IPC: persist a renderer snapshot. The renderer debounces, so each
+// invoke is meant to hit disk immediately.
+ipcMain.handle("cloud-save:write", (_evt, content: string) => {
+  if (!steamClient) return false;
+  if (typeof content !== "string") return false;
+  lastCloudSnapshot = content;
+  return writeCloudSaveAtomic(content);
+});
+
+app.on("will-quit", () => {
+  // Belt-and-suspenders for shutdown races: if the last renderer
+  // snapshot never made it to disk (write threw, or the renderer's
+  // final invoke landed after its window died), flush it now.
+  if (lastCloudSnapshot !== null && lastCloudSnapshot !== lastCloudWritten) {
+    writeCloudSaveAtomic(lastCloudSnapshot);
+  }
+});
+
 // IPC: activate a Steam achievement by its API Name. Idempotent on
 // Steam's side — re-activating an already-unlocked achievement is a
 // no-op, so we don't need to gate on isActivated first. Returns true

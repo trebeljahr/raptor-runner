@@ -340,6 +340,12 @@ export const COINS_COLLECTED_KEY = "raptor-runner:coinsCollected";
 export const OWNED_COSMETICS_KEY = "raptor-runner:ownedCosmetics";
 /** JSON object {head, eyes, neck, back} → cosmetic id or null. */
 export const EQUIPPED_COSMETICS_KEY = "raptor-runner:equippedCosmetics";
+/** Epoch-ms stamp of the last Steam Cloud snapshot this machine
+ *  pushed or imported. Machine-local metadata — deliberately NOT in
+ *  DURABLE_KEYS and never part of a snapshot's data payload, so it
+ *  can serve as the local side of the newer-wins comparison at boot
+ *  (see src/steamCloud.ts). */
+export const CLOUD_SAVED_AT_KEY = "raptor-runner:cloudSavedAt";
 
 // ── Accessibility settings ─────────────────────────────────
 // All keys are declared up front — even the ones whose effects
