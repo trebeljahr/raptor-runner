@@ -166,13 +166,17 @@ Artifact Signing profile:
 - Repository variable `AZURE_CLIENT_ID`: `39354eba-200a-4d0e-a853-3c420bf534cd`
 
 The identity has only **Artifact Signing Certificate Profile Signer** on
-that profile. Its federated subject is exactly
-`repo:trebeljahr/raptor-runner:ref:refs/heads/main`, with issuer
+that profile. Its exact federated subjects are
+`repo:trebeljahr/raptor-runner:ref:refs/heads/main` and
+`repo:trebeljahr/raptor-runner:ref:refs/heads/windows-signing`, with issuer
 `https://token.actions.githubusercontent.com` and audience
 `api://AzureADTokenExchange`. No client secret or certificate is copied
 from another app.
 
-Dispatch **Build desktop binaries** on `main` with `windows_only=true`.
+Dispatch **Build desktop binaries** on `main` or `windows-signing` with
+`windows_only=true`. The verification branch avoids the separate GitHub
+Pages deployment triggered by a push to `main`. Remove its federated
+credential after verification and branch cleanup.
 `azure/login` exchanges GitHub OIDC for an Azure CLI session.
 electron-builder 26.15.3 passes signing to the TrustedSigning PowerShell
 module, which can use that session. CI injects `azureSignOptions`; local
@@ -205,7 +209,7 @@ GPG signatures are possible but buy nothing here.
 ## CI
 
 `.github/workflows/build-desktop.yml` builds all three platforms on tag
-pushes and manual dispatches. Windows signing requires a main-branch
+pushes and manual dispatches. Windows signing requires a trusted-branch
 dispatch; tag publishing remains blocked until release trust is configured.
 
 PRs get unsigned smoke builds. Trusted Windows dispatches require OIDC

@@ -57,7 +57,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # PRs remain unsigned. Windows signing is mandatory on trusted main
+      # PRs remain unsigned. Windows signing is mandatory on trusted branch
       # dispatches; any other non-PR ref fails closed.
       - name: Decide whether this build can be signed
         id: signing
@@ -72,10 +72,10 @@ jobs:
             windows-*)
               if [ "$EVENT_NAME" = "pull_request" ]; then
                 echo "sign=false" >> "$GITHUB_OUTPUT"
-              elif [ "$REF" = "refs/heads/main" ]; then
+              elif [ "$REF" = "refs/heads/main" ] || [ "$REF" = "refs/heads/windows-signing" ]; then
                 echo "sign=true" >> "$GITHUB_OUTPUT"
               else
-                echo "::error::Windows signing trusts main only. Dispatch on main; tag signing requires a separate trust review."
+                echo "::error::Windows signing trusts main and windows-signing only; tag signing requires a separate trust review."
                 exit 1
               fi ;;
             *)         echo "sign=false" >> "$GITHUB_OUTPUT" ;;
