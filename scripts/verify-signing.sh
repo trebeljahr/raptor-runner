@@ -121,6 +121,17 @@ fi
 
 # -------------------------------------------------------------- Windows
 
+# Windows builds require all deliverables, the expected publisher, and timestamps.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*)
+    if [[ "${SKIP_WINDOWS:-}" != "1" ]]; then
+      ps_bin="$(command -v pwsh || command -v powershell.exe || true)"
+      [[ -n "$ps_bin" ]] || { echo "PowerShell is required for Windows verification" >&2; exit 1; }
+      exec "$ps_bin" -NoProfile -NonInteractive -File "$REPO_ROOT/scripts/verify-windows-signing.ps1" -ReleaseDir "$RELEASE_DIR"
+    fi
+    ;;
+esac
+
 # Three ways to read an Authenticode signature, in order of availability:
 # PowerShell on a Windows runner, osslsigncode anywhere else, otherwise
 # report honestly that we could not check rather than implying success.

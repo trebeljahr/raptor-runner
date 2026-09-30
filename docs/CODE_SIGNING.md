@@ -152,77 +152,45 @@ mounts each image and checks the app inside.
 
 ## Windows
 
-### Choosing a certificate
+### GitHub OIDC signing
 
-Since June 2023, CA/Browser Forum rules require the private key of every
-new code-signing certificate to live on FIPS-140-2-Level-2 hardware. A
-plain `.pfx` on disk is no longer issuable. That leaves:
+The Windows job uses a dedicated secretless identity and the shared Azure
+Artifact Signing profile:
 
-| Option | Cost | Automatable | Notes |
-| --- | --- | --- | --- |
-| **Azure Trusted Signing** | ~$10/mo | Yes | No hardware. Native electron-builder support. **Eligibility gate below.** |
-| SSL.com eSigner | ~$250+/yr | Yes | Cloud HSM. Needs a custom `sign` hook. |
-| OV cert + USB token | ~$200–500/yr | No | Physical token blocks unattended CI. |
-| EV cert + USB token | ~$400–700/yr | No | Same, but grants immediate SmartScreen reputation. |
+- Account/resource group: `ricoslabs-signing`
+- Profile: `ricoslabs-public` (Public Trust)
+- Endpoint: `https://weu.codesigning.azure.net/`
+- Expected publisher: `Ricos Labs LLC`
+- Tenant: `ce0c906e-8a84-4877-afd9-cdf103ddaacb`
+- Subscription: `4aaef5a5-286b-46a0-b9e4-84622e8fdc4f`
+- Repository variable `AZURE_CLIENT_ID`: `39354eba-200a-4d0e-a853-3c420bf534cd`
 
-**Check eligibility before committing to Azure.** Microsoft's
-organization validation for Trusted Signing generally requires the legal
-entity to have three or more years of verifiable history. A recently
-formed company will not pass. Individual validation is the fallback, but
-the publisher name shown to users is then a personal name rather than a
-company name.
+The identity has only **Artifact Signing Certificate Profile Signer** on
+that profile. Its federated subject is exactly
+`repo:trebeljahr/raptor-runner:ref:refs/heads/main`, with issuer
+`https://token.actions.githubusercontent.com` and audience
+`api://AzureADTokenExchange`. No client secret or certificate is copied
+from another app.
 
-### Azure Trusted Signing setup
+Dispatch **Build desktop binaries** on `main` with `windows_only=true`.
+`azure/login` exchanges GitHub OIDC for an Azure CLI session.
+electron-builder 26.15.3 passes signing to the TrustedSigning PowerShell
+module, which can use that session. CI injects `azureSignOptions`; local
+builds and PR smoke builds remain unsigned.
 
-1. Azure account with an active subscription.
-2. Create a **Trusted Signing account**. Note its region — it determines
-   the endpoint, e.g. `https://weu.codesigning.azure.net`.
-3. Complete **identity validation** (organization or individual). This is
-   the slow step and the one that can fail outright.
-4. Create a **certificate profile** under the account.
-5. Register an **app registration / service principal**, and grant it the
-   *Trusted Signing Certificate Profile Signer* role on the account.
-6. Collect: client ID, tenant ID, client secret.
+`scripts/verify-windows-signing.ps1` requires the packaged application,
+NSIS installer, and portable executable. Each must have a valid
+Authenticode signature, publisher `Ricos Labs LLC`, and a timestamp.
+CI uploads the SHA-256 hashes, certificate subjects and thumbprints,
+commit and run ID as `windows-signing-evidence` only after verification.
 
-electron-builder reads those three through the Azure SDK's
-`EnvironmentCredential`:
+Manual dispatch never publishes to itch.io. Tags and other branches fail
+closed for Windows: adding release trust requires a separate review before
+using the tag publishing path. This prevents a release from silently
+falling back to unsigned Windows binaries.
 
-```bash
-AZURE_CLIENT_ID=...
-AZURE_TENANT_ID=...
-AZURE_CLIENT_SECRET=...
-```
-
-and takes four config fields:
-
-```jsonc
-"win": {
-  "azureSignOptions": {
-    "endpoint": "https://weu.codesigning.azure.net",
-    "codeSigningAccountName": "your-account",
-    "certificateProfileName": "your-profile",
-    "publisherName": "Your Org"
-  }
-}
-```
-
-This repo deliberately **does not** commit that block. electron-builder
-throws `InvalidConfigurationError` when `azureSignOptions` is present but
-the credentials are not, which would break every unsigned local and PR
-build. CI injects the four values with `-c.win.azureSignOptions.*` flags
-instead. Add the block to `package.json` only once signing is set up and
-you want it enforced everywhere.
-
-### Windows signing cannot run on your Mac
-
-electron-builder drives Azure signing through PowerShell and the
-`TrustedSigning` module from PSGallery
-(`codeSign/windowsSignAzureManager.js`), and the traditional path needs
-`signtool.exe`. Neither is reliably available on macOS.
-
-Sign Windows builds on a `windows-latest` CI runner. That is the main
-reason the release pipeline lives in GitHub Actions rather than in a local
-script.
+Run signing and verification on hosted Windows runners. Local macOS
+validation cannot prove Windows Authenticode trust.
 
 ---
 
@@ -237,12 +205,11 @@ GPG signatures are possible but buy nothing here.
 ## CI
 
 `.github/workflows/build-desktop.yml` builds all three platforms on tag
-pushes, signs whatever it has credentials for, verifies the result, and
-publishes to itch.io.
+pushes and manual dispatches. Windows signing requires a main-branch
+dispatch; tag publishing remains blocked until release trust is configured.
 
-It is written to work with **no** secrets configured — forked PRs get an
-unsigned smoke build rather than a failure. The `Decide whether this build
-can be signed` step resolves that once and the later steps branch on it.
+PRs get unsigned smoke builds. Trusted Windows dispatches require OIDC
+login and successful signature verification; missing settings fail the job.
 
 ### Repository secrets
 
@@ -253,15 +220,12 @@ can be signed` step resolves that once and the later steps branch on it.
 | `APPLE_API_KEY_P8` | macOS | Contents of the App Store Connect `.p8` key |
 | `APPLE_API_KEY_ID` | macOS | Key ID from App Store Connect |
 | `APPLE_API_ISSUER` | macOS | Issuer UUID from App Store Connect |
-| `AZURE_CLIENT_ID` | Windows | Service principal client ID |
-| `AZURE_TENANT_ID` | Windows | Directory tenant ID |
-| `AZURE_CLIENT_SECRET` | Windows | Service principal secret |
 
 ### Repository variables
 
 Non-secret, set under Settings → Variables:
-`AZURE_PUBLISHER_NAME`, `AZURE_SIGNING_ENDPOINT`,
-`AZURE_CODE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE`.
+`AZURE_CLIENT_ID`. The shared profile and expected publisher are pinned
+in the workflow. Windows needs no repository secrets.
 
 ### Exporting the .p12
 
@@ -310,8 +274,9 @@ Then, per app:
 4. Copy `.github/workflows/build-desktop.yml` and re-point the artifact
    names. Secrets are per-repository, so they have to be added again —
    the values are identical across your apps.
-5. Windows: one Azure Trusted Signing account and certificate profile can
-   sign all of them. Only `publisherName` may differ.
+5. Windows: share the signing account/profile, but create a dedicated
+   per-repository OIDC identity and grant only profile-scoped signing.
+   Match the publisher to the profile certificate subject.
 
 The one genuinely per-app step is the Apple bundle identifier
 (`build.appId`). Everything else in this document is account-level and
