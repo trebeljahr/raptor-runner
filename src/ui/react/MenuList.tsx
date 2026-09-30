@@ -21,9 +21,8 @@
  * the install-button visibility — come in through getter callbacks
  * so ui.ts can compute them once and pass the result on each render.
  */
-import { ProjectDonateLink } from "./ProjectDonateLink";
 import type { MouseEvent } from "react";
-import { DONATE_URL, ITCH_STORE_URL, STEAM_WISHLIST_URL } from "../../config/externalLinks";
+import { ITCH_STORE_URL, STEAM_WISHLIST_URL } from "../../config/externalLinks";
 
 export interface MenuListCallbacks {
   onClose: () => void;
@@ -295,31 +294,6 @@ export function MenuList({ callbacks: cb }: MenuListProps) {
               <span>Wishlist on Steam</span>
             </span>
           </a>
-        </li>
-        <li>
-          <ProjectDonateLink
-            className="menu-item"
-            href={DONATE_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            <span className="inner">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 2v20"></path>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-              <span>Support / Donate</span>
-            </span>
-          </ProjectDonateLink>
         </li>
         <li className="web-only">
           <a

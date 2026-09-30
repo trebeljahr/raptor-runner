@@ -4,8 +4,8 @@
  * Centralizes every outbound link so the marketing pages, the menu
  * buttons, and the about / imprint pages never drift out of sync.
  *
- * Update a URL here and it propagates to the Donate button, the
- * MenuList Steam / itch rows, and the About / Imprint footers.
+ * Update a URL here and it propagates to the MenuList Steam / itch
+ * rows and the About / Imprint footers.
  */
 
 /** Itch.io store page. Standard user-page pattern — replace if the
@@ -19,11 +19,6 @@ export const STEAM_STORE_URL = "https://store.steampowered.com/app/5035590/Rapto
  *  the same page as STEAM_STORE_URL plus the ?wishlist=1 hint that
  *  expands the wishlist CTA. */
 export const STEAM_WISHLIST_URL = `${STEAM_STORE_URL}?snr=1_wishlist_`;
-
-/** Support / donate destination. Using the newsletter page on
- *  ricos.site — same target the byline links to, so one tip jar to
- *  maintain. Swap for ko-fi / buymeacoffee / Patreon if desired. */
-export const DONATE_URL = "https://ricos.site/donate/raptor-runner";
 
 /** Author's portfolio. Used in the about-page credit + byline. */
 export const PORTFOLIO_URL = "https://portfolio.trebeljahr.com";
