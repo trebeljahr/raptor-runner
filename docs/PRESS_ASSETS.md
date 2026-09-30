@@ -5,6 +5,13 @@ from the PWA precache (see the `prune-native-press-assets` plugin and the
 `press/**` globs in `vite.config.ts`), so nothing here ships inside a
 native binary.
 
+Historical captures, capsule explorations, and provenance are indexed in
+the local [design-history gallery](/Users/rico/projects/ai-work-notes/projects/raptor-runner/assets/README.md).
+The archive keeps verified copies; originals here and current `steam-assets/`
+exports remain in place. Continue using this repository's key-art masters,
+`scripts/make-steam-capsules.mjs`, and license records for production work.
+Archive media is local and Git-ignored, so it requires the normal vault backup.
+
 Three groups, and the distinction matters for store submissions.
 
 ## `NN-*.png` — gameplay screenshots
