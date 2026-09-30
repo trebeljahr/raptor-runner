@@ -23,13 +23,106 @@
  *   circuits — the game still runs and unlocks land in localStorage.
  */
 
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell, type IpcMainInvokeEvent } from "electron";
 import steamworks from "steamworks.js";
 import { STEAM_ACTION_SETS, STEAM_DIGITAL_ACTIONS } from "./steamInputActions";
 
-const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+const isDev = !app.isPackaged;
+const DEV_URL = "http://localhost:5173";
+const ENTRY_FILE = path.resolve(__dirname, "../dist/index.html");
+
+const isAchievementName = (value: unknown): value is string =>
+  typeof value === "string" && /^ACH_[A-Z0-9_]{1,96}$/.test(value);
+
+const IPC_ARGUMENTS: Record<string, (args: unknown[]) => boolean> = {
+  "app:quit": (args) => args.length === 0,
+  "window:isFullscreen": (args) => args.length === 0,
+  "window:setFullscreen": (args) => args.length === 1 && typeof args[0] === "boolean",
+  "steam:isAvailable": (args) => args.length === 0,
+  "steam-input:open-binding-panel": (args) => args.length === 0,
+  "steam-input:set-action-set": (args) => args.length === 1 &&
+    typeof args[0] === "string" && STEAM_SET_NAMES.includes(args[0]),
+  "steam:openOverlay": (args) => args.length === 1 && typeof args[0] === "string" &&
+    Object.prototype.hasOwnProperty.call(OVERLAY_DIALOG_MAP, args[0]),
+  "steam:openOverlayUrl": (args) => args.length === 1 && isWebUrl(args[0]),
+  "steam:activateAchievement": (args) => args.length === 1 && isAchievementName(args[0]),
+  "steam:getAchievementStates": (args) => args.length === 1 && Array.isArray(args[0]) &&
+    args[0].length <= 256 && args[0].every(isAchievementName),
+};
+
+// Trust is pinned to the launch target, never to the page currently displayed.
+let mainWindow: BrowserWindow | null = null;
+
+function isWebUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 4096 ||
+      value.trim() !== value || /[\u0000-\u001f\u007f]/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") &&
+      !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function isApplicationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (isDev) {
+      return isWebUrl(value) && isWebUrl(DEV_URL) &&
+        url.origin === new URL(DEV_URL).origin;
+    }
+    if (url.protocol !== "file:" || url.host || url.username || url.password) return false;
+    const target = fileURLToPath(url);
+    return target === ENTRY_FILE;
+  } catch {
+    return false;
+  }
+}
+
+// All native handlers use this gate before touching preferences or native APIs.
+function handle<Args extends unknown[], Result>(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: Args) => Result,
+): void {
+  ipcMain.handle(channel, (event, ...args: unknown[]) => {
+    const win = mainWindow;
+    const frame = event.senderFrame;
+    if (!win || win.isDestroyed() || event.sender !== win.webContents ||
+        !frame || frame !== win.webContents.mainFrame ||
+        !isApplicationUrl(frame.url)) {
+      throw new Error("Untrusted native bridge sender");
+    }
+    const validate = IPC_ARGUMENTS[channel];
+    if (!validate || !validate(args)) throw new TypeError("Invalid native bridge arguments");
+    return handler(event, ...(args as Args));
+  });
+}
+
+function secureWindow(win: BrowserWindow): void {
+  mainWindow = win;
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
+  });
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isApplicationUrl(url) && isWebUrl(url)) {
+      void shell.openExternal(url).catch(() => {});
+    }
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (isApplicationUrl(url)) return;
+    event.preventDefault();
+    if (isWebUrl(url)) void shell.openExternal(url).catch(() => {});
+  });
+  win.webContents.on("will-redirect", (event, url) => {
+    if (!isApplicationUrl(url)) event.preventDefault();
+  });
+  win.webContents.on("will-attach-webview", (event) => event.preventDefault());
+}
 
 // Override the product name BEFORE any window is created so dev-mode
 // dock tooltips ("Electron"), the About menu, and userData paths all
@@ -49,7 +142,7 @@ function resolveSteamAppId(): number | null {
   const fromEnv = process.env.STEAM_APP_ID;
   if (fromEnv) {
     const n = Number(fromEnv);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff) return n;
   }
   const candidates = [
     path.join(__dirname, "..", "steam_appid.txt"),
@@ -59,7 +152,7 @@ function resolveSteamAppId(): number | null {
     try {
       const raw = fs.readFileSync(p, "utf8").trim();
       const n = Number(raw);
-      if (Number.isFinite(n) && n > 0) return n;
+      if (Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff) return n;
     } catch {
       /* try next */
     }
@@ -246,7 +339,7 @@ if (steamClient) {
 // IPC: switch the active Steam Input action set. Registered even when
 // Steam Input never started so the renderer's invoke resolves (to
 // false) instead of rejecting.
-ipcMain.handle("steam-input:set-action-set", (_evt, name: string) => {
+handle("steam-input:set-action-set", (_evt, name: string) => {
   if (typeof name !== "string") return false;
   return steamInputApplyActionSet ? steamInputApplyActionSet(name) : false;
 });
@@ -258,7 +351,7 @@ ipcMain.handle("steam-input:set-action-set", (_evt, name: string) => {
 // desktop, the native overlay on Steam Deck). Gated on steamClient —
 // on DRM-free / Steam-less sessions the renderer gets false and the
 // UI never offers the button anyway.
-ipcMain.handle("steam-input:open-binding-panel", () => {
+handle("steam-input:open-binding-panel", () => {
   if (!steamClient || resolvedAppId === null) return false;
   shell.openExternal(`steam://controllerconfig/${resolvedAppId}`).catch(() => {
     /* Steam client gone mid-session — nothing sensible to do */
@@ -281,7 +374,7 @@ app.on("will-quit", () => {
 });
 
 // IPC: renderer asks whether Steam is usable this session.
-ipcMain.handle("steam:isAvailable", () => steamClient !== null);
+handle("steam:isAvailable", () => steamClient !== null);
 
 // IPC: quit the app. Called from the desktop-only Quit button in
 // the settings menu.
@@ -294,7 +387,7 @@ ipcMain.handle("steam:isAvailable", () => steamClient !== null);
 // the renderer could have silently installed. After the windows
 // are gone, window-all-closed handles Linux/Windows and app.quit()
 // finishes macOS.
-ipcMain.handle("app:quit", () => {
+handle("app:quit", () => {
   for (const w of BrowserWindow.getAllWindows()) {
     try {
       w.destroy();
@@ -333,7 +426,7 @@ const OVERLAY_DIALOG_MAP: Record<OverlayDialog, number> = {
   Stats: 5,
   Achievements: 6,
 };
-ipcMain.handle("steam:openOverlay", (_evt, dialog: OverlayDialog) => {
+handle("steam:openOverlay", (_evt, dialog: OverlayDialog) => {
   if (!steamClient) return false;
   const code = OVERLAY_DIALOG_MAP[dialog];
   if (code == null) return false;
@@ -347,7 +440,7 @@ ipcMain.handle("steam:openOverlay", (_evt, dialog: OverlayDialog) => {
 });
 
 // Open the Steam overlay to a specific URL (store page, news, etc.).
-ipcMain.handle("steam:openOverlayUrl", (_evt, url: string) => {
+handle("steam:openOverlayUrl", (_evt, url: string) => {
   if (!steamClient) return false;
   try {
     steamClient.overlay.activateToWebPage(url);
@@ -394,7 +487,7 @@ function savePrefs(patch: Prefs): void {
 
 // IPC: toggle fullscreen from the desktop menu. Persists so the
 // preference survives app restart.
-ipcMain.handle("window:setFullscreen", (evt, wantFullscreen: boolean) => {
+handle("window:setFullscreen", (evt, wantFullscreen: boolean) => {
   const win = BrowserWindow.fromWebContents(evt.sender);
   if (!win || win.isDestroyed()) return false;
   const isMac = process.platform === "darwin";
@@ -409,7 +502,7 @@ ipcMain.handle("window:setFullscreen", (evt, wantFullscreen: boolean) => {
 
 // IPC: read current fullscreen state (used by the menu to sync the
 // toggle label when the overlay opens).
-ipcMain.handle("window:isFullscreen", (evt) => {
+handle("window:isFullscreen", (evt) => {
   const win = BrowserWindow.fromWebContents(evt.sender);
   if (!win || win.isDestroyed()) return false;
   return process.platform === "darwin" ? win.isSimpleFullScreen() : win.isFullScreen();
@@ -419,7 +512,7 @@ ipcMain.handle("window:isFullscreen", (evt) => {
 // Steam's side — re-activating an already-unlocked achievement is a
 // no-op, so we don't need to gate on isActivated first. Returns true
 // on success, false on any failure (SDK absent, name unknown, etc).
-ipcMain.handle("steam:activateAchievement", (_evt, apiName: string) => {
+handle("steam:activateAchievement", (_evt, apiName: string) => {
   if (!steamClient) return false;
   try {
     return steamClient.achievement.activate(apiName);
@@ -433,7 +526,7 @@ ipcMain.handle("steam:activateAchievement", (_evt, apiName: string) => {
 // a record of { apiName: unlocked } for every name the renderer asks
 // about. Returns an empty object when Steam isn't available so the
 // renderer doesn't need a special null code path.
-ipcMain.handle(
+handle(
   "steam:getAchievementStates",
   (_evt, apiNames: string[]): Record<string, boolean> => {
     const out: Record<string, boolean> = {};
@@ -468,6 +561,8 @@ function createWindow(): void {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
     },
     // Fullscreen + simpleFullScreen together are required on macOS:
     //   - `fullscreen: true` alone uses Lion-style Spaces transition
@@ -497,51 +592,10 @@ function createWindow(): void {
     if (!win.isDestroyed()) win.show();
   });
 
-  // Open external links (GitHub, portfolio, ricos.site, etc.) in the
-  // user's system browser instead of inside the Electron window.
-  // Without this, an <a target="_blank"> would either load inside
-  // the main window (breaking the game) or open a bare Electron
-  // window with no chrome. shell.openExternal hands the URL to the
-  // OS so it opens in Safari/Chrome/Firefox/whatever.
-  const handleExternal = (url: string) => {
-    if (/^https?:\/\//i.test(url)) {
-      shell.openExternal(url).catch(() => {
-        /* swallow — best-effort */
-      });
-      return { action: "deny" as const };
-    }
-    return { action: "allow" as const };
-  };
-  win.webContents.setWindowOpenHandler(({ url }) => handleExternal(url));
-  // Same handler for iframe contents (about.html, imprint.html):
-  win.webContents.on("did-attach-webview", (_e, wc) => {
-    wc.setWindowOpenHandler(({ url }) => handleExternal(url));
-  });
-  // Also intercept top-level navigations — clicking a link without
-  // target="_blank" would otherwise replace the renderer with the
-  // external URL and break the game.
-  win.webContents.on("will-navigate", (event, url) => {
-    const current = win.webContents.getURL();
-    // Let same-origin navigation continue (e.g. Vite dev HMR,
-    // in-app hash changes). Block cross-origin http(s) loads in
-    // the main webContents.
-    if (/^https?:\/\//i.test(url)) {
-      try {
-        const target = new URL(url);
-        const here = new URL(current);
-        if (target.origin !== here.origin) {
-          event.preventDefault();
-          shell.openExternal(url).catch(() => {});
-        }
-      } catch {
-        /* malformed URL — let Electron handle */
-      }
-    }
-  });
+  secureWindow(win);
 
   if (isDev) {
     // Dev: connect to the Vite dev server for HMR.
-    const DEV_URL = "http://localhost:5173";
     win.loadURL(DEV_URL);
     // Open DevTools in dev mode (detached so it doesn't resize the game)
     win.webContents.openDevTools({ mode: "detach" });
@@ -576,7 +630,7 @@ function createWindow(): void {
       "did-fail-load",
       (_evt, errorCode, errorDescription, validatedURL, isMainFrame) => {
         if (!isMainFrame) return;
-        if (!validatedURL.startsWith(DEV_URL)) return;
+        if (!isApplicationUrl(validatedURL)) return;
         if (!RECOVERABLE_ERRORS.has(errorCode)) return;
         if (retrying) return;
         retrying = true;
