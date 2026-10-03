@@ -27,7 +27,6 @@ import {
   THUNDER_DELAY_MIN_MS,
 } from "../constants";
 import { hapticThunder } from "../haptic";
-import { compactInPlace } from "../helpers";
 import { reduceMotion } from "../reducedMotion";
 import { duneHeight } from "../render/world";
 import { state } from "../state";
@@ -55,6 +54,30 @@ export function shouldRainForCycle(cycleIndex: number): boolean {
   return cycleIndex % 10 === rainSlot;
 }
 
+interface RainDrop {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  len: number;
+  dx: number;
+  dy: number;
+  layer: 0 | 1 | 2;
+}
+
+const MAX_RAIN_DROPS = 2048;
+const rainPool: RainDrop[] = [];
+let rainSpawnRemainder = 0;
+
+/** Reuse drops across storms and run resets rather than creating garbage. */
+export function resetRain(): void {
+  for (const drop of state.rainParticles) {
+    if (rainPool.length < MAX_RAIN_DROPS) rainPool.push(drop);
+  }
+  state.rainParticles.length = 0;
+  rainSpawnRemainder = 0;
+}
+
 /**
  * Spawn new rain particles for this frame. Density scales with
  * `frameScale` so the visual rate stays constant regardless of
@@ -64,9 +87,12 @@ export function shouldRainForCycle(cycleIndex: number): boolean {
  * and fall faster.
  */
 export function spawnRain(frameScale: number): void {
-  const count = Math.ceil(
-    (state.width / RAIN_SPAWN_DENSITY_DIVISOR) * frameScale * state.rainIntensity,
-  );
+  if (frameScale <= 0 || state.rainIntensity <= 0) return;
+  rainSpawnRemainder +=
+    (state.width / RAIN_SPAWN_DENSITY_DIVISOR) * frameScale * state.rainIntensity;
+  const requested = Math.floor(rainSpawnRemainder);
+  rainSpawnRemainder -= requested;
+  const count = Math.min(requested, MAX_RAIN_DROPS - state.rainParticles.length);
   for (let i = 0; i < count; i++) {
     const r = Math.random();
     let len: number;
@@ -99,33 +125,32 @@ export function spawnRain(frameScale: number): void {
     const vmag = Math.sqrt(vx * vx + vy * vy);
     const dx = (vx / vmag) * len;
     const dy = (vy / vmag) * len;
-    state.rainParticles.push({
-      x: Math.random() * (state.width + 100) - 50,
-      y: -10 - Math.random() * 30,
-      vx,
-      vy,
-      len,
-      dx,
-      dy,
-      layer,
-    });
+    const drop = rainPool.pop() ?? { x: 0, y: 0, vx: 0, vy: 0, len: 0, dx: 0, dy: 0, layer: 0 };
+    drop.x = Math.random() * (state.width + 100) - 50;
+    drop.y = -10 - Math.random() * 30;
+    drop.vx = vx;
+    drop.vy = vy;
+    drop.len = len;
+    drop.dx = dx;
+    drop.dy = dy;
+    drop.layer = layer;
+    state.rainParticles.push(drop);
   }
 }
 
 export function updateRain(dtSec: number): void {
   if (state.rainParticles.length === 0) return;
-  let expired = 0;
+  let write = 0;
   for (const p of state.rainParticles) {
     p.x += p.vx * dtSec;
     p.y += p.vy * dtSec;
-    if (p.y > state.ground) {
-      p.dead = true;
-      expired++;
+    if (p.y > state.ground || p.x < -50) {
+      if (rainPool.length < MAX_RAIN_DROPS) rainPool.push(p);
+    } else {
+      state.rainParticles[write++] = p;
     }
   }
-  if (expired > 0) {
-    compactInPlace(state.rainParticles, (p: any) => !p.dead);
-  }
+  state.rainParticles.length = write;
 }
 
 // One strokeStyle + one lineWidth per depth layer. Variation within a

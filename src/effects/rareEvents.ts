@@ -343,6 +343,8 @@ export function warmMeteorSprites(): void {
   getMeteorHeadSprite();
   getMeteorTrailSprite();
   getCometHeadSprite();
+  getCometTailSprite();
+  getUfoBeamSprite();
 }
 
 /*
@@ -430,6 +432,113 @@ function getMeteorTrailSprite(): HTMLCanvasElement {
   return c;
 }
 
+let cometTailSprite: HTMLCanvasElement | null = null;
+let cometTailLength = 0;
+function getCometTailSprite(): HTMLCanvasElement | null {
+  const tailLength = state.width * 0.3;
+  if (cometTailSprite && cometTailLength === tailLength) return cometTailSprite;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(tailLength * 1.4 + 16);
+  canvas.height = 104;
+  const cx = canvas.getContext("2d");
+  if (!cx) return null;
+  cx.translate(8, 80);
+  // Tail helper
+  const _ct = (
+    c0: string,
+    c1: string,
+    c2: string,
+    w: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    ex: number,
+    ey: number,
+  ) => {
+    const g = cx.createLinearGradient(0, 0, ex, 0);
+    g.addColorStop(0, c0);
+    g.addColorStop(0.35, c1);
+    g.addColorStop(1, c2);
+    cx.strokeStyle = g;
+    cx.lineWidth = w;
+    cx.beginPath();
+    cx.moveTo(0, 0);
+    cx.bezierCurveTo(x1, y1, x2, y2, ex, ey);
+    cx.stroke();
+  };
+  const L = tailLength;
+  // Main blue-white dust tail
+  _ct(
+    "rgba(200,225,255,0.75)",
+    "rgba(130,180,250,0.3)",
+    "rgba(70,120,210,0)",
+    9,
+    L * 0.3,
+    -10,
+    L * 0.6,
+    -18,
+    L,
+    -30,
+  );
+  // Cyan ion tail
+  _ct(
+    "rgba(0,250,255,0.6)",
+    "rgba(50,210,250,0.25)",
+    "rgba(30,140,230,0)",
+    3,
+    L * 0.4,
+    5,
+    L * 0.9,
+    8,
+    L * 1.4,
+    6,
+  );
+  // Bright crimson
+  _ct(
+    "rgba(255,60,35,0.5)",
+    "rgba(230,35,20,0.18)",
+    "rgba(150,10,5,0)",
+    5,
+    L * 0.2,
+    -20,
+    L * 0.55,
+    -38,
+    L * 1.15,
+    -55,
+  );
+  // Deep red
+  _ct(
+    "rgba(190,25,12,0.3)",
+    "rgba(140,12,8,0.1)",
+    "rgba(80,5,5,0)",
+    3,
+    L * 0.15,
+    -28,
+    L * 0.4,
+    -50,
+    L * 0.85,
+    -70,
+  );
+  // Warm orange wisp
+  _ct(
+    "rgba(255,170,60,0.3)",
+    "rgba(230,110,30,0.1)",
+    "rgba(180,60,10,0)",
+    2.5,
+    L * 0.35,
+    -6,
+    L * 0.65,
+    -14,
+    L,
+    -22,
+  );
+
+  cometTailSprite = canvas;
+  cometTailLength = tailLength;
+  return canvas;
+}
+
 export function drawRareEventSky(ctx: CanvasRenderingContext2D) {
   if (!state.activeRareEvent) return;
   const e = state.activeRareEvent;
@@ -444,35 +553,48 @@ export function drawRareEventSky(ctx: CanvasRenderingContext2D) {
  *  the hull — and a vertical gradient fades the first few pixels
  *  so the top reads as glowing emission instead of a hard-edged
  *  rectangle sitting against the sprite. */
+let ufoBeamSprite: HTMLCanvasElement | null = null;
+let ufoBeamHeight = 0;
+function getUfoBeamSprite(): HTMLCanvasElement | null {
+  const img = IMAGES.ufo;
+  const ufoH = img ? 60 * (img.height / img.width) : 35;
+  const height = Math.max(1, Math.ceil(state.ground - state.height * 0.35 - ufoH / 2 + 8));
+  if (ufoBeamSprite && ufoBeamHeight === height) return ufoBeamSprite;
+  const canvas = document.createElement("canvas");
+  canvas.width = 60;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, "rgba(245,250,255,0)");
+  grad.addColorStop(Math.min(1, 14 / height), "rgba(245,250,255,1)");
+  grad.addColorStop(1, "rgba(245,250,255,1)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(20, 0);
+  ctx.lineTo(40, 0);
+  ctx.lineTo(60, height);
+  ctx.lineTo(0, height);
+  ctx.closePath();
+  ctx.fill();
+  ufoBeamSprite = canvas;
+  ufoBeamHeight = height;
+  return canvas;
+}
+
 export function drawUfoBeam(ctx: CanvasRenderingContext2D) {
   if (!state.activeRareEvent || state.activeRareEvent.id !== "ufo") return;
   const e = state.activeRareEvent;
   if (!e.beam) return;
   const ufoH = IMAGES.ufo ? 60 * (IMAGES.ufo.height / IMAGES.ufo.width) : 35;
   const scan = 0.4 + 0.2 * Math.sin(e.age * 4.5) + 0.1 * Math.sin(e.age * 7.3);
-  const beamBottomL = e.x - 30;
-  const beamBottomR = e.x + 30;
-  // Tuck the top of the beam 8px up into the UFO body — the bottom
-  // window on the sprite sits ~30% up from the hull's lower edge.
   const beamTopY = e.y + ufoH / 2 - 8;
-  const beamBottomY = state.ground;
-  // Gradient fade for the top ~14px so the beam feathers into the
-  // hull instead of abutting it as a flat rectangle.
-  const fadeLen = 14;
-  const fadeStop = Math.min(1, fadeLen / Math.max(1, beamBottomY - beamTopY));
-  const grad = ctx.createLinearGradient(0, beamTopY, 0, beamBottomY);
-  grad.addColorStop(0, "rgba(245, 250, 255, 0)");
-  grad.addColorStop(fadeStop, `rgba(245, 250, 255, ${scan})`);
-  grad.addColorStop(1, `rgba(245, 250, 255, ${scan})`);
+  const height = state.ground - beamTopY;
+  const sprite = getUfoBeamSprite();
+  if (!sprite || height <= 0) return;
   ctx.save();
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(e.x - 10, beamTopY);
-  ctx.lineTo(e.x + 10, beamTopY);
-  ctx.lineTo(beamBottomR, beamBottomY);
-  ctx.lineTo(beamBottomL, beamBottomY);
-  ctx.closePath();
-  ctx.fill();
+  ctx.globalAlpha *= scan;
+  ctx.drawImage(sprite, e.x - 30, beamTopY, 60, height);
   ctx.restore();
 }
 
@@ -589,7 +711,6 @@ export function drawRareEvent(ctx: CanvasRenderingContext2D) {
     // "Your Name" style comet — very bright, multi-tailed, sparkly.
     const tailAngle = Math.atan2(state.height * 0.25, state.width * 1.6);
     const tailLen = state.width * 0.3;
-    const _headR = COMET_HEAD_R;
     const a = alpha;
 
     // Head — single drawImage of the pre-baked triple-gradient sprite
@@ -611,96 +732,14 @@ export function drawRareEvent(ctx: CanvasRenderingContext2D) {
     ctx.translate(e.x, e.y);
     ctx.rotate(tailAngle);
 
-    // Tail helper
-    const _ct = (
-      c0: string,
-      c1: string,
-      c2: string,
-      w: number,
-      x1: number,
-      y1: number,
-      x2: number,
-      y2: number,
-      ex: number,
-      ey: number,
-    ) => {
-      const g = ctx.createLinearGradient(0, 0, ex, 0);
-      g.addColorStop(0, c0);
-      g.addColorStop(0.35, c1);
-      g.addColorStop(1, c2);
-      ctx.strokeStyle = g;
-      ctx.lineWidth = w;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.bezierCurveTo(x1, y1, x2, y2, ex, ey);
-      ctx.stroke();
-    };
+    const tailSprite = getCometTailSprite();
+    if (tailSprite) {
+      ctx.save();
+      ctx.globalAlpha *= a;
+      ctx.drawImage(tailSprite, -8, -80);
+      ctx.restore();
+    }
     const L = tailLen;
-    // Main blue-white dust tail
-    _ct(
-      `rgba(200,225,255,${0.75 * a})`,
-      `rgba(130,180,250,${0.3 * a})`,
-      "rgba(70,120,210,0)",
-      9,
-      L * 0.3,
-      -10,
-      L * 0.6,
-      -18,
-      L,
-      -30,
-    );
-    // Cyan ion tail
-    _ct(
-      `rgba(0,250,255,${0.6 * a})`,
-      `rgba(50,210,250,${0.25 * a})`,
-      "rgba(30,140,230,0)",
-      3,
-      L * 0.4,
-      5,
-      L * 0.9,
-      8,
-      L * 1.4,
-      6,
-    );
-    // Bright crimson
-    _ct(
-      `rgba(255,60,35,${0.5 * a})`,
-      `rgba(230,35,20,${0.18 * a})`,
-      "rgba(150,10,5,0)",
-      5,
-      L * 0.2,
-      -20,
-      L * 0.55,
-      -38,
-      L * 1.15,
-      -55,
-    );
-    // Deep red
-    _ct(
-      `rgba(190,25,12,${0.3 * a})`,
-      `rgba(140,12,8,${0.1 * a})`,
-      "rgba(80,5,5,0)",
-      3,
-      L * 0.15,
-      -28,
-      L * 0.4,
-      -50,
-      L * 0.85,
-      -70,
-    );
-    // Warm orange wisp
-    _ct(
-      `rgba(255,170,60,${0.3 * a})`,
-      `rgba(230,110,30,${0.1 * a})`,
-      "rgba(180,60,10,0)",
-      2.5,
-      L * 0.35,
-      -6,
-      L * 0.65,
-      -14,
-      L,
-      -22,
-    );
 
     // Sparkles — cover the full x/y extent of all tails,
     // similar blink frequency but very different phase offsets,

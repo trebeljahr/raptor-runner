@@ -487,7 +487,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._jumpBuffer = decoded;
+        if (decoded) {
+          this._jumpBuffer = decoded;
+          this._warmAudioBuffer(decoded, "jump");
+        }
       })
       .catch(() => {
         /* no-op — jump SFX simply won't play */
@@ -706,12 +709,14 @@ export const audio = {
     }
     this._primeRainAudio();
     this._primeMusicAudio();
+    this._audioUnlocked = true;
     this._warmWebAudioSources();
   },
 
   _rainPrimed: false as boolean,
   _musicPrimed: false as boolean,
-  _webAudioWarmed: false as boolean,
+  _audioUnlocked: false,
+  _warmedBuffers: new WeakSet<AudioBuffer>(),
 
   /**
    * Same decoder-priming trick as _primeRainAudio, applied to the
@@ -764,71 +769,49 @@ export const audio = {
     }
   },
 
-  /**
-   * Warm the Web Audio buffer-source pipeline by firing a silent
-   * (zero-gain, 10ms) BufferSource → Gain → destination graph for
-   * every pre-decoded buffer. Without this, the *first* playJump /
-   * playThunder / playHit / playMeteor / etc. stalls briefly while
-   * Chromium compiles the audio render graph for that specific
-   * buffer's shape (sample rate, channel count, length) — visible
-   * as a one-off lag spike on the first rare event.
-   *
-   * Every decoded buffer the audio module owns gets warmed here.
-   * A buffer still being null means the fetch is racing init; the
-   * _webAudioWarmed latch stays false so a follow-up unlockAudio
-   * call from the Start-button gesture retries against whichever
-   * buffers have landed by then. The step buffers are a flat array
-   * too, spread into the list.
-   *
-   * Runs at most ONCE per session (the _webAudioWarmed latch).
-   * Total cost: ~8 × 10ms silent buffer schedules, all offloaded to
-   * the audio thread — no impact on the render loop beyond the
-   * graph-compilation work that would have happened anyway.
-   */
+  /** Warm buffers once through their actual channel graph. Late decodes are
+   *  warmed as they arrive, instead of being skipped by a session-wide latch. */
+  _warmAudioBuffer(buf: AudioBuffer, channel: SfxChannel) {
+    const ctx = this._audioCtx;
+    if (!this._audioUnlocked || !ctx || this._warmedBuffers.has(buf)) return;
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(gain);
+      gain.connect(this._sfxOut(channel));
+      src.onended = () => {
+        src.disconnect();
+        gain.disconnect();
+      };
+      src.start(0);
+      src.stop(ctx.currentTime + 0.01);
+      this._warmedBuffers.add(buf);
+    } catch {
+      /* Retry on the next unlock if warming fails. */
+    }
+  },
+
   _warmWebAudioSources() {
-    if (this._webAudioWarmed) return;
-    if (!this._audioCtx) return;
-    const buffers = [
-      this._jumpBuffer,
-      this._thunderBuffer,
-      this._hitBuffer,
-      this._ufoBuffer,
-      this._santaBuffer,
-      this._meteorBuffer,
-      this._cometBuffer,
-      this._coinBuffer,
-      this._coinChainEndBuffer,
-      this._shopPurchaseBuffer,
-      this._achievementBuffer,
-      ...this._stepBuffers,
+    const buffers: [AudioBuffer | null, SfxChannel][] = [
+      [this._jumpBuffer, "jump"],
+      [this._hitBuffer, "jump"],
+      [this._thunderBuffer, "thunder"],
+      [this._ufoBuffer, "events"],
+      [this._santaBuffer, "events"],
+      [this._meteorBuffer, "events"],
+      [this._cometBuffer, "events"],
+      [this._coinBuffer, "coins"],
+      [this._coinChainEndBuffer, "coins"],
+      [this._shopPurchaseBuffer, "jump"],
+      [this._achievementBuffer, "ui"],
     ];
-    // Wait until at least one buffer is ready. If none are, this
-    // fires too early — leave _webAudioWarmed false so a later
-    // unlockAudio gesture can retry once the fetches land.
-    if (buffers.every((b) => b == null)) return;
-    // Only mark warmed if we actually warmed something. If MOST
-    // buffers are still loading, the later unlockAudio retries will
-    // still find _webAudioWarmed true and skip — and the unwarmed
-    // ones will pay the compile cost on first play. The tradeoff is
-    // accepted: in practice all buffers finish loading long before
-    // the Start button is tapped.
-    this._webAudioWarmed = true;
-    for (const buf of buffers) {
-      if (!buf) continue;
-      try {
-        const src = this._audioCtx.createBufferSource();
-        src.buffer = buf;
-        const gain = this._audioCtx.createGain();
-        gain.gain.value = 0;
-        src.connect(gain);
-        // Warm through the master gain so the graph compilation covers
-        // the real playback topology.
-        gain.connect(this._masterGain ?? this._audioCtx.destination);
-        src.start(0);
-        src.stop(this._audioCtx.currentTime + 0.01);
-      } catch {
-        /* ignore — warming is best-effort */
-      }
+    for (const [buf, channel] of buffers) {
+      if (buf) this._warmAudioBuffer(buf, channel);
+    }
+    for (const buf of this._stepBuffers) {
+      if (buf) this._warmAudioBuffer(buf, "footsteps");
     }
   },
 
@@ -862,7 +845,7 @@ export const audio = {
    * we reset the flag so the next gesture gets another shot.
    */
   _primeRainAudio() {
-    if (this._rainPrimed) return;
+    if (this._rainPrimed && this.rain && !this.rain.paused) return;
     if (!this.rain) return;
     this._rainPrimed = true;
     this.rain.volume = 0;
@@ -959,7 +942,8 @@ export const audio = {
     if (!Number.isFinite(n)) return;
     this._rainIntensity = clamp01(n);
     if (this.rain && this._isRainPlaying && !this.rain.paused) {
-      this.rain.volume = this.rainTargetVolume() * this._rainIntensity;
+      const volume = this.rainTargetVolume() * this._rainIntensity;
+      if (Math.abs(this.rain.volume - volume) > 0.001) this.rain.volume = volume;
     }
   },
 
@@ -998,7 +982,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._thunderBuffer = decoded;
+        if (decoded) {
+          this._thunderBuffer = decoded;
+          this._warmAudioBuffer(decoded, "thunder");
+        }
       })
       .catch(() => {
         /* thunder SFX simply won't play */
@@ -1018,6 +1005,10 @@ export const audio = {
       gain.gain.value = 0.5;
       src.connect(gain);
       gain.connect(this._sfxOut("thunder"));
+      src.onended = () => {
+        src.disconnect();
+        gain.disconnect();
+      };
       src.start(0);
     } catch (_e) {
       /* non-critical */
@@ -1053,7 +1044,10 @@ export const audio = {
           return this._audioCtx.decodeAudioData(buf);
         })
         .then((decoded) => {
-          if (decoded) this._stepBuffers[i] = decoded;
+          if (decoded) {
+            this._stepBuffers[i] = decoded;
+            this._warmAudioBuffer(decoded, "footsteps");
+          }
         })
         .catch(() => {
           /* individual step sample just won't play */
@@ -1139,7 +1133,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._hitBuffer = decoded;
+        if (decoded) {
+          this._hitBuffer = decoded;
+          this._warmAudioBuffer(decoded, "jump");
+        }
       })
       .catch(() => {
         /* hit SFX simply won't play */
@@ -1203,7 +1200,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._coinBuffer = decoded;
+        if (decoded) {
+          this._coinBuffer = decoded;
+          this._warmAudioBuffer(decoded, "coins");
+        }
       })
       .catch(() => {
         /* coin SFX simply won't play */
@@ -1236,7 +1236,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._coinChainEndBuffer = decoded;
+        if (decoded) {
+          this._coinChainEndBuffer = decoded;
+          this._warmAudioBuffer(decoded, "coins");
+        }
       })
       .catch(() => {
         /* chain-end cue simply won't play */
@@ -1398,7 +1401,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._shopPurchaseBuffer = decoded;
+        if (decoded) {
+          this._shopPurchaseBuffer = decoded;
+          this._warmAudioBuffer(decoded, "jump");
+        }
       })
       .catch(() => {
         /* purchase cue simply won't play */
@@ -1453,7 +1459,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._achievementBuffer = decoded;
+        if (decoded) {
+          this._achievementBuffer = decoded;
+          this._warmAudioBuffer(decoded, "ui");
+        }
       })
       .catch(() => {
         /* achievement cue simply won't play */
@@ -1565,7 +1574,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._ufoBuffer = decoded;
+        if (decoded) {
+          this._ufoBuffer = decoded;
+          this._warmAudioBuffer(decoded, "events");
+        }
       })
       .catch(() => {
         /* UFO SFX simply won't play */
@@ -1645,7 +1657,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._santaBuffer = decoded;
+        if (decoded) {
+          this._santaBuffer = decoded;
+          this._warmAudioBuffer(decoded, "events");
+        }
       })
       .catch(() => {
         /* santa SFX simply won't play */
@@ -1733,7 +1748,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._meteorBuffer = decoded;
+        if (decoded) {
+          this._meteorBuffer = decoded;
+          this._warmAudioBuffer(decoded, "events");
+        }
       })
       .catch(() => {
         /* meteor SFX simply won't play */
@@ -1791,7 +1809,10 @@ export const audio = {
         return this._audioCtx.decodeAudioData(buf);
       })
       .then((decoded) => {
-        if (decoded) this._cometBuffer = decoded;
+        if (decoded) {
+          this._cometBuffer = decoded;
+          this._warmAudioBuffer(decoded, "events");
+        }
       })
       .catch(() => {
         /* comet SFX simply won't play */

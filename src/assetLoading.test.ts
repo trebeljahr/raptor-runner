@@ -43,6 +43,39 @@ describe("essential image loading", () => {
     expect(await attempt).toEqual(["raptorSheet"]);
   });
 
+  it("waits for image decode before publishing a sprite", async () => {
+    const images: Record<string, HTMLImageElement | undefined> = {};
+    const attempt = loadGameImages({ raptorSheet: "raptor" }, images);
+    let finishDecode!: () => void;
+    const image = FakeImage.requests[0] as FakeImage & { decode: () => Promise<void> };
+    image.decode = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDecode = resolve;
+        }),
+    );
+    image.onload?.();
+    await Promise.resolve();
+    expect(images.raptorSheet).toBeUndefined();
+    finishDecode();
+    expect(await attempt).toEqual([]);
+    expect(images.raptorSheet).toBe(image);
+  });
+
+  it("bounds a stalled decode and treats a rejected decode as a load failure", async () => {
+    const images = {};
+    const attempt = loadGameImages(
+      { raptorSheet: "raptor", cactus: "cactus" },
+      images,
+      new Set(["raptorSheet", "cactus"]),
+    );
+    Object.assign(FakeImage.requests[0], { decode: () => new Promise(() => {}) });
+    Object.assign(FakeImage.requests[1], { decode: () => Promise.reject(new Error("decode")) });
+    FakeImage.requests.forEach((image) => image.onload?.());
+    await vi.advanceTimersByTimeAsync(IMAGE_LOAD_TIMEOUT_MS);
+    expect(await attempt).toEqual(["raptorSheet", "cactus"]);
+  });
+
   it("bounds hangs, ignores late completion, and recovers with a fresh request", async () => {
     const images: Record<string, HTMLImageElement | undefined> = {};
     const sources = { raptorSheet: "raptor", flower01: "flower" };

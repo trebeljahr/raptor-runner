@@ -288,7 +288,10 @@ function scoreLoop() {
       if (Math.abs(target - displayedScore) < 0.5) {
         displayedScore = target;
       }
-      if (scoreValueEl) scoreValueEl.textContent = String(Math.floor(displayedScore));
+      if (scoreValueEl) {
+        const text = String(Math.floor(displayedScore));
+        if (scoreValueEl.textContent !== text) scoreValueEl.textContent = text;
+      }
     }
     // Update the aria-label only when the score crosses a 100 m
     // milestone (plus once at 0 when the HUD appears). The real
@@ -324,7 +327,8 @@ function scoreLoop() {
     if (Math.abs(diff) > 0.01) {
       displayedCoins += diff * 0.22;
       if (Math.abs(target - displayedCoins) < 0.5) displayedCoins = target;
-      scoreCoinValueEl.textContent = String(Math.floor(displayedCoins));
+      const text = String(Math.floor(displayedCoins));
+      if (scoreCoinValueEl.textContent !== text) scoreCoinValueEl.textContent = text;
     }
     if (
       target !== lastAriaCoins &&

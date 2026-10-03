@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { shouldRainForCycle } from "./weather";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { state } from "../state";
+import { resetRain, shouldRainForCycle, spawnRain, updateRain } from "./weather";
 
 /*
  * shouldRainForCycle is the deterministic weather scheduler — given
@@ -96,5 +97,51 @@ describe("shouldRainForCycle", () => {
         throw new Error(`consecutive rainy cycles at ${c} and ${c + 1}`);
       }
     }
+  });
+});
+
+// Count equal elapsed time at different refresh rates without expiring drops.
+
+describe("rain emission and reuse", () => {
+  beforeEach(() => {
+    resetRain();
+    state.width = 1200;
+    state.ground = 600;
+    state.rainIntensity = 0.125;
+  });
+  afterEach(() => resetRain());
+
+  it.each([30, 60, 120, 144, 240])("spawns 30 drops per second at %i Hz in light rain", (hz) => {
+    for (let i = 0; i < hz; i++) spawnRain(60 / hz);
+    expect(state.rainParticles.length).toBeGreaterThanOrEqual(29);
+    expect(state.rainParticles.length).toBeLessThanOrEqual(30);
+  });
+  it("does not spawn on a zero-length frame or carry emission through a reset", () => {
+    spawnRain(0);
+    expect(state.rainParticles).toHaveLength(0);
+    spawnRain(1);
+    resetRain();
+    spawnRain(1);
+    expect(state.rainParticles).toHaveLength(0);
+  });
+  it("recycles expired drops without moving survivors twice", () => {
+    state.rainIntensity = 1;
+    spawnRain(1);
+    const drops = [...state.rainParticles];
+    drops[0].y = state.ground + 1;
+    const nextY = drops[1].y + drops[1].vy * 0.01;
+    updateRain(0.01);
+    expect(state.rainParticles).toHaveLength(3);
+    expect(drops[1].y).toBeCloseTo(nextY);
+    spawnRain(0.25);
+    expect(state.rainParticles[3]).toBe(drops[0]);
+  });
+  it("caps exceptional bursts and discards excess work instead of queuing it", () => {
+    state.rainIntensity = 1;
+    spawnRain(1e6);
+    expect(state.rainParticles).toHaveLength(2048);
+    updateRain(100);
+    spawnRain(0);
+    expect(state.rainParticles).toHaveLength(0);
   });
 });

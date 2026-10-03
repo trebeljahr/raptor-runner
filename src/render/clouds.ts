@@ -52,16 +52,10 @@ export function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, s
   }
 }
 
-/*
- * Overcast gradients are keyed by (coverH, intensityBucket). Intensity
- * is quantized to buckets of 0.05 so slight frame-to-frame ripples in
- * the smoothed `rainIntensity` don't invalidate the cache every frame.
- * Resize invalidates on the `coverH` change. Five linear gradients used
- * to be recreated every frame during rain — now they're reused.
- */
+/* Overcast geometry changes only on resize. Alpha belongs to the draw,
+ * so storm fades reuse the same gradients at every intensity. */
 type OvercastCache = {
   coverH: number;
-  bucket: number;
   mainGrad: CanvasGradient;
   bandGrads: CanvasGradient[];
 };
@@ -99,7 +93,6 @@ function buildOvercastGradients(
 
   return {
     coverH,
-    bucket: Math.round(a * 20),
     mainGrad,
     bandGrads,
   };
@@ -109,13 +102,13 @@ export function drawOvercastBands(ctx: CanvasRenderingContext2D, intensity: numb
   if (intensity <= 0) return;
   const w = state.width;
   const coverH = state.height * 0.55;
-  const a = intensity;
-  const bucket = Math.round(a * 20); // 0..20, ~0.05 granularity
 
-  if (!_overcastCache || _overcastCache.coverH !== coverH || _overcastCache.bucket !== bucket) {
-    _overcastCache = buildOvercastGradients(ctx, coverH, bucket / 20);
+  if (!_overcastCache || _overcastCache.coverH !== coverH) {
+    _overcastCache = buildOvercastGradients(ctx, coverH, 1);
   }
 
+  ctx.save();
+  ctx.globalAlpha *= intensity;
   ctx.fillStyle = _overcastCache.mainGrad;
   ctx.fillRect(0, 0, w, coverH);
   for (let i = 0; i < BAND_LAYOUT.length; i++) {
@@ -125,6 +118,7 @@ export function drawOvercastBands(ctx: CanvasRenderingContext2D, intensity: numb
     ctx.fillStyle = _overcastCache.bandGrads[i]!;
     ctx.fillRect(0, y, w, h);
   }
+  ctx.restore();
 }
 
 /**

@@ -29,7 +29,14 @@ export async function loadGameImages(
           resolve(loaded ? img : undefined);
         };
         const timeout = setTimeout(() => finish(false), IMAGE_LOAD_TIMEOUT_MS);
-        img.onload = () => finish(img.naturalWidth > 0 && img.naturalHeight > 0);
+        img.onload = () => {
+          if (img.naturalWidth <= 0 || img.naturalHeight <= 0) return finish(false);
+          if (typeof img.decode !== "function") return finish(true);
+          img.decode().then(
+            () => finish(true),
+            () => finish(false),
+          );
+        };
         img.onerror = () => finish(false);
         img.src = src;
       });

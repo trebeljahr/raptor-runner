@@ -30,7 +30,7 @@ import {
   STAR_PIVOT_HEIGHT_RATIO,
   STAR_TWINKLE_PROBABILITY,
 } from "../constants";
-import { type RgbTuple, randRange, rgba } from "../helpers";
+import { randRange } from "../helpers";
 import { state } from "../state";
 
 interface FieldStar {
@@ -42,6 +42,7 @@ interface FieldStar {
   twinkleRate: number;
   twinkleDepth: number;
   color: number[];
+  fill: string;
   flash: boolean;
 }
 
@@ -59,6 +60,24 @@ interface MilkyWayHazePuff {
   brightness: number;
 }
 
+// Small shared haze texture. Radius/brightness vary through drawImage and alpha.
+let hazeSprite: HTMLCanvasElement | null = null;
+function getHazeSprite(): HTMLCanvasElement | null {
+  if (hazeSprite) return hazeSprite;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grad.addColorStop(0, "rgba(220,225,255,1)");
+  grad.addColorStop(0.6, "rgba(200,210,245,0.4)");
+  grad.addColorStop(1, "rgba(180,190,230,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+  hazeSprite = canvas;
+  return canvas;
+}
+
 export class Stars {
   opacity = 0;
   field: FieldStar[] = [];
@@ -71,6 +90,7 @@ export class Stars {
   mwThickness = 0;
 
   constructor() {
+    getHazeSprite();
     // Generate stars over an area much larger than the viewport so
     // the rotation transform never sweeps the visible area empty.
     // The rotation pivot sits 1.5 screen-heights above the viewport,
@@ -109,6 +129,7 @@ export class Stars {
         twinkleRate: twinkles ? randRange(0.02, 0.06) : 0,
         twinkleDepth: twinkles ? randRange(0.3, 0.7) : 0,
         color,
+        fill: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
         flash,
       });
     }
@@ -188,34 +209,49 @@ export class Stars {
 
   draw(ctx: CanvasRenderingContext2D): void {
     if (this.opacity <= 0) return;
-    const starWhite: RgbTuple = [255, 255, 255];
-    const mwStar: RgbTuple = [235, 235, 255];
-    const mwHaze1: RgbTuple = [220, 225, 255];
-    const mwHaze2: RgbTuple = [200, 210, 245];
-    const mwHazeOuter: RgbTuple = [180, 190, 230];
+    const inheritedAlpha = ctx.globalAlpha;
+    const opacity = inheritedAlpha * this.opacity;
+    const cos = Math.cos(state.starRotation);
+    const sin = Math.sin(state.starRotation);
+    const px = state.width * 0.5;
+    const py = state.height * STAR_PIVOT_HEIGHT_RATIO;
+    // Cull in screen space; the generated dome is much larger than the viewport.
+    const visible = (x: number, y: number, radius: number) => {
+      const dx = x - px,
+        dy = y - py;
+      const sx = px + dx * cos - dy * sin;
+      const sy = py + dx * sin + dy * cos;
+      return (
+        sx + radius >= 0 &&
+        sx - radius <= state.width &&
+        sy + radius >= 0 &&
+        sy - radius <= state.height
+      );
+    };
 
     ctx.save();
     this._applyRotation(ctx);
 
-    // Soft Milky Way haze: a few overlapping radial-gradient puffs
-    // along the band. Radial gradients fade smoothly to transparent
-    // at their edge so the band feels diffuse rather than rectangular.
-    for (const puff of this.mwHazePuffs) {
-      const a = puff.brightness * this.opacity;
-      if (a <= 0.001) continue;
-      const grad = ctx.createRadialGradient(puff.x, puff.y, 0, puff.x, puff.y, puff.radius);
-      grad.addColorStop(0, rgba(mwHaze1, a));
-      grad.addColorStop(0.6, rgba(mwHaze2, a * 0.4));
-      grad.addColorStop(1, rgba(mwHazeOuter, 0));
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
-      ctx.fill();
+    const haze = getHazeSprite();
+    if (haze) {
+      for (const puff of this.mwHazePuffs) {
+        const a = puff.brightness * opacity;
+        if (a <= 0.001 || !visible(puff.x, puff.y, puff.radius)) continue;
+        ctx.globalAlpha = a;
+        ctx.drawImage(
+          haze,
+          puff.x - puff.radius,
+          puff.y - puff.radius,
+          puff.radius * 2,
+          puff.radius * 2,
+        );
+      }
     }
 
-    // Milky Way star points.
+    ctx.fillStyle = "rgb(235,235,255)";
     for (const s of this.milkyWay) {
-      ctx.fillStyle = rgba(mwStar, s.brightness * this.opacity);
+      if (!visible(s.x, s.y, s.size)) continue;
+      ctx.globalAlpha = s.brightness * opacity;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
       ctx.fill();
@@ -224,6 +260,7 @@ export class Stars {
     // Foreground star field. Stars with a non-zero twinkleDepth
     // pulse softly via a sin wave; flash stars spike sharply.
     for (const s of this.field) {
+      if (!visible(s.x, s.y, s.size)) continue;
       let twinkle = 1;
       if (s.twinkleDepth) {
         const raw = 0.5 + 0.5 * Math.sin(s.twinklePhase + state.frame * s.twinkleRate);
@@ -231,10 +268,11 @@ export class Stars {
           ? 0.4 + 1.1 * raw ** 8 // sharp bright spikes
           : 1 - s.twinkleDepth * raw;
       }
-      const a = s.brightness * twinkle * this.opacity;
+      const a = Math.min(s.brightness * twinkle * this.opacity, 1) * inheritedAlpha;
       // Size pulsing: ±20% modulated by twinkle
       const r = (s.size / 2) * (1 + 0.2 * (twinkle - 0.5));
-      ctx.fillStyle = rgba((s.color || starWhite) as unknown as RgbTuple, Math.min(a, 1));
+      ctx.fillStyle = s.fill;
+      ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
       ctx.fill();

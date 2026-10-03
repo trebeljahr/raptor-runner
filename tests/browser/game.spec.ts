@@ -52,8 +52,12 @@ test("results announce exact score and revive stays available", async ({ page })
   await die(page);
   const score = await page.evaluate(() => window.Game!.getScore());
   await expect(page.locator("#run-result-announcement")).toContainText(`${score} meters`);
-  await expect(page.locator(".run-result")).toContainText(/coins? earned/);
-  await expect(page.locator(".run-rewards")).toContainText("First Steps");
+  await expect(page.locator("#score-card-actions-root")).toContainText(/coins? earned this run/);
+  expect(
+    await page.evaluate(
+      () => window.Game!.getAchievements().find((a) => a.id === "first-run")?.unlocked,
+    ),
+  ).toBe(true);
   await expect(page.locator(".achievement-toast")).toHaveCount(0);
   await page.screenshot({
     animations: "disabled",
@@ -67,14 +71,14 @@ test("results announce exact score and revive stays available", async ({ page })
   await expect(page.locator("#score-card-panel")).not.toBeVisible();
   expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(wallet - cost);
 });
-test("poor revive explains shortfall and restart clears the result", async ({ page }) => {
+test("poor revive shows the balance and restart clears the result", async ({ page }) => {
   await ready(page);
   await die(page);
   await expect(page.locator(".revive-btn")).toBeDisabled();
-  const shortfall = await page.evaluate(
-    () => window.Game!.getReviveCost() - window.Game!.getCoinsBalance(),
+  const wallet = await page.evaluate(() => window.Game!.getCoinsBalance());
+  await expect(page.locator("#score-card-actions-root .revive-balance").first()).toContainText(
+    `You have ${wallet} coins`,
   );
-  await expect(page.locator("#revive-status")).toContainText(`Need ${shortfall} more coins`);
   await page.getByRole("button", { name: "Play again", exact: true }).click();
   await expect(page.locator("#score-card-panel")).not.toBeVisible();
   await expect(page.locator("#run-result-announcement")).toHaveText("");
@@ -83,7 +87,7 @@ test("wardrobe try-on never buys or changes the equipped outfit", async ({ page 
   await ready(page, 100);
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
   await page.locator("#menu-shop").click();
-  await expect(page.getByText("Collect coins in flower patches.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Shop", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Try on Cowboy Hat", exact: true }).click();
   await expect(page.locator(".shop-preview")).toContainText("Trying on Cowboy Hat");
   await page.screenshot({

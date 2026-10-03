@@ -37,6 +37,7 @@
  *     when a coherent subsystem can move out without dragging the
  *     remaining cross-cutting state with it.
  */
+import { FramePerformance } from "./framePerformance";
 import "./styles/base.css";
 import { achievementProgress } from "./achievementProgress";
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID } from "./achievements";
@@ -157,6 +158,7 @@ import {
   drawRain,
   shouldRainForCycle,
   spawnRain,
+  resetRain,
   updateLightning,
   updateRain,
 } from "./effects/weather";
@@ -1313,57 +1315,32 @@ function render() {
 // When ?debug=true, tracks per-frame timings and draws an
 // overlay with FPS + frame budget breakdown. Updated every 30
 // frames to avoid the readout itself costing performance.
-const perf: {
-  enabled: boolean;
-  samples: Array<{ update: number; render: number; total: number }>;
-  maxSamples: number;
-  lastDisplay: {
-    fps: number;
-    update: number | string;
-    render: number | string;
-    total: number | string;
-  };
-  frameCount: number;
-} = {
+const perf = {
   enabled: false,
-  samples: [],
-  maxSamples: 60,
-  lastDisplay: { fps: 0, update: 0, render: 0, total: 0 },
+  timings: new FramePerformance(),
   frameCount: 0,
+  lines: ["Collecting frame timings…"],
 };
 
 function drawPerfOverlay() {
   if (!perf.enabled || !ctx) return;
-  if (++perf.frameCount % 30 === 0 && perf.samples.length > 0) {
-    const n = perf.samples.length;
-    let sumU = 0,
-      sumR = 0,
-      sumT = 0;
-    for (const s of perf.samples) {
-      sumU += s.update;
-      sumR += s.render;
-      sumT += s.total;
-    }
-    perf.lastDisplay = {
-      fps: Math.round(1000 / (sumT / n)),
-      update: (sumU / n).toFixed(2),
-      render: (sumR / n).toFixed(2),
-      total: (sumT / n).toFixed(2),
-    };
-    perf.samples.length = 0;
+  if (++perf.frameCount % 30 === 0) {
+    const d = perf.timings.summary();
+    perf.lines = [
+      `FPS: ${Math.round(d.fps)}`,
+      `Update: ${d.update.toFixed(2)} ms`,
+      `Render: ${d.render.toFixed(2)} ms`,
+      `RAF p95: ${d.p95.toFixed(1)} ms`,
+      `Max: ${d.max.toFixed(1)} ms`,
+      `>25ms: ${d.spikes}/${d.samples}`,
+    ];
   }
-  const d = perf.lastDisplay;
-  const lines = [
-    `FPS: ${d.fps}`,
-    `Update: ${d.update} ms`,
-    `Render: ${d.render} ms`,
-    `Frame:  ${d.total} ms`,
-  ];
+  const lines = perf.lines;
   ctx.save();
   ctx.font = "bold 11px monospace";
   ctx.textBaseline = "top";
   const x = 10,
-    y = state.height - 70;
+    y = state.height - 100;
   ctx.fillStyle = "rgba(0,0,0,0.55)";
   ctx.fillRect(x - 4, y - 4, 150, lines.length * 15 + 8);
   ctx.fillStyle = "#0f0";
@@ -1374,22 +1351,18 @@ function drawPerfOverlay() {
 }
 
 function loop(now: number) {
-  pollGamepad();
-  const t0 = performance.now();
-  let tUpdate = t0;
-  if (!state.paused) {
-    update(now || t0);
-    tUpdate = performance.now();
-  }
-  render();
-  const tRender = performance.now();
   if (perf.enabled) {
-    perf.samples.push({
-      update: tUpdate - t0,
-      render: tRender - tUpdate,
-      total: tRender - t0,
-    });
+    const t0 = performance.now();
+    pollGamepad();
+    if (!state.paused) update(now || t0);
+    const tUpdate = performance.now();
+    render();
+    perf.timings.record(now, tUpdate - t0, performance.now() - tUpdate);
     drawPerfOverlay();
+  } else {
+    pollGamepad();
+    if (!state.paused) update(now);
+    render();
   }
   _rafId = requestAnimationFrame(loop);
 }
@@ -1551,7 +1524,7 @@ function resetGame(hard = false) {
   // mode, noCollisions).
   stopActiveRareEventAudio();
   state.activeRareEvent = null;
-  state.rainParticles = [];
+  resetRain();
   state.lightning = { alpha: 0, nextAt: 0 };
   state.flowerPatches = [];
   clearCoins();
@@ -2436,7 +2409,7 @@ const GameAPI = {
     if (on) {
       state.rainEndPhase = state.smoothPhase + 100;
     } else {
-      state.rainParticles = [];
+      resetRain();
       state.lightning = { alpha: 0, nextAt: 0 };
     }
   },
@@ -2545,6 +2518,8 @@ const GameAPI = {
 
   togglePerfOverlay() {
     perf.enabled = !perf.enabled;
+    perf.timings.reset();
+    perf.frameCount = 0;
     return perf.enabled;
   },
 
