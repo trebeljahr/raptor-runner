@@ -2406,6 +2406,7 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
 }
 .shop-item-meta-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.15rem;
@@ -2521,20 +2522,21 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.shop-item-action-equipped {
+.shop-item-equipped-pill {
   background: var(--color-cactus);
+}
+.shop-item-action-unequip,
+.shop-item-action-unequip:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: #a33226;
   color: var(--color-sand-contrast);
 }
-/* Equipped action on focus: swap to the same sky-deep fill as
-       * any other focused shop button so the "currently on" row
-       * stops winning over :focus-visible via specificity, and the
-       * selected state reads identically across buy / equipped /
-       * unavailable variants. Click unequips, matching the
-       * cosmetics drawer. */
-.shop-item-action-equipped:focus-visible,
-.shop-item-action-equipped.kbd-focus {
-  background: var(--color-sky-deep);
-  color: var(--color-sand-contrast);
+.shop-item-action-unequip:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: #82271e;
+}
+.shop-item-action-unequip:focus-visible,
+.shop-item-action-unequip.kbd-focus {
+  outline: 3px solid var(--color-dune);
+  outline-offset: 3px;
 }
 .shop-empty-hint {
   color: var(--color-dune-dim);

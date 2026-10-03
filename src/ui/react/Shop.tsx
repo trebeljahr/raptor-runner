@@ -189,11 +189,11 @@ function ShopItem({ def, balance, debug, onChange, onPreview, previewId }: ShopI
     action = (
       <button
         type="button"
-        className="shop-item-action shop-item-action-equipped"
-        aria-label={`${def.name} equipped. Activate to unequip`}
+        className="shop-item-action shop-item-action-unequip"
+        aria-label={`Unequip ${def.name}`}
         onClick={handleUnequip}
       >
-        Equipped
+        Unequip
       </button>
     );
   } else if (owned) {
@@ -267,6 +267,7 @@ function ShopItem({ def, balance, debug, onChange, onPreview, previewId }: ShopI
         <div className="shop-item-meta-row">
           <div className="shop-item-slot">{SLOT_LABEL[def.slot] ?? def.slot}</div>
           {owned && <span className="shop-item-owned-pill">Owned</span>}
+          {equipped && <span className="shop-item-owned-pill shop-item-equipped-pill">Equipped</span>}
         </div>
         {def.description && <div className="shop-item-description">{def.description}</div>}
       </div>
