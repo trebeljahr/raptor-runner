@@ -82,14 +82,16 @@ function validIds(value: unknown, allowed: Set<string>): value is string[] {
 }
 function validKeyCodes(raw: string): boolean {
   const codes = raw.split(",");
+  // Match Game.setJumpKeys' saved output. KeyboardEvent.code includes media,
+  // international and vendor-specific keys; an enum would reject real saves.
   return (
-    codes.length >= 1 &&
-    codes.length <= 8 &&
+    codes.length > 0 &&
     new Set(codes).size === codes.length &&
-    codes.every((code) =>
-      /^(Key[A-Z]|Digit[0-9]|Numpad(?:[0-9]|Add|Subtract|Multiply|Divide|Decimal|Comma|Equal)|Arrow(?:Up|Down|Left|Right)|Space|Shift(?:Left|Right)|Control(?:Left|Right)|Alt(?:Left|Right)|Meta(?:Left|Right)|Backspace|Delete|Insert|Home|End|PageUp|PageDown|CapsLock|NumLock|ScrollLock|Pause|PrintScreen|Backquote|Backslash|BracketLeft|BracketRight|Comma|Equal|Minus|Period|Quote|Semicolon|Slash|IntlBackslash|IntlRo|IntlYen|F(?:[1-8]|1[0-9]|2[0-4]))$/.test(
-        code,
-      ),
+    codes.every(
+      (code) =>
+        code.length > 0 &&
+        code === code.trim() &&
+        !(K.RESERVED_KEY_CODES as readonly string[]).includes(code),
     )
   );
 }

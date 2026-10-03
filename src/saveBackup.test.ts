@@ -90,7 +90,7 @@ describe("backup format validation", () => {
     [K.JUMP_KEYS_KEY, ""],
     [K.JUMP_KEYS_KEY, "Enter"],
     [K.JUMP_KEYS_KEY, "KeyJ,KeyJ"],
-    [K.JUMP_KEYS_KEY, "<script>"],
+    [K.JUMP_KEYS_KEY, " KeyJ"],
     [K.ACHIEVEMENTS_KEY, '["unknown-achievement"]'],
     [K.ACHIEVEMENTS_KEY, '["first-run","first-run"]'],
     [K.OWNED_COSMETICS_KEY, '["unknown-hat"]'],
@@ -104,6 +104,22 @@ describe("backup format validation", () => {
     [K.HIGH_SCORE_KEY, 123],
   ])("rejects malformed or unsupported durable field %s: %s", (key, value) => {
     expect(() => backup.parseSaveBackup(file({ [key]: value }))).toThrow();
+  });
+
+  it.each([
+    ["AudioVolumeDown", "MediaPlayPause", "BrowserBack"],
+    ["Convert", "NonConvert", "KanaMode", "Lang1", "IntlRo", "IntlYen"],
+    ["VendorKeyboardAction"],
+    ["KeyA", "KeyB", "KeyC", "KeyD", "KeyE", "KeyF", "KeyG", "KeyH", "KeyI", "KeyJ"],
+  ])("round-trips any canonical binding list accepted by the game setter: %s", (...codes) => {
+    persistence.saveStringListSetting(K.JUMP_KEYS_KEY, codes);
+    const exported = controller.export();
+    expect(exported.ok).toBe(true);
+    if (exported.ok) {
+      expect(backup.parseSaveBackup(exported.value.text).data[K.JUMP_KEYS_KEY]).toBe(
+        codes.join(","),
+      );
+    }
   });
 
   it("validates every durable field written by this version", () => {
