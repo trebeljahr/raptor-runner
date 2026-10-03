@@ -1,22 +1,5 @@
-/*
- * Shop overlay — React port of renderShop() / refreshShopBalance() from
- * src/ui.ts. Visuals are unchanged: every CSS class name is copied
- * verbatim from the vanilla implementation, and the DOM structure is
- * identical (imprint-sheet > imprint-close + shop-scroll > heading +
- * balance + items + empty-hint).
- *
- * State flow:
- *   - Reads from window.Game on every render (coin balance, shop
- *     inventory, owned/equipped status). The component is re-rendered
- *     on every shop open (see mountShop.ts) and on every buy/equip via
- *     an internal version counter.
- *   - Notifies ui.ts through onShopChange after any mutation so the
- *     menu-button coin chip and the start-screen raptor preview can
- *     refresh outside React's tree.
- *
- * Pixel-identical to the vanilla Shop: confetti colours, sprite map,
- * and slot colours all come straight from the original code paths.
- */
+import { applyCosmeticPreviewTransform } from "../cosmeticPreview";
+/* Wardrobe catalog and try-on preview. Purchases and equipment changes use window.Game. */
 import { type MouseEvent, useCallback, useState } from "react";
 
 const SLOT_COLOR: Record<string, string> = {
@@ -139,6 +122,7 @@ interface ShopDef {
   slot: "head" | "eyes" | "neck";
   price: number;
   description?: string;
+  scoreUnlock?: boolean;
 }
 
 interface ShopItemProps {
@@ -146,9 +130,11 @@ interface ShopItemProps {
   balance: number;
   debug: boolean;
   onChange: () => void;
+  onPreview: (id: string) => void;
+  previewId: string | null;
 }
 
-function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
+function ShopItem({ def, balance, debug, onChange, onPreview, previewId }: ShopItemProps) {
   const Game = window.Game;
   const owned = Game?.ownsCosmetic?.(def.id) === true;
   const equipped = Game?.isCosmeticEquipped?.(def.id) === true;
@@ -178,7 +164,12 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
     const res = Game?.buyCosmetic?.(def.id);
     if (res === "ok") {
       Game?.playShopPurchase?.();
-      spawnShopConfetti(cx, cy);
+      const motion = Game?.getReduceMotion();
+      if (
+        motion === "off" ||
+        (motion === "system" && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+      )
+        spawnShopConfetti(cx, cy);
       onChange();
     }
   };
@@ -216,6 +207,8 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
         Equip
       </button>
     );
+  } else if (def.scoreUnlock) {
+    action = <span className="shop-earned-label">Earn in a run</span>;
   } else if (canAfford || debug) {
     action = (
       <button
@@ -240,9 +233,9 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
         type="button"
         className="shop-item-action shop-item-action-poor"
         aria-disabled="true"
-        aria-label={`${def.name} costs ${def.price} coins — not enough coins`}
+        aria-label={`${def.name} costs ${def.price} coins. Need ${def.price - balance} more coins.`}
       >
-        <span className="shop-item-price">{def.price}</span>
+        <span className="shop-item-price">Need {def.price - balance} more</span>
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </button>
     );
@@ -250,13 +243,25 @@ function ShopItem({ def, balance, debug, onChange }: ShopItemProps) {
 
   return (
     <div className="shop-item" data-id={def.id}>
-      <div className={thumbClass} style={thumbStyle}>
+      <button
+        className={thumbClass + " shop-try-on"}
+        style={thumbStyle}
+        type="button"
+        aria-label={`Try on ${def.name}`}
+        aria-pressed={previewId === def.id}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPreview(def.id);
+          document.querySelector(".shop-scroll")?.scrollTo({ top: 0, behavior: "instant" });
+        }}
+      >
         {thumbUrl ? (
           <img src={thumbUrl} alt="" loading="lazy" />
         ) : (
           def.name.slice(0, 2).toUpperCase()
         )}
-      </div>
+        <span className="shop-try-label">Try on</span>
+      </button>
       <div className="shop-item-info">
         <div className="shop-item-name">{def.name}</div>
         <div className="shop-item-meta-row">
@@ -277,13 +282,23 @@ export interface ShopProps {
 
 export function Shop({ onClose, onShopChange }: ShopProps) {
   const [, setVersion] = useState(0);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [filter, setFilter] = useState("all");
   const bump = useCallback(() => {
     setVersion((v) => v + 1);
     onShopChange();
   }, [onShopChange]);
 
   const Game = window.Game;
-  const inventory: ShopDef[] = Game?.getShopInventory?.() ?? [];
+  const all = Game?.getAllCosmetics?.() ?? [];
+  const preview = all.find((item) => item.id === previewId);
+  const inventory = all.filter((item) =>
+    filter === "owned"
+      ? Game?.ownsCosmetic(item.id)
+      : filter === "earned"
+        ? item.scoreUnlock
+        : true,
+  );
   const balance: number = Game?.getCoinsBalance?.() ?? 0;
   const debug = Game?.isDebug?.() === true;
 
@@ -299,7 +314,7 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
       </button>
       <div className="shop-scroll">
         <h1 className="shop-heading" tabIndex={-1}>
-          Shop
+          Wardrobe &amp; shop
         </h1>
         <p className="shop-balance">
           <span className="shop-balance-label">Coins</span>
@@ -308,12 +323,75 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
             <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
           </span>
         </p>
+        <p className="shop-help">Collect coins in flower patches. Keep them after each run.</p>
+        <figure className="shop-preview">
+          <div
+            className="shop-raptor-stage"
+            role="img"
+            aria-label={preview ? `Raptor trying on ${preview.name}` : "Your equipped outfit"}
+          >
+            <img className="shop-raptor-body" src="assets/raptor-idle.png" alt="" />
+            {(["neck", "eyes", "head"] as const).map((slot) => {
+              const id = preview?.slot === slot ? preview.id : Game?.getEquippedCosmetic(slot);
+              const def = all.find((item) => item.id === id);
+              const url = id ? spriteUrlForId(id) : null;
+              return def && url ? (
+                <img
+                  key={slot}
+                  src={url}
+                  alt=""
+                  className="start-raptor-cosmetic"
+                  ref={(img) => {
+                    if (img) applyCosmeticPreviewTransform(img, slot, def);
+                  }}
+                />
+              ) : null;
+            })}
+          </div>
+          <figcaption aria-live="polite">
+            {preview
+              ? `Trying on ${preview.name}. Your outfit is unchanged.`
+              : "Your equipped outfit"}
+          </figcaption>
+          {preview && (
+            <button type="button" className="shop-item-action" onClick={() => setPreviewId(null)}>
+              Show equipped outfit
+            </button>
+          )}
+        </figure>
+        <div className="shop-filter" role="group" aria-label="Show items">
+          {[
+            ["all", "All items"],
+            ["owned", "Owned items"],
+            ["earned", "Run rewards"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className="shop-item-action"
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {inventory.length === 0 ? (
-          <p className="shop-empty-hint">Collect coins on the flower fields to spend them here.</p>
+          <p className="shop-empty-hint">
+            No items owned yet. Choose All items to see what you can earn.
+          </p>
         ) : (
           <div className="shop-items">
             {inventory.map((def) => (
-              <ShopItem key={def.id} def={def} balance={balance} debug={debug} onChange={bump} />
+              <ShopItem
+                key={def.id}
+                def={def}
+                balance={balance}
+                debug={debug}
+                onChange={bump}
+                onPreview={setPreviewId}
+                previewId={previewId}
+              />
             ))}
           </div>
         )}

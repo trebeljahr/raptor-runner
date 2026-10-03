@@ -85,3 +85,7 @@ venv/
 .env.test
 .envrc.local
 .vercel/
+
+# Browser regression artifacts
+playwright-report/
+test-results/

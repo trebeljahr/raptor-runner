@@ -5,25 +5,41 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
-    "types": ["vite/client", "vite-plugin-pwa/client"],
-
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ],
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/client"
+    ],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "vite.config.ts"],
-  "exclude": ["node_modules", "dist", "dev-dist"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.d.ts",
+    "vite.config.ts",
+    "tests/**/*.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dev-dist"
+  ]
 }

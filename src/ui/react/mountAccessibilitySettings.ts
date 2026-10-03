@@ -11,10 +11,7 @@ import {
   type AccessibilitySettingsCallbacks,
 } from "./AccessibilitySettings";
 
-// Re-exported so ui.ts (which IS type-checked) can annotate its
-// callbacks table without importing the .tsx module directly —
-// tsc runs without the --jsx flag, so .tsx imports only resolve
-// from inside @ts-nocheck files like this one.
+// Keep the callback type alongside the mount entry point.
 export type { AccessibilitySettingsCallbacks } from "./AccessibilitySettings";
 
 let root: Root | null = null;

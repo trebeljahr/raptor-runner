@@ -1,26 +1,4 @@
-/*
- * Start screen content + byline — React port of the .start-content
- * and .start-byline blocks in index.html. The outer #start-screen
- * wrapper, its backdrop (ground strip, cloud SVGs, parallax cacti),
- * and the cosmetic-aware raptor stage all stay vanilla because they
- * are CSS-animated or painted imperatively by refreshStartRaptorCosmetics
- * and don't benefit from React's tree.
- *
- * Dynamic bits that live here:
- *   - Start button state (loading while assets fetch, ready after
- *     Game.onReady fires). Label and disabled flag follow assetsReady.
- *   - Personal-best badge — visible only when the saved high-score
- *     is > 0. Reads live from Game.getHighScore().
- *   - Subtitle / hints / homage / byline — mostly static text, but
- *     included here so the start-screen chrome is one coherent
- *     component rather than being split.
- *
- * The "Start Game" click delegates back to ui.ts's triggerStart
- * through the onStart prop. The tap-animation class toggle stays in
- * ui.ts (it queries #start-btn by id after render) so the same
- * keyboard path (window.__onStartKey) and the click path share one
- * animation pipeline.
- */
+/* Home controls read current loading, progress, and keyboard settings. */
 import type { MouseEvent } from "react";
 import { formatKeyCode } from "../../input/keyLabels";
 
@@ -28,6 +6,11 @@ export interface StartScreenCallbacks {
   onStart: () => void;
   getHighScore: () => number;
   getAssetsReady: () => boolean;
+  getLoadingState: () => {
+    status: "loading" | "error" | "ready";
+    message: string | null;
+    canRetry: boolean;
+  };
   getJumpKeys: () => string[];
 }
 
@@ -37,7 +20,12 @@ export interface StartScreenProps {
 
 export function StartScreen({ callbacks: cb }: StartScreenProps) {
   const ready = cb.getAssetsReady();
+  const loading = cb.getLoadingState();
+  const failed = loading.status === "error";
   const hs = cb.getHighScore();
+  const nextGoal = window.Game?.getAchievements().find(
+    (a) => !a.unlocked && !a.secret && a.progress,
+  );
   const showHighScore = hs > 0;
 
   const handleStart = (e: MouseEvent) => {
@@ -56,11 +44,12 @@ export function StartScreen({ callbacks: cb }: StartScreenProps) {
             ★ Personal best: <span>{Math.floor(hs)}</span>
           </p>
         )}
+        {ready && nextGoal && <p className="start-next-goal">Next goal: {nextGoal.desc}</p>}
         <button
           id="start-btn"
-          className={"start-btn" + (ready ? "" : " loading")}
+          className={"start-btn" + (!ready && !failed ? " loading" : "")}
           type="button"
-          disabled={!ready}
+          disabled={!ready && !failed}
           onClick={handleStart}
         >
           <span className="spinner" aria-hidden="true"></span>
@@ -73,12 +62,30 @@ export function StartScreen({ callbacks: cb }: StartScreenProps) {
           >
             <path d="M8 5v14l11-7z"></path>
           </svg>
-          <span className="label">{ready ? "Start Game" : "Loading…"}</span>
+          <span className="label">
+            {ready
+              ? "Start Game"
+              : failed
+                ? loading.canRetry
+                  ? "Retry loading"
+                  : "Reload game"
+                : "Loading…"}
+          </span>
         </button>
+        {failed && (
+          <p className="start-error" role="alert">
+            {loading.message}
+          </p>
+        )}
         <p className="start-hint start-hint-desktop">
-          <kbd>Enter</kbd> to start · {cb.getJumpKeys().map((code, index) => (
-            <span key={code}>{index > 0 ? " / " : ""}<kbd>{formatKeyCode(code)}</kbd></span>
-          ))} to jump · <kbd>Esc</kbd> for menu
+          <kbd>Enter</kbd> to start ·{" "}
+          {cb.getJumpKeys().map((code, index) => (
+            <span key={code}>
+              {index > 0 ? " / " : ""}
+              <kbd>{formatKeyCode(code)}</kbd>
+            </span>
+          ))}{" "}
+          to jump · <kbd>Esc</kbd> for menu
         </p>
         <p className="start-hint start-hint-touch">Tip: Tap to jump</p>
         {/* Jump = the family's confirm button; one <kbd> per family,

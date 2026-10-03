@@ -8,6 +8,7 @@ export interface ScoreCardActionsProps {
   reviveShortfall: number;
   result: { score: number; best: number; coins: number; record: boolean } | null;
   shareReady: boolean;
+  rewards: string[];
   shareLabel: string;
   onRevive: () => void;
   onShare: () => void;
@@ -21,6 +22,7 @@ export function ScoreCardActions({
   reviveShortfall,
   result,
   shareReady,
+  rewards,
   shareLabel,
   onRevive,
   onShare,
@@ -43,11 +45,22 @@ export function ScoreCardActions({
 
   return (
     <>
-      {result && <div className="run-result">
-        <p className="run-result-score"><strong>{result.score}</strong> meters</p>
-        <p>{result.record ? "New personal best" : `${Math.max(0, result.best - result.score)} m from your best (${result.best} m)`}</p>
-        <p>{result.coins} coins earned</p>
-      </div>}
+      {result && (
+        <div className="run-result">
+          <p className="run-result-score">
+            <strong>{result.score}</strong> meters
+          </p>
+          <p>
+            {result.record
+              ? "New personal best"
+              : `${Math.max(0, result.best - result.score)} m from your best (${result.best} m)`}
+          </p>
+          <p>
+            {result.coins} {result.coins === 1 ? "coin" : "coins"} earned
+          </p>
+          {rewards.length > 0 && <p className="run-rewards">Earned: {rewards.join(", ")}</p>}
+        </div>
+      )}
       <button
         className={"revive-btn" + (!reviveAffordable ? " poor" : "")}
         type="button"
@@ -63,7 +76,6 @@ export function ScoreCardActions({
             Revive · <span>{reviveCost ?? 0}</span>
           </span>
         </span>
-
       </button>
       {/* No aria-live here on purpose: the coin-fill tween rewrites
           this number every animation frame for ~1.2s, and a live
@@ -73,15 +85,24 @@ export function ScoreCardActions({
         You have <span>{reviveBalance ?? 0}</span> coins
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </div>
-      {reviveCost != null && <p className="revive-status" id="revive-status">
-        {reviveAffordable ? "Available until you start another run." : `Need ${reviveShortfall} more coins to revive.`}
-      </p>}
+      {reviveCost != null && (
+        <p className="revive-status" id="revive-status">
+          {reviveAffordable
+            ? "Available until you start another run."
+            : `Need ${reviveShortfall} more coins to revive.`}
+        </p>
+      )}
       <div className="score-card-actions">
         {/* No aria-label: the visible label IS the accessible name, so
             the "Copied!" / "Shared!" feedback flashes are announced
             (the label span is a polite live region) instead of being
             masked by a static override. */}
-        <button className="share-score-btn" type="button" disabled={!shareReady} onClick={handleShare}>
+        <button
+          className="share-score-btn"
+          type="button"
+          disabled={!shareReady}
+          onClick={handleShare}
+        >
           <span className="inner">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="18" cy="5" r="3"></circle>

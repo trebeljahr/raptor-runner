@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { formatKeyCode } from "../../input/keyLabels";
 /*
  * Accessibility settings body — rendered inside the pause menu's
@@ -309,7 +310,15 @@ export function AccessibilitySettings({ callbacks }: AccessibilitySettingsProps)
           case "toggle":
             return <ToggleRow key={row.id} row={row} />;
           case "slider":
-            return <SliderRow key={row.id} row={row} />;
+            return row.id.endsWith("-volume") && document.getElementById("sound-volume-root") ? (
+              createPortal(
+                <SliderRow key={row.id} row={row} />,
+                document.getElementById("sound-volume-root")!,
+                row.id,
+              )
+            ) : (
+              <SliderRow key={row.id} row={row} />
+            );
           case "select":
             return <SelectRow key={row.id} row={row} />;
           case "keycapture":

@@ -1,26 +1,4 @@
-/*
- * Cosmetics body — React port of renderCosmeticsMenu() +
- * _buildCosmeticSlotRow() + _setThumbForId() from src/ui.ts. The
- * outer <details id="cosmetics"> and its <summary> stay vanilla in
- * index.html; this component renders the .cosmetics-body contents.
- *
- * Visuals are unchanged: class names, data-slot attribute, the
- * "None" SVG icon, the slot-tinted placeholder thumb, the
- * aria-pressed=true + .cosmetic-equip-badge on the currently-equipped
- * row — all copied verbatim from the vanilla builder.
- *
- * Ownership drives visibility at three levels:
- *   - The whole <details> gating (toggled from ui.ts via the
- *     `hidden` attribute on #cosmetics) if no cosmetic is owned.
- *   - Per-slot sections that only render when the slot has at least
- *     one owned item.
- *   - Per-item rows for every owned item in that slot, plus a
- *     leading "None" row to unequip.
- *
- * ui.ts owns the Game API writes (equipCosmetic / unequipSlot) and
- * the side-effect fanout (start-screen raptor preview refresh) via
- * the callbacks prop.
- */
+/* Owned items grouped by slot, including an empty-wardrobe hint. */
 import type { MouseEvent } from "react";
 
 export interface CosmeticsMenuCallbacks {
@@ -118,6 +96,12 @@ export function CosmeticsMenu({ callbacks: cb }: CosmeticsMenuProps) {
 
   return (
     <>
+      {owned.length === 0 && (
+        <p className="menu-help">
+          Your wardrobe is empty. Earn items during runs, or spend collected coins in Wardrobe &amp;
+          shop.
+        </p>
+      )}
       {COSMETIC_SLOT_UI.map(({ slot, label }) => {
         const ownedInSlot = owned.filter((c) => c.slot === slot);
         if (ownedInSlot.length === 0) return null;

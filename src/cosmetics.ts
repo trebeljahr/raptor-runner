@@ -51,7 +51,7 @@ export const COSMETICS: ReadonlyArray<CosmeticDef> = [
     price: 0,
     scoreUnlock: true,
     spriteKey: "partyHat",
-    description: "Earned at 100 points. Always a mood.",
+    description: "Earn by running 1,000 meters in one run.",
   },
   {
     id: "thug-glasses",
@@ -60,7 +60,7 @@ export const COSMETICS: ReadonlyArray<CosmeticDef> = [
     price: 0,
     scoreUnlock: true,
     spriteKey: "thugGlasses",
-    description: "Earned at 200 points. Deal with it.",
+    description: "Earn by running 2,000 meters in one run.",
   },
   {
     id: "bow-tie",
@@ -69,7 +69,7 @@ export const COSMETICS: ReadonlyArray<CosmeticDef> = [
     price: 0,
     scoreUnlock: true,
     spriteKey: "bowTie",
-    description: "Earned at 150 points. Dressy.",
+    description: "Earn by running 1,500 meters in one run.",
   },
 
   // ── Shop: head ────────────────────────────────────────

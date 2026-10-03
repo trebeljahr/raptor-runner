@@ -38,6 +38,7 @@
  *     remaining cross-cutting state with it.
  */
 import "./styles/base.css";
+import { achievementProgress } from "./achievementProgress";
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID } from "./achievements";
 import { GameStartup, loadGameImages, type LoadingState } from "./assetLoading";
 import { audio } from "./audio";
@@ -1964,6 +1965,14 @@ const GameAPI = {
    *  the Achievements menu overlay. Returns a shallow copy so
    *  callers can't mutate the source. */
   getAchievements() {
+    const shop = shopInventory();
+    const counters = {
+      ...state,
+      highScore: Math.max(state.highScore, Math.floor(state.score)),
+      ownedShopItems: shop.filter((item) => state.ownedCosmetics[item.id]).length,
+      shopItems: shop.length,
+      equippedSlots: Object.values(state.equippedCosmetics).filter(Boolean).length,
+    };
     return ACHIEVEMENTS.map((a) => ({
       id: a.id,
       title: a.title,
@@ -1972,6 +1981,7 @@ const GameAPI = {
       iconImage: a.iconImage || null,
       unlocked: !!state.unlockedAchievements[a.id],
       secret: !!a.secret,
+      progress: achievementProgress(a.id, counters),
     }));
   },
 
@@ -2313,11 +2323,11 @@ const GameAPI = {
     return state.gameOver;
   },
 
-  /** Reset to a fresh run right now. Safe to call any time
-   *  during a game-over state; the short death animation
-   *  cooldown is still applied inside maybeResetAfterGameOver. */
-  restartFromGameOver() {
-    maybeResetAfterGameOver();
+  /** Explicit button activation may restart immediately; ambient taps
+   *  retain the death cooldown to avoid accidental restarts. */
+  restartFromGameOver(explicit = false) {
+    if (explicit && state.gameOver) resetGame();
+    else maybeResetAfterGameOver();
   },
 
   /** Current coin cost of a mid-run revive. Starts cheap, marks

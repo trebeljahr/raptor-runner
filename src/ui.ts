@@ -1,3 +1,4 @@
+import { applyCosmeticPreviewTransform } from "./ui/cosmeticPreview";
 /*
  * Raptor Runner — UI chrome module.
  *
@@ -141,6 +142,13 @@ const achievementsOverlay = document.getElementById("achievements-overlay");
 const startScreen = document.getElementById("start-screen")!;
 let imprintLoaded = false;
 let assetsReady = false;
+let gameEventsRegistered = false;
+let loadingState: ReturnType<NonNullable<Window["Game"]>["getLoadingState"]> = {
+  status: "loading",
+  failedAssets: [],
+  message: null,
+  canRetry: false,
+};
 
 // The start button lives inside the React <StartScreen> component, so
 // we look it up by id whenever we need to touch it (the rendered
@@ -156,6 +164,7 @@ const START_SCREEN_CALLBACKS = {
   onStart: () => triggerStart(),
   getHighScore: () => window.Game?.getHighScore?.() || 0,
   getAssetsReady: () => assetsReady,
+  getLoadingState: () => loadingState,
   getJumpKeys: () => window.Game?.getJumpKeys?.() ?? [...DEFAULT_JUMP_KEYS],
 };
 
@@ -197,14 +206,13 @@ function onGameReady() {
   const game = window.Game;
   if (!game) return;
 
-  // Wire the share panel to the game's onGameOver /
-  // onGameReset events now that the API is ready.
-  if (game.onGameOver) {
+  if (!gameEventsRegistered) {
+    gameEventsRegistered = true;
     game.onGameOver(showScoreCard);
-    game.onGameReset(hideScoreCard);
-  }
-  // Achievement toasts.
-  if (game.onAchievementUnlock) {
+    game.onGameReset(() => {
+      hideScoreCard();
+      if (game.isStarted()) showScoreDisplay();
+    });
     game.onAchievementUnlock(showAchievementToast);
   }
 
@@ -231,6 +239,12 @@ function onGameReady() {
 // are loaded. Guard in case it hasn't parsed yet.
 function registerReady() {
   if (window.Game && typeof window.Game.onReady === "function") {
+    window.Game.onLoadingStateChange((state) => {
+      loadingState = state;
+      assetsReady = state.status === "ready";
+      if (state.status !== "loading") hideBootSplash();
+      syncStartScreen();
+    });
     window.Game.onReady(onGameReady);
   } else {
     // main.ts may still be loading (it's deferred) — retry soon.
@@ -288,7 +302,10 @@ function scoreLoop() {
       (lastAriaScore < 0 || Math.floor(target / 100) !== Math.floor(lastAriaScore / 100))
     ) {
       const coinsForLabel = game.getRunCoins?.() ?? 0;
-      scoreDisplay.setAttribute("aria-label", `Score: ${target} meters, ${coinsForLabel} coins this run`);
+      scoreDisplay.setAttribute(
+        "aria-label",
+        `Score: ${target} meters, ${coinsForLabel} coins this run`,
+      );
       lastAriaScore = target;
       lastAriaCoins = coinsForLabel;
     }
@@ -331,9 +348,12 @@ function scoreLoop() {
   requestAnimationFrame(scoreLoop);
 }
 function showScoreDisplay() {
+  runRewards = [];
+  clearAchievementToasts();
   displayedScore = 0;
   lastAriaScore = -1;
   lastAriaCoins = -1;
+  scoreDisplay?.setAttribute("aria-live", "polite");
   lastCoinAriaAt = 0;
   // Per-run coins start at 0 each run — HUD opens on 0 and ticks
   // up with pickups, no stale carry-over from the prior attempt.
@@ -396,6 +416,11 @@ function startGame() {
 // fired click on Start never bypasses an open modal.
 function triggerStart() {
   if (overlay.classList.contains("open")) return;
+  if (loadingState.status === "error") {
+    if (loadingState.canRetry) void window.Game?.retryLoading();
+    else window.location.reload();
+    return;
+  }
   const game = window.Game;
   if (!assetsReady || !game || game.isStarted()) return;
   game.playMenuTap?.();
@@ -805,8 +830,12 @@ function syncAccessibilityUI() {
   refreshAccessibilitySettings(ACCESSIBILITY_SETTINGS_CALLBACKS);
   syncStartScreen();
   const keys = START_SCREEN_CALLBACKS.getJumpKeys().map(formatKeyCode).join(", ");
-  document.getElementById("game-canvas")?.setAttribute("aria-label",
-    `Raptor Runner. Press ${keys} or tap to jump. Press Escape for the menu.`);
+  document
+    .getElementById("game-canvas")
+    ?.setAttribute(
+      "aria-label",
+      `Raptor Runner. Press ${keys} or tap to jump. Press Escape for the menu.`,
+    );
 }
 
 // ───────── Fullscreen button ─────────
@@ -1520,7 +1549,7 @@ const MENU_LIST_CALLBACKS = {
   onFullscreen: handleFullscreenClick,
   onQuit: handleQuitClick,
   getInstallAvailable: () => deferredInstallPrompt != null,
-  getReturnLabel: () => window.Game?.isGameOver() ? "Back to results" : "Resume game",
+  getReturnLabel: () => (window.Game?.isGameOver() ? "Back to results" : "Resume game"),
   getFullscreenLabel: () => "Fullscreen: " + (fullscreenState ? "on" : "off"),
 };
 
@@ -1663,30 +1692,6 @@ const shopOverlay = document.getElementById("shop-overlay");
 // every equip/unequip so the preview matches the live game.
 const startRaptorStage = document.getElementById("start-raptor-stage");
 
-// Idle-frame (frame 11) anchors, mirroring RAPTOR_CROWN / RAPTOR_SNOUT
-// and the BACK/NECK corrections in src/constants.ts. The stage shares
-// the raptor sprite's 578:212 aspect ratio, so normalised fractions
-// map directly to stage percentages and the preview picks up the
-// same anchors as the canvas draw path in src/entities/raptor.ts.
-const _IDLE_CROWN = { x: 0.86851, y: 0.15566 };
-const _IDLE_SNOUT = { x: 0.98616, y: 0.25472 };
-const _IDLE_NECK_CORRECTION = { x: 0.00187, y: -0.00078 };
-
-// The three score-unlock classics bypass the generic placeholder
-// draw path in raptor.ts and use slightly smaller scales. Mirror
-// those here so party-hat/thug-glasses/bow-tie render identically
-// on the start screen.
-type CosmeticDraw = {
-  scale?: number;
-  rotation?: number;
-  offset?: { x?: number; y?: number };
-};
-const _CLASSIC_DRAW: Record<string, CosmeticDraw> = {
-  "party-hat": { scale: 0.25, rotation: -0.35 },
-  "thug-glasses": { scale: 0.07 },
-  "bow-tie": { scale: 0.06, rotation: -0.15 },
-};
-
 function refreshStartRaptorCosmetics() {
   if (!startRaptorStage || !window.Game) return;
   const slots: Array<"head" | "eyes" | "neck"> = ["head", "eyes", "neck"];
@@ -1719,56 +1724,8 @@ function _applyStartCosmeticTransform(
   slot: "head" | "eyes" | "neck",
   id: string,
 ) {
-  const def = window.Game?.getAllCosmetics?.().find((c: { id: string }) => c.id === id);
-  const draw = def?.draw ?? _CLASSIC_DRAW[id] ?? {};
-  let cx = 0;
-  let cy = 0;
-  let rot = 0;
-  let widthFrac: number | null = null;
-  let heightFrac: number | null = null;
-  let apX = 0.5;
-  let apY = 0.5;
-  if (slot === "head") {
-    cx = _IDLE_CROWN.x - 0.01;
-    cy = _IDLE_CROWN.y + 0.04;
-    heightFrac = draw.scale ?? 0.3;
-    rot = draw.rotation ?? -0.35;
-    // Bottom-centre of the sprite anchors to the crown.
-    apX = 0.5;
-    apY = 1.0;
-  } else if (slot === "eyes") {
-    cx = _IDLE_CROWN.x + (_IDLE_SNOUT.x - _IDLE_CROWN.x) * 0.5 - 0.012;
-    cy = _IDLE_CROWN.y + (_IDLE_SNOUT.y - _IDLE_CROWN.y) * 0.5 + 0.013;
-    widthFrac = draw.scale ?? 0.1;
-    // atan2 must use pixel deltas, so scale dy by the raptor aspect.
-    const RAPTOR_ASPECT = 212 / 578;
-    const rideAngle = Math.atan2(
-      (_IDLE_SNOUT.y - _IDLE_CROWN.y) * RAPTOR_ASPECT,
-      _IDLE_SNOUT.x - _IDLE_CROWN.x,
-    );
-    rot = draw.rotation ?? rideAngle - 0.25;
-  } else {
-    // neck
-    cx = _IDLE_CROWN.x - 0.02 + _IDLE_NECK_CORRECTION.x;
-    cy = _IDLE_CROWN.y + 0.2 + _IDLE_NECK_CORRECTION.y;
-    widthFrac = draw.scale ?? 0.08;
-    rot = draw.rotation ?? -0.15;
-  }
-  if (draw.offset?.x != null) cx += draw.offset.x;
-  if (draw.offset?.y != null) cy += draw.offset.y;
-  img.style.left = (cx * 100).toFixed(3) + "%";
-  img.style.top = (cy * 100).toFixed(3) + "%";
-  if (widthFrac != null) {
-    img.style.width = (widthFrac * 100).toFixed(3) + "%";
-    img.style.height = "auto";
-  } else {
-    img.style.height = (heightFrac! * 100).toFixed(3) + "%";
-    img.style.width = "auto";
-  }
-  img.style.transform =
-    `translate(${(-apX * 100).toFixed(2)}%, ${(-apY * 100).toFixed(2)}%) ` +
-    `rotate(${rot.toFixed(4)}rad)`;
-  img.style.transformOrigin = `${(apX * 100).toFixed(2)}% ${(apY * 100).toFixed(2)}%`;
+  const def = window.Game?.getAllCosmetics().find((item) => item.id === id);
+  if (def) applyCosmeticPreviewTransform(img, slot, def);
 }
 
 /** id → sprite URL. Kept in module scope so both the shop grid
@@ -1826,17 +1783,13 @@ const COSMETICS_MENU_CALLBACKS = {
  * menu-open and after any equip change so the React tree stays in
  * sync with the latest state.
  *
- * The outer <details id="cosmetics"> stays hidden until at least
- * one cosmetic is owned — no empty header at the start of a fresh
- * save. Per-slot sections, option buttons, thumbnails, and the
- * "None" row are all rendered by <CosmeticsMenu> in React.
+ * The section is discoverable even before the first item is earned.
+ * Per-slot equipment controls render through <CosmeticsMenu>.
  */
 function renderCosmeticsMenu() {
   const game = window.Game;
   if (!cosmeticsGroup || !game) return;
-  const all = game.getAllCosmetics?.() ?? [];
-  const owned = all.filter((c: { id: string }) => game.ownsCosmetic?.(c.id));
-  cosmeticsGroup.hidden = owned.length === 0;
+  cosmeticsGroup.hidden = false;
   refreshCosmeticsMenu(COSMETICS_MENU_CALLBACKS);
 }
 
@@ -2075,6 +2028,7 @@ function syncScoreCardActions() {
     reviveAffordable,
     reviveShortfall,
     result: runResult,
+    rewards: runRewards,
     shareReady: currentCardBlob != null,
     shareLabel,
     onRevive: handleReviveClick,
@@ -2107,15 +2061,21 @@ function showScoreCard() {
   sharePanel.classList.add("visible");
   if (scoreCardOverlay) scoreCardOverlay.classList.add("visible");
   shareLabel = originalShareLabel;
-  runResult = { score: Math.floor(game.getScore()), best: Math.floor(game.getHighScore()),
-    coins: game.getRunCoins(), record: game.isNewHighScore() };
-  const finalText = `Game over. ${runResult.score} meters. ${runResult.coins} coins earned. ${runResult.record ? "New personal best." : `Personal best: ${runResult.best} meters.`}`;
+  clearAchievementToasts();
+  runResult = {
+    score: Math.floor(game.getScore()),
+    best: Math.floor(game.getHighScore()),
+    coins: game.getRunCoins(),
+    record: game.isNewHighScore(),
+  };
+  const finalText = `Game over. ${runResult.score} meters. ${runResult.coins} ${runResult.coins === 1 ? "coin" : "coins"} earned. ${runResult.record ? "New personal best." : `Personal best: ${runResult.best} meters.`}`;
   const announcement = document.getElementById("run-result-announcement");
   if (announcement) announcement.textContent = finalText;
+  scoreDisplay?.setAttribute("aria-live", "off");
   scoreDisplay?.setAttribute("aria-label", finalText);
   lastAriaScore = runResult.score;
   lastAriaCoins = runResult.coins;
-  scoreCardImg.alt = `Share image: ${runResult.score} meters, ${runResult.coins} coins earned.`;
+  scoreCardImg.alt = `Share image: ${runResult.score} meters, ${runResult.coins} ${runResult.coins === 1 ? "coin" : "coins"} earned.`;
   startReviveOffer();
   const generation = cardGeneration;
   // Land initial focus on the most-interesting button — Revive when
@@ -2158,6 +2118,24 @@ function showScoreCard() {
 
 // ───────── Achievement toasts ─────────
 const achievementToastStack = document.getElementById("achievement-toasts");
+let runRewards: string[] = [];
+const toastQueue: AchievementToast[] = [];
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+function clearAchievementToasts() {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = null;
+  toastQueue.length = 0;
+  achievementToastStack?.replaceChildren();
+}
+function showAchievementToast(ach: AchievementToast) {
+  if (window.Game?.isStarted()) runRewards.push(ach.title);
+  if (window.Game?.isGameOver()) {
+    if (isScoreCardOpen()) syncScoreCardActions();
+    return;
+  }
+  toastQueue.push(ach);
+  if (toastQueue.length === 1) renderAchievementToast(ach);
+}
 // Shared renderer for achievement icons. Supports two
 // shapes from main.ts's ACHIEVEMENTS table:
 //   - { iconHTML }  — inline multi-colour SVG fragment
@@ -2194,7 +2172,7 @@ function buildAchievementIconNode(ach: AchievementToast) {
   return svg;
 }
 
-function showAchievementToast(ach: AchievementToast) {
+function renderAchievementToast(ach: AchievementToast) {
   const game = window.Game;
   if (!achievementToastStack || !ach || !game) return;
   const el = document.createElement("div");
@@ -2229,10 +2207,13 @@ function showAchievementToast(ach: AchievementToast) {
   // no explicit class toggle needed.
   // Slide out after a few seconds and remove from DOM
   // once the leave animation is done.
-  setTimeout(() => {
+  toastTimer = setTimeout(() => {
     el.classList.add("leaving");
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
+    toastTimer = setTimeout(() => {
+      el.remove();
+      toastQueue.shift();
+      toastTimer = null;
+      if (toastQueue[0]) renderAchievementToast(toastQueue[0]);
     }, 420);
   }, 4200);
 }
@@ -2287,7 +2268,7 @@ function getNavigableScoreCardButtons(): HTMLElement[] {
   const rev = sharePanel.querySelector<HTMLButtonElement>(".revive-btn");
   if (rev && !rev.hidden && !rev.disabled) list.push(rev);
   const share = sharePanel.querySelector<HTMLButtonElement>(".share-score-btn");
-  if (share && !share.hidden) list.push(share);
+  if (share && !share.hidden && !share.disabled) list.push(share);
   const play = sharePanel.querySelector<HTMLButtonElement>(".play-again-btn");
   if (play && !play.hidden) list.push(play);
   return list;
@@ -2363,7 +2344,16 @@ function startCoinFillAnim(total: number, runCoins: number) {
     cancelAnimationFrame(coinFillRaf);
     coinFillRaf = null;
   }
-  if (runCoins <= 0) return;
+  const reduceMotion = window.Game?.getReduceMotion();
+  if (
+    runCoins <= 0 ||
+    reduceMotion === "on" ||
+    (reduceMotion === "system" && matchMedia("(prefers-reduced-motion: reduce)").matches)
+  ) {
+    reviveBalance = total;
+    syncScoreCardActions();
+    return;
+  }
   const startAt = Math.max(0, total - runCoins);
   const DURATION_MS = 1200;
   const startTime = performance.now();
@@ -2433,6 +2423,9 @@ function handleReviveClick() {
   if (ok) {
     hideReviveOffer();
     hideScoreCard();
+    lastAriaScore = -1;
+    lastAriaCoins = -1;
+    scoreDisplay?.setAttribute("aria-live", "polite");
   }
 }
 
@@ -2540,7 +2533,7 @@ async function handleShareClick() {
 // handleReviveClick).
 function doRestart() {
   if (window.Game?.restartFromGameOver) {
-    window.Game.restartFromGameOver();
+    window.Game.restartFromGameOver(true);
   }
 }
 // Clicking anywhere on the game-over overlay backdrop
@@ -2550,7 +2543,7 @@ function doRestart() {
 if (scoreCardOverlay) {
   scoreCardOverlay.addEventListener("click", (e) => {
     if (e.target === scoreCardOverlay) {
-      doRestart();
+      window.Game?.restartFromGameOver();
     }
   });
 }

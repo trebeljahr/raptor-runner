@@ -23,6 +23,7 @@
 import { type MouseEvent, useEffect, useRef } from "react";
 
 interface Achievement {
+  progress?: { current: number; target: number; unit: string; scope: string } | null;
   id: string;
   title: string;
   desc: string;
@@ -138,6 +139,12 @@ export function Achievements({ onClose }: AchievementsProps) {
                     <span className="sr-only">{a.unlocked ? "Unlocked: " : "Locked: "}</span>
                     {isHidden ? "???" : a.title}
                   </div>
+                  {!isHidden && !a.unlocked && a.progress && (
+                    <p className="achievement-counter">
+                      {a.progress.scope}: {a.progress.current} / {a.progress.target}{" "}
+                      {a.progress.unit}
+                    </p>
+                  )}
                   <div className="desc">
                     {isHidden ? "Keep playing to discover this secret..." : a.desc}
                   </div>

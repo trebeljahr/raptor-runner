@@ -55,7 +55,8 @@
     "android:devices": "bash -c 'source scripts/android-env.sh && adb devices'",
     "android:logcat": "bash -c 'source scripts/android-env.sh && adb logcat -s Capacitor Capacitor/Console Capacitor/WebView chromium'",
     "mobile:assets": "capacitor-assets generate --ios --android --iconBackgroundColor \"#50b4cd\" --splashBackgroundColor \"#50b4cd\"",
-    "test:mobile-assets": "node scripts/test-mobile-assets.mjs"
+    "test:mobile-assets": "node scripts/test-mobile-assets.mjs",
+    "test:browser": "node scripts/run-browser-tests.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
@@ -63,6 +64,7 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
+    "@playwright/test": "1.58.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.19.0",
     "@types/react": "^19.3.0",

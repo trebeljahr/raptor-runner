@@ -2,7 +2,7 @@ import { createElement } from "react";
 /*
  * Mount helper for the score-card action row. Same pattern as the
  * shop and achievements helpers: ui.ts holds the state (reviveCost,
- * reviveKey, shareLabel, handlers), calls refreshScoreCardActions on
+ * reviveBalance, shareLabel, handlers), calls refreshScoreCardActions on
  * every mutation, and the component renders from the passed props.
  */
 import { createRoot, type Root } from "react-dom/client";

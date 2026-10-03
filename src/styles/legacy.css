@@ -3135,3 +3135,31 @@ body.cap .score-display {
   .run-result { font-size: 0.8rem; }
   .revive-status { font-size: 0.7rem; }
 }
+
+.start-error { max-width: 38ch; margin: 1rem auto 0; color: var(--color-dune); font-weight: 600; }
+
+.start-next-goal { font-size: 0.85rem; margin: 0.6rem 0 1rem; color: var(--color-dune); }
+.achievement-counter { font-size: 0.8rem; margin: 0.3rem 0; font-weight: 600; }
+
+.menu-help, .shop-help { font-size: 0.85rem; line-height: 1.5; }
+.shop-help { text-align: center; }
+.shop-preview { margin: 1.2rem auto; text-align: center; }
+.shop-raptor-stage { position: relative; width: min(300px, 80%); aspect-ratio: 578 / 212; margin: 0 auto; }
+.shop-raptor-body { width: 100%; height: 100%; }
+.shop-preview figcaption { margin: 0.65rem 0; font-size: 0.8rem; }
+.shop-try-on { position: relative; cursor: pointer; color: inherit; padding: 8px; font: inherit; }
+.shop-try-on[aria-pressed="true"], .shop-try-on:focus-visible { outline: 3px solid var(--color-sky); outline-offset: 3px; }
+.shop-try-label { position: absolute; bottom: -15px; left: 0; width: 100%; font-size: 0.6rem; white-space: nowrap; }
+.shop-earned-label { max-width: 8ch; font-size: 0.8rem; text-align: center; }
+.shop-filter { display: flex; gap: 0.6rem; align-items: center; margin: 1rem 0; font-size: 0.85rem; }
+.shop-filter select { font: inherit; background: var(--color-sand-contrast); color: var(--color-dune); padding: 0.5rem; border: 1px solid currentColor; }
+
+.run-rewards { max-width: 30ch; font-size: 0.8rem; }
+.shop-filter { flex-wrap: wrap; }
+.shop-filter [aria-pressed="true"] { background: var(--color-sky); }
+.shop-item { padding-bottom: 1.1rem; }
+@media (max-width: 500px) {
+  .shop-scroll { padding: 1rem 0.7rem; }
+  .shop-item { grid-template-columns: 42px minmax(0, 1fr); }
+  .shop-item > .shop-item-action, .shop-item > .shop-earned-label { grid-column: 2; justify-self: start; max-width: none; }
+}
