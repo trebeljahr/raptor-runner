@@ -19,10 +19,8 @@ export function ScoreCardActions({
   reviveCost,
   reviveBalance,
   reviveAffordable,
-  reviveShortfall,
   result,
   shareReady,
-  rewards,
   shareLabel,
   onRevive,
   onShare,
@@ -45,29 +43,12 @@ export function ScoreCardActions({
 
   return (
     <>
-      {result && (
-        <div className="run-result">
-          <p className="run-result-score">
-            <strong>{result.score}</strong> meters
-          </p>
-          <p>
-            {result.record
-              ? "New personal best"
-              : `${Math.max(0, result.best - result.score)} m from your best (${result.best} m)`}
-          </p>
-          <p>
-            {result.coins} {result.coins === 1 ? "coin" : "coins"} earned
-          </p>
-          {rewards.length > 0 && <p className="run-rewards">Earned: {rewards.join(", ")}</p>}
-        </div>
-      )}
       <button
         className={"revive-btn" + (!reviveAffordable ? " poor" : "")}
         type="button"
         hidden={reviveCost == null}
         disabled={!reviveAffordable}
         aria-label={`Revive for ${reviveCost ?? 0} coins`}
-        aria-describedby="revive-status"
         onClick={handleRevive}
       >
         <span className="revive-btn-inner">
@@ -85,12 +66,11 @@ export function ScoreCardActions({
         You have <span>{reviveBalance ?? 0}</span> coins
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </div>
-      {reviveCost != null && (
-        <p className="revive-status" id="revive-status">
-          {reviveAffordable
-            ? "Available until you start another run."
-            : `Need ${reviveShortfall} more coins to revive.`}
-        </p>
+      {result && (
+        <div className="revive-balance">
+          {result.coins} {result.coins === 1 ? "coin" : "coins"} earned this run
+          <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
+        </div>
       )}
       <div className="score-card-actions">
         {/* No aria-label: the visible label IS the accessible name, so

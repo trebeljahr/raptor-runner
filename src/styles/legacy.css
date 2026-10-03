@@ -1163,7 +1163,9 @@ body.gamepad-connected .score-card-hint .pad-hint {
        * afford this right now". */
 .revive-btn.poor,
 .revive-btn:disabled {
-  cursor: not-allowed;
+  cursor:
+    url("/assets/cursors/cursor-not-allowed.svg") 2 2,
+    not-allowed;
   background: var(--color-sand-dim);
   color: var(--color-dune-dim);
 }
