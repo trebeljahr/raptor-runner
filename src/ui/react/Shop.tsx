@@ -298,7 +298,9 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
       ? Game?.ownsCosmetic(item.id)
       : filter === "earned"
         ? item.scoreUnlock
-        : true,
+        : filter === "shop"
+          ? !item.scoreUnlock && !Game?.ownsCosmetic(item.id)
+          : true,
   );
   const balance: number = Game?.getCoinsBalance?.() ?? 0;
   const debug = Game?.isDebug?.() === true;
@@ -362,6 +364,7 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
         <div className="shop-filter" role="group" aria-label="Show items">
           {[
             ["all", "All items"],
+            ["shop", "SHOP"],
             ["owned", "Owned items"],
             ["earned", "Run rewards"],
           ].map(([value, label]) => (
@@ -378,7 +381,9 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
         </div>
         {inventory.length === 0 ? (
           <p className="shop-empty-hint">
-            No items owned yet. Choose All items to see what you can earn.
+            {filter === "shop"
+              ? "You own every shop item."
+              : "No items owned yet. Choose All items to see what you can earn."}
           </p>
         ) : (
           <div className="shop-items">
