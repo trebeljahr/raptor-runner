@@ -766,6 +766,8 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
     {
       kind: "slider",
       id: "master-volume",
+      preview: () => window.Game?.previewVolume?.("master"),
+      stopPreview: () => window.Game?.stopVolumePreview?.(),
       label: "Volume",
       min: 0,
       max: 1,
@@ -780,6 +782,8 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
     {
       kind: "slider",
       id: "music-volume",
+      preview: () => window.Game?.previewVolume?.("music"),
+      stopPreview: () => window.Game?.stopVolumePreview?.(),
       label: "Music",
       min: 0,
       max: 1,
@@ -794,6 +798,8 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
     {
       kind: "slider",
       id: "effects-volume",
+      preview: () => window.Game?.previewVolume?.("effects"),
+      stopPreview: () => window.Game?.stopVolumePreview?.(),
       label: "Effects",
       min: 0,
       max: 1,
@@ -816,6 +822,8 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
     {
       kind: "slider",
       id: "rain-volume",
+      preview: () => window.Game?.previewVolume?.("rain"),
+      stopPreview: () => window.Game?.stopVolumePreview?.(),
       label: "Rain",
       min: 0,
       max: 1,

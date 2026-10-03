@@ -19,7 +19,7 @@ import { formatKeyCode } from "../../input/keyLabels";
  * is a dumb renderer, same contract as the other menu overlays.
  */
 import {
-  type ChangeEvent,
+  type CSSProperties, type ChangeEvent,
   type MouseEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
@@ -50,6 +50,8 @@ export interface AccessibilitySliderRow {
   format?: (value: number) => string;
   get: () => number;
   set: (value: number) => void;
+  preview?: () => void;
+  stopPreview?: () => void;
 }
 
 /** String-enum row rendered as a branded, adjustable choice control. */
@@ -147,15 +149,19 @@ function ActionRow({ row }: { row: AccessibilityActionRow }) {
 }
 
 function SliderRow({ row }: { row: AccessibilitySliderRow }) {
+  useEffect(() => () => row.stopPreview?.(), [row]);
   const value = row.get();
   const readout = row.format ? row.format(value) : String(value);
   const inputId = `accessibility-${row.id}`;
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const n = Number.parseFloat(e.currentTarget.value);
-    if (Number.isFinite(n)) row.set(n);
+    if (Number.isFinite(n)) {
+      row.set(n);
+      row.preview?.();
+    }
   };
   return (
-    <div className="menu-item accessibility-row">
+    <div className={`menu-item accessibility-row${row.preview ? " sound-volume-row" : ""}`}>
       <span className="inner">
         <label htmlFor={inputId}>{row.label}</label>
         <input
@@ -166,6 +172,12 @@ function SliderRow({ row }: { row: AccessibilitySliderRow }) {
           max={row.max}
           step={row.step}
           value={value}
+          style={{ "--range-fill": `${((value - row.min) / (row.max - row.min)) * 100}%` } as CSSProperties}
+          onPointerDown={() => row.preview?.()}
+          onKeyUp={() => row.stopPreview?.()}
+          onPointerUp={() => row.stopPreview?.()}
+          onPointerCancel={() => row.stopPreview?.()}
+          onBlur={() => row.stopPreview?.()}
           aria-valuetext={readout}
           onChange={handleChange}
           onClick={stop}

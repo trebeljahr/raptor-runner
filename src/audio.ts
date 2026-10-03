@@ -384,6 +384,73 @@ export const audio = {
     }
   },
 
+  _volumePreview: null as HTMLAudioElement | null,
+  _volumePreviewChannel: "" as string,
+  _volumePreviewTimer: 0,
+  _lastVolumePreviewTick: 0,
+
+  stopVolumePreview() {
+    window.clearTimeout(this._volumePreviewTimer);
+    if (this._volumePreview) rampDownAndPause(this._volumePreview);
+    this._volumePreview = null;
+    this._volumePreviewChannel = "";
+  },
+
+  /** Brief channel samples; reuse one source during a drag and never stack ticks. */
+  previewVolume(channel: "master" | "music" | "effects" | "rain") {
+    if (this.muted || document.hidden) { this.stopVolumePreview(); return; }
+    if (this._volumePreviewChannel !== channel) this.stopVolumePreview();
+    this._volumePreviewChannel = channel;
+    window.clearTimeout(this._volumePreviewTimer);
+    this._volumePreviewTimer = window.setTimeout(() => this.stopVolumePreview(), 500);
+    if (channel === "music" || channel === "rain") {
+      if ((channel === "music" && this.musicMuted) ||
+          (channel === "rain" && (this.rainMuted || this.musicMuted))) return;
+      const original = channel === "music" ? this.music : this.rain;
+      // Already-playing ambience supplies its own live feedback.
+      if (!original || !original.paused) return;
+      if (!this._volumePreview) {
+        this._volumePreview = original.cloneNode(true) as HTMLAudioElement;
+        this._volumePreview.loop = true;
+        this._volumePreview.volume = 0;
+        const preview = this._volumePreview;
+        const started = preview.play();
+        const fadeIn = () => {
+          window.setTimeout(() => {
+            if (this._volumePreview === preview) {
+              rampVolume(preview, channel === "music" ? this._musicTarget() : this.rainTargetVolume(), 60);
+            } else preview.pause();
+          }, DECODER_PREROLL_MS);
+        };
+        if (started) started.then(fadeIn).catch(() => {});
+        else fadeIn();
+      } else {
+        rampVolume(this._volumePreview,
+          channel === "music" ? this._musicTarget() : this.rainTargetVolume(), 60);
+      }
+      return;
+    }
+    const now = performance.now();
+    if (now - this._lastVolumePreviewTick < 180) return;
+    this._lastVolumePreviewTick = now;
+    this._ensureAudioCtx();
+    const ctx = this._audioCtx;
+    if (!ctx || (channel === "effects" && this.jumpMuted)) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    oscillator.frequency.value = 440;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.12, t + 0.012);
+    gain.gain.linearRampToValueAtTime(0, t + 0.1);
+    oscillator.connect(gain);
+    gain.connect(channel === "effects" ? this._sfxOut("jump") : this._masterGain ?? ctx.destination);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    oscillator.start(t);
+    oscillator.stop(t + 0.11);
+  },
+
   setMasterVolume(volume: number) {
     const n = Number(volume);
     if (!Number.isFinite(n)) return;
@@ -473,6 +540,7 @@ export const audio = {
   _musicShouldBePlaying: false as boolean,
 
   setMuted(muted: boolean, persist = true) {
+    if (muted) this.stopVolumePreview();
     this.muted = !!muted;
     // If the player unmutes during a live run, they broke the "muted
     // the whole way through" streak for Sound of Silence.

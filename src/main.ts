@@ -2224,6 +2224,13 @@ const GameAPI = {
     openSteamBindingPanel();
   },
 
+  previewVolume(channel: "master" | "music" | "effects" | "rain") {
+    audio.previewVolume(channel);
+  },
+  stopVolumePreview() {
+    audio.stopVolumePreview();
+  },
+
   // ── Volume mixing ───────────────────────────────────────
   // Mirrors the mute-channel API shape: one setter + getter per
   // channel, clamped 0..1, persisted by audio.ts. Volumes compose
