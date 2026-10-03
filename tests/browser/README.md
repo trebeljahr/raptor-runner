@@ -12,5 +12,6 @@ once with `pnpm exec playwright install chromium`. Use `pnpm test:browser --grep
 
 The suite covers failed-art retry, custom keyboard input, pause/resume, exact
 results, revive affordability, immediate replay, wardrobe previews and purchases,
-and a touch-enabled landscape viewport. This does not validate native mobile
+a touch-enabled landscape viewport, and save download / malformed-file rejection /
+confirmed restore across reload. This does not validate native mobile
 services, physical controllers, or late-game balance.

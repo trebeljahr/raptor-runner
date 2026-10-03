@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { test, expect, type Page } from "@playwright/test";
 async function ready(page: Page, coins = 0) {
   await page.addInitScript((balance) => {
@@ -54,7 +55,10 @@ test("results announce exact score and revive stays available", async ({ page })
   await expect(page.locator(".run-result")).toContainText(/coins? earned/);
   await expect(page.locator(".run-rewards")).toContainText("First Steps");
   await expect(page.locator(".achievement-toast")).toHaveCount(0);
-  await page.screenshot({ path: test.info().outputPath("results-desktop.png") });
+  await page.screenshot({
+    animations: "disabled",
+    path: test.info().outputPath("results-desktop.png"),
+  });
   await page.waitForTimeout(5500);
   await expect(page.locator(".revive-btn")).toBeEnabled();
   const cost = await page.evaluate(() => window.Game!.getReviveCost());
@@ -82,7 +86,10 @@ test("wardrobe try-on never buys or changes the equipped outfit", async ({ page 
   await expect(page.getByText("Collect coins in flower patches.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Try on Cowboy Hat", exact: true }).click();
   await expect(page.locator(".shop-preview")).toContainText("Trying on Cowboy Hat");
-  await page.screenshot({ path: test.info().outputPath("wardrobe-preview.png") });
+  await page.screenshot({
+    animations: "disabled",
+    path: test.info().outputPath("wardrobe-preview.png"),
+  });
   expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(100);
   expect(await page.evaluate(() => window.Game!.ownsCosmetic("cowboy-hat"))).toBe(false);
   expect(await page.evaluate(() => window.Game!.getEquippedCosmetic("head"))).toBeNull();
@@ -105,7 +112,10 @@ test("touch landscape has usable results and no keyboard hint", async ({ browser
   try {
     await ready(page);
     await die(page);
-    await page.screenshot({ path: test.info().outputPath("results-touch-landscape.png") });
+    await page.screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("results-touch-landscape.png"),
+    });
     await expect(page.locator(".score-card-hint")).not.toBeVisible();
     await expect(page.getByRole("button", { name: "Play again", exact: true })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -114,4 +124,69 @@ test("touch landscape has usable results and no keyboard hint", async ({ browser
   } finally {
     await context.close();
   }
+});
+
+test("save export and confirmed restore survive reload without uploads", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("save-fixture")) return;
+    sessionStorage.setItem("save-fixture", "1");
+    localStorage.setItem("raptor-runner:muted", "1");
+    localStorage.setItem("raptor-runner:coinsBalance", "73");
+    localStorage.setItem("raptor-runner:highScore", "123");
+  });
+  await page.goto(`http://127.0.0.1:${process.env.RR_TEST_PORT}/`);
+  await expect(page.getByRole("button", { name: "Start Game", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Open menu", exact: true }).click();
+  await page.locator("#save-settings > summary").click();
+  await expect(
+    page.getByText("Progress and settings are saved in this browser.", { exact: false }),
+  ).toBeVisible();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export save", exact: true }).click();
+  const download = await downloading;
+  const backup = JSON.parse(await readFile((await download.path())!, "utf8"));
+  expect(backup.product).toBe("raptor-runner");
+  expect(backup.data["raptor-runner:coinsBalance"]).toBe("73");
+  const input = page.getByLabel("Preview a backup file");
+  await input.setInputFiles({
+    name: "broken.json",
+    mimeType: "application/json",
+    buffer: Buffer.from("{broken"),
+  });
+  await expect(page.getByRole("alert")).toContainText("not valid JSON");
+  expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(73);
+  backup.data["raptor-runner:coinsBalance"] = "20";
+  backup.data["raptor-runner:highScore"] = "456";
+  const file = {
+    name: "backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup)),
+  };
+  await input.setInputFiles(file);
+  await expect(
+    page.getByRole("button", { name: "Replace save and reload", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByRole("table")).toContainText("456");
+  await page.getByRole("button", { name: "Cancel import", exact: true }).click();
+  expect(await page.evaluate(() => window.Game!.getHighScore())).toBe(123);
+  await input.setInputFiles(file);
+  await page
+    .getByRole("checkbox", { name: "I understand this replaces my progress and settings." })
+    .check();
+  await page.screenshot({
+    animations: "disabled",
+    path: test.info().outputPath("save-import-preview.png"),
+  });
+  const posts: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") posts.push(request.url());
+  });
+  await Promise.all([
+    page.waitForEvent("load"),
+    page.getByRole("button", { name: "Replace save and reload", exact: true }).click(),
+  ]);
+  await expect(page.getByRole("button", { name: "Start Game", exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => window.Game!.getHighScore())).toBe(456);
+  expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(20);
+  expect(posts).toEqual([]);
 });

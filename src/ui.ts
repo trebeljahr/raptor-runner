@@ -1,3 +1,4 @@
+import { refreshSaveSettings, unmountSaveSettings } from "./ui/react/mountSaveSettings";
 import { applyCosmeticPreviewTransform } from "./ui/cosmeticPreview";
 /*
  * Raptor Runner — UI chrome module.
@@ -382,6 +383,10 @@ function hideScoreDisplay() {
 function startGame() {
   const game = window.Game;
   if (!assetsReady || !game || game.isStarted()) return;
+  if (game.getSaveBackupStatus().reloadRequired) {
+    window.location.reload();
+    return;
+  }
   // The click/keypress is a user gesture — unlock the Web Audio
   // context and re-apply the mute state so music starts if
   // the user previously chose to have sound on.
@@ -838,6 +843,12 @@ function syncAccessibilityUI() {
     );
 }
 
+const saveSettingsDetails = document.getElementById("save-settings") as HTMLDetailsElement | null;
+saveSettingsDetails?.addEventListener("toggle", () => {
+  if (saveSettingsDetails.open && overlay.classList.contains("open")) refreshSaveSettings();
+  else unmountSaveSettings();
+});
+
 // ───────── Fullscreen button ─────────
 function isFullscreen() {
   const doc = document as Document & {
@@ -943,6 +954,11 @@ function openMenuBase() {
   refreshEasterEggUI();
   refreshScoreEditor();
   refreshMenuHighscore();
+  if (
+    !window.Game?.isStarted() &&
+    (document.getElementById("save-settings") as HTMLDetailsElement)?.open
+  )
+    refreshSaveSettings();
   // Re-render the React menu list so it re-reads live state
   // (install-availability, fullscreen label, etc.).
   syncMenuList();
@@ -971,6 +987,7 @@ function openMenuBase() {
 }
 
 function closeMenu() {
+  unmountSaveSettings();
   overlay.classList.remove("open");
   cog.setAttribute("aria-expanded", "false");
   // Restore focus to the element that opened the menu.
@@ -1262,7 +1279,7 @@ function getNavigableMenuItems(): HTMLElement[] {
   // here instead.
   const all = overlay.querySelectorAll<HTMLElement>(
     ".menu-item, .sound-settings-summary, .menu-group-summary, " +
-      ".accessibility-range, .accessibility-select, .accessibility-keycap, .accessibility-keyreset",
+      ".accessibility-range, .accessibility-select, .accessibility-keycap, .accessibility-keyreset, .save-settings input",
   );
   const list: HTMLElement[] = [];
   for (const el of all) {
@@ -1473,6 +1490,7 @@ overlay.addEventListener("click", (e) => {
 // "Back to home screen" — reset the game, close the menu, and
 // re-show the start screen with its current personal-best badge.
 function handleHomeClick() {
+  unmountSaveSettings();
   if (window.Game?.returnToHome) {
     window.Game.returnToHome();
   }

@@ -28,7 +28,7 @@ class MemoryStorage implements Storage {
 let persistence: typeof Persistence;
 let backup: typeof Backup;
 let home: boolean;
-let reload: ReturnType<typeof vi.fn>;
+let reload = vi.fn<() => void>();
 let controller: InstanceType<typeof Backup.SaveBackupController>;
 
 function file(data: Record<string, unknown> = { [K.HIGH_SCORE_KEY]: "123" }) {
