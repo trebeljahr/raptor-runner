@@ -323,6 +323,16 @@ export function grantCosmetic(
   }
 }
 
+/** First-time run rewards appear on the raptor immediately. Repeated
+ *  milestones leave the player's later wardrobe choices untouched.
+ *  Returns whether this unlock should trigger its celebration. */
+export function grantRunReward(id: string): boolean {
+  const def = COSMETICS_BY_ID[id];
+  if (!def?.scoreUnlock || state.ownedCosmetics[id]) return false;
+  grantCosmetic(id, { forceEquip: true });
+  return true;
+}
+
 /**
  * Buy a cosmetic with the current coin balance. Return value is
  * used by the shop UI: "ok" purchased, "owned" already have it,

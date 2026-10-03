@@ -111,6 +111,7 @@ import {
   type CosmeticSlot,
   equipCosmetic,
   grantCosmetic,
+  grantRunReward,
   migrateLegacyCosmetics,
   purchaseCosmetic,
   setCosmeticsAchievementHandler,
@@ -724,24 +725,21 @@ function update(now: number) {
       // runCactiCleared block below cactuses.update().
       if (crossed(PARTY_HAT_SCORE_THRESHOLD)) {
         unlockAchievement("party-time");
-        if (!state.ownedCosmetics["party-hat"]) {
-          grantCosmetic("party-hat", { autoEquip: false });
+        if (grantRunReward("party-hat")) {
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
       }
       if (crossed(BOW_TIE_SCORE_THRESHOLD)) {
         unlockAchievement("dinosaurs-forever");
-        if (!state.ownedCosmetics["bow-tie"]) {
-          grantCosmetic("bow-tie", { autoEquip: false });
+        if (grantRunReward("bow-tie")) {
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
       }
       if (crossed(THUG_GLASSES_SCORE_THRESHOLD)) {
         unlockAchievement("score-250");
-        if (!state.ownedCosmetics["thug-glasses"]) {
-          grantCosmetic("thug-glasses", { autoEquip: false });
+        if (grantRunReward("thug-glasses")) {
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
