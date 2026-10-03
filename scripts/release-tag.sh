@@ -1,24 +1,7 @@
 #!/usr/bin/env bash
-# release-tag.sh — stamp the current commit with the version from
-# package.json, push the tag, and print a butler-compatible
-# --userversion string.
-#
-# Why this exists: `git tag vX.Y.Z` by itself doesn't reach itch.io.
-# Butler picks up version info from the --userversion flag passed at
-# push time (see the `itch:push:*` scripts). So a release needs BOTH:
-#   1. The package.json version bumped locally.
-#   2. A git tag recording it.
-#   3. Every butler push run with --userversion=$npm_package_version
-#      so itch.io's "Version" column renders correctly instead of
-#      falling back to the upload filename.
-#
-# This script covers (1)-(2). (3) is handled automatically by the
-# itch:push:* scripts in package.json, which read $npm_package_version
-# from npm's environment.
-#
-# Usage:
-#   npm run release:tag                  # tag package.json version
-#   npm run release:tag -- --push        # also push the tag to origin
+# Record the package version without moving an existing tag. Tagging does not
+# run builds or uploads; see docs/RELEASING.md for the manual release workflows.
+# Usage: npm run release:tag [-- --push]
 
 set -euo pipefail
 
@@ -70,8 +53,6 @@ if [[ "${1:-}" == "--push" ]]; then
 fi
 
 echo ""
-echo "Next: run one of"
-echo "  npm run itch:push:mac"
-echo "  npm run itch:push:win"
-echo "  npm run itch:push:linux"
-echo "Each invocation reads $TAG's version ($VERSION) automatically."
+echo "Tagging does not build or publish. See docs/RELEASING.md."
+echo "Dispatch Build desktop binaries on main, then publish its successful run ID."
+echo "A download draft requires $TAG to point at that exact build commit."

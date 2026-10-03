@@ -180,7 +180,10 @@ app.setName("Raptor Runner");
  * (app id 480) on machines where Steam is running.
  */
 function resolveSteamAppId(): number | null {
-  const fromEnv = process.env.STEAM_APP_ID;
+  // Steam supplies SteamAppId when launching a depot. Restrict that automatic
+  // path to our app; preserve the explicit developer override.
+  const fromEnv = process.env.STEAM_APP_ID ??
+    (process.env.SteamAppId === "5035590" ? process.env.SteamAppId : undefined);
   if (fromEnv) {
     const n = Number(fromEnv);
     if (Number.isSafeInteger(n) && n > 0 && n <= 0xffffffff) return n;

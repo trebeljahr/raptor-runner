@@ -1,30 +1,27 @@
 name: Build desktop binaries
 
-# Builds the Electron app for macOS, Windows, and Linux in parallel and
-# uploads the packaged artifacts. Triggers:
-#   - Push of a tag matching v* (e.g. v1.0.0)    → release-candidate build
-#   - Manual workflow_dispatch                    → ad-hoc build
-#   - Pull requests touching desktop-relevant    → smoke build (no upload
-#     files                                        to itch, artifacts only)
-#
-# The actual `butler push` step lives in a separate publish job that only
-# runs on tag pushes, so PR builds never accidentally publish.
-
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
-      windows_only:
-        description: Build only Windows artifacts (no publishing)
-        type: boolean
-        default: true
+      platform:
+        description: Platforms to build
+        type: choice
+        options: [all, windows, macos, linux]
+        default: all
+      mode:
+        description: Signed release artifacts or unsigned smoke check
+        type: choice
+        options: [signed, smoke]
+        default: signed
   pull_request:
     paths:
+      - "src/**"
       - "electron/**"
+      - "public/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "vite.config.ts"
+      - "scripts/release/**"
       - "scripts/verify-windows-signing.ps1"
       - ".github/workflows/build-desktop.yml"
       - "build/**"
@@ -32,217 +29,123 @@ on:
 permissions:
   contents: read
 
-jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.windows_only && '[{"os":"windows-latest","itch_channel":"windows","artifact_glob":"release/*.{exe,zip}"}]' || '[{"os":"macos-latest","itch_channel":"osx","artifact_glob":"release/*.{dmg,zip}"},{"os":"windows-latest","itch_channel":"windows","artifact_glob":"release/*.{exe,zip}"},{"os":"ubuntu-latest","itch_channel":"linux","artifact_glob":"release/*.AppImage"}]') }}
+concurrency:
+  group: desktop-build-${{ github.ref }}-${{ inputs.platform || 'all' }}
+  cancel-in-progress: false
 
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      mode: ${{ steps.plan.outputs.mode }}
     steps:
       - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # PRs remain unsigned. Windows signing is mandatory on trusted branch
-      # dispatches; any other non-PR ref fails closed.
-      - name: Decide whether this build can be signed
-        id: signing
-        shell: bash
+      - id: plan
         env:
-          MAC_CERT: ${{ secrets.MAC_CSC_LINK }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-        run: |
-          case "${{ matrix.os }}" in
-            macos-*)   [ -n "$MAC_CERT" ] && echo "sign=true" >> "$GITHUB_OUTPUT" || echo "sign=false" >> "$GITHUB_OUTPUT" ;;
-            windows-*)
-              if [ "$EVENT_NAME" = "pull_request" ]; then
-                echo "sign=false" >> "$GITHUB_OUTPUT"
-              elif [ "$REF" = "refs/heads/main" ] || [ "$REF" = "refs/heads/windows-signing" ]; then
-                echo "sign=true" >> "$GITHUB_OUTPUT"
-              else
-                echo "::error::Windows signing trusts main and windows-signing only; tag signing requires a separate trust review."
-                exit 1
-              fi ;;
-            *)         echo "sign=false" >> "$GITHUB_OUTPUT" ;;
-          esac
+          RELEASE_PLATFORM: ${{ inputs.platform || 'all' }}
+          RELEASE_MODE: ${{ inputs.mode || 'smoke' }}
+        run: node scripts/release/plan.mjs desktop
+      - run: node --test scripts/release/*.test.mjs
 
-      - name: Log in to Azure with GitHub OIDC
-        if: runner.os == 'Windows' && steps.signing.outputs.sign == 'true'
+  build:
+    needs: plan
+    name: ${{ matrix.platform }}-${{ matrix.arch }} (${{ needs.plan.outputs.mode }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Check signing configuration
+        if: needs.plan.outputs.mode == 'signed'
+        env:
+          MAC_CSC_LINK: ${{ matrix.platform == 'macos' && secrets.MAC_CSC_LINK || '' }}
+          MAC_CSC_KEY_PASSWORD: ${{ matrix.platform == 'macos' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_API_KEY_BASE64: ${{ matrix.platform == 'macos' && secrets.APPLE_API_KEY_BASE64 || '' }}
+          APPLE_API_KEY_ID: ${{ matrix.platform == 'macos' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER_ID: ${{ matrix.platform == 'macos' && secrets.APPLE_API_ISSUER_ID || '' }}
+          AZURE_CLIENT_ID: ${{ matrix.platform == 'windows' && vars.AZURE_CLIENT_ID || '' }}
+        run: node scripts/release/plan.mjs credentials ${{ matrix.platform }}
+      - run: pnpm install --frozen-lockfile
+      - name: Azure signing login
+        if: matrix.platform == 'windows' && needs.plan.outputs.mode == 'signed'
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ce0c906e-8a84-4877-afd9-cdf103ddaacb
           subscription-id: 4aaef5a5-286b-46a0-b9e4-84622e8fdc4f
-
-      # @electron/notarize wants a filesystem path to the .p8, not its
-      # contents, so the secret has to be materialised before the build.
-      # Written outside the workspace so it cannot be picked up by a glob
-      # and uploaded as a build artifact.
-      - name: Stage App Store Connect API key
-        if: startsWith(matrix.os, 'macos') && steps.signing.outputs.sign == 'true'
+      - name: Stage notarization key
+        if: matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed'
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/notarization.p8"
+          echo "APPLE_API_KEY=$RUNNER_TEMP/notarization.p8" >> "$GITHUB_ENV"
+      - name: Build
         shell: bash
         env:
-          KEY_CONTENT: ${{ secrets.APPLE_API_KEY_P8 }}
+          PLATFORM: ${{ matrix.flag }}
+          ARCH: ${{ matrix.arch }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          CSC_LINK: ${{ matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_API_KEY_ID: ${{ matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed' && secrets.APPLE_API_ISSUER_ID || '' }}
         run: |
-          key_dir="$RUNNER_TEMP/private_keys"
-          mkdir -p "$key_dir"
-          printf '%s' "$KEY_CONTENT" > "$key_dir/AuthKey.p8"
-          chmod 600 "$key_dir/AuthKey.p8"
-          echo "APPLE_API_KEY=$key_dir/AuthKey.p8" >> "$GITHUB_ENV"
-
-      - name: Build desktop package (signed)
-        if: steps.signing.outputs.sign == 'true'
-        # Auto-publish is disabled via "publish": null in package.json
-        # build config — we push to itch via butler in a later job, not
-        # via electron-builder's GH Releases path.
-        #
-        # No STEAM_APP_ID is set — itch builds must not init steamworks.
-        # For Steam builds, trigger this workflow with STEAM_APP_ID set
-        # in the environment (via a separate workflow_dispatch input)
-        # or switch to the steam-publish workflow.
-        #
-        # macOS: CSC_LINK/CSC_KEY_PASSWORD let electron-builder import the
-        # Developer ID .p12 into a temporary keychain itself. Notarization
-        # uses the API-key mode rather than an app-specific password —
-        # revocable per-key and not tied to a personal Apple ID.
-        #
-        # Windows authenticates through Azure CLI using the OIDC login above.
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        shell: bash
-        run: |
-          # No `--` separator: unlike npm, pnpm forwards it literally and
-          # electron-builder would receive it as an argument.
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            pnpm run electron:build \
-              -c.win.azureSignOptions.publisherName="Ricos Labs LLC" \
-              -c.win.azureSignOptions.endpoint="https://weu.codesigning.azure.net/" \
-              -c.win.azureSignOptions.codeSigningAccountName="ricoslabs-signing" \
-              -c.win.azureSignOptions.certificateProfileName="ricoslabs-public"
-          else
-            pnpm run electron:build
+          args=("--$PLATFORM" "--$ARCH" "--publish" "never")
+          if [ "$MODE" = signed ] && [ "$PLATFORM" = win ]; then
+            args+=("-c.forceCodeSigning=true"
+              "-c.win.azureSignOptions.publisherName=Ricos Labs LLC"
+              "-c.win.azureSignOptions.endpoint=https://weu.codesigning.azure.net/"
+              "-c.win.azureSignOptions.codeSigningAccountName=ricoslabs-signing"
+              "-c.win.azureSignOptions.certificateProfileName=ricoslabs-public")
+          elif [ "$MODE" = signed ] && [ "$PLATFORM" = mac ]; then
+            args+=("-c.forceCodeSigning=true")
+          elif [ "$PLATFORM" = mac ]; then
+            args+=("-c.mac.identity=null" "-c.mac.notarize=false")
           fi
-
-      - name: Build desktop package (unsigned)
-        if: steps.signing.outputs.sign != 'true'
-        shell: bash
-        # mac.identity is pinned in package.json so a release build can
-        # never silently fall back to the wrong certificate. That pin also
-        # makes an unsigned build fail, which is correct for a release and
-        # wrong for a PR smoke test — hence the explicit override.
-        run: |
-          echo "::notice::No signing credentials for ${{ matrix.os }} — producing an unsigned build."
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            pnpm run electron:build -c.mac.identity=null -c.mac.notarize=false
-          else
-            pnpm run electron:build
-          fi
-
-      # The build succeeding proves nothing about the signature: both
-      # electron-builder signing paths degrade quietly. This step is what
-      # actually blocks a broken artifact from reaching the publish job.
-      - name: Verify signatures
-        if: runner.os != 'Windows' && steps.signing.outputs.sign == 'true'
-        shell: bash
-        run: pnpm run verify:signing
-
-      - name: Verify Windows publisher and signatures
-        if: runner.os == 'Windows' && steps.signing.outputs.sign == 'true'
+          pnpm run electron:build "${args[@]}"
+      - name: Verify Mac bundles and downloadable archives
+        if: matrix.platform == 'macos' && needs.plan.outputs.mode == 'signed'
+        run: bash scripts/release/verify-macos.sh
+      - name: Verify Windows publisher and timestamps
+        if: matrix.platform == 'windows' && needs.plan.outputs.mode == 'signed'
         shell: pwsh
         run: ./scripts/verify-windows-signing.ps1
-
-      - name: Upload Windows signing evidence
-        if: runner.os == 'Windows' && steps.signing.outputs.sign == 'true'
-        uses: actions/upload-artifact@v7
+      - name: Collect packages, Steam depots and checksums
+        run: node scripts/release/collect.mjs ${{ matrix.platform }} ${{ matrix.arch }} ${{ needs.plan.outputs.mode }}
+      - name: Sign build provenance
+        if: needs.plan.outputs.mode == 'signed'
+        uses: actions/attest@v4
         with:
-          name: windows-signing-evidence
-          path: release/signing-evidence.json
+          subject-path: release/upload/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ needs.plan.outputs.mode == 'signed' && 'release' || 'smoke' }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release/upload/*
           if-no-files-found: error
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: raptor-runner-${{ matrix.os }}
-          path: |
-            release/*.dmg
-            release/*.zip
-            release/*.exe
-            release/*.AppImage
-          if-no-files-found: warn
-          retention-days: 14
-
-  publish-itch:
-    name: Publish to itch.io
-    needs: build
-    # Only publish on tag pushes. PR builds and manual dispatches stay
-    # as artifacts only — no accidental channel updates.
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-
-      - name: Install butler
-        run: |
-          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
-          unzip butler.zip
-          chmod +x butler
-          ./butler -V
-
-      - name: Push to itch.io
-        env:
-          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-          ITCH_USER: ${{ vars.ITCH_USER }}
-          ITCH_GAME: ${{ vars.ITCH_GAME }}
-        # Channel naming matches itch conventions: one channel per OS
-        # plus an arch tag where relevant. Version comes from the git
-        # tag (v1.2.3 → 1.2.3).
-        run: |
-          set -e
-          VERSION="${GITHUB_REF_NAME#v}"
-
-          push() {
-            local channel="$1"
-            local path="$2"
-            if [ -e "$path" ]; then
-              echo "::group::butler push $channel"
-              ./butler push --userversion "$VERSION" "$path" "$ITCH_USER/$ITCH_GAME:$channel"
-              echo "::endgroup::"
-            else
-              echo "skip $channel — no artifact at $path"
-            fi
-          }
-
-          # macOS: prefer the zip (itch app unpacks it cleanly); dmg
-          # as a fallback download for users who install it manually.
-          push osx       "$(ls artifacts/raptor-runner-macos-latest/*.zip 2>/dev/null | head -n1)"
-          push osx-dmg   "$(ls artifacts/raptor-runner-macos-latest/*.dmg 2>/dev/null | head -n1)"
-
-          # Windows: portable exe plus nsis installer.
-          push windows          "$(ls artifacts/raptor-runner-windows-latest/*.exe 2>/dev/null | grep -v Setup | head -n1)"
-          push windows-setup    "$(ls artifacts/raptor-runner-windows-latest/*Setup*.exe 2>/dev/null | head -n1)"
-
-          # Linux: AppImage.
-          push linux "$(ls artifacts/raptor-runner-ubuntu-latest/*.AppImage 2>/dev/null | head -n1)"
+          retention-days: 30
+          compression-level: 0
+      - name: Remove notarization key
+        if: always() && matrix.platform == 'macos'
+        run: rm -f "$RUNNER_TEMP/notarization.p8"

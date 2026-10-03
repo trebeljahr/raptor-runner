@@ -1,18 +1,35 @@
 apply plugin: 'com.android.application'
 
-// ── Release signing config (optional) ────────────────────────
-//
-// Reads keystore info from android/keystore.properties, which is NOT
-// checked in (see .gitignore). If that file is absent, release builds
-// fall through to debug-signed output — fine for local testing, NOT
-// for uploading to Play Console.
-//
-// To create a keystore and the properties file, see docs/ANDROID_RELEASE.md.
-def keystorePropertiesFile = rootProject.file("keystore.properties")
+// CI supplies the complete signing set through environment variables.
+// Local release builds can use the ignored keystore.properties file.
 def keystoreProperties = new Properties()
-def hasReleaseKeystore = keystorePropertiesFile.exists()
-if (hasReleaseKeystore) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def signingEnv = [
+    storeFile: 'ANDROID_KEYSTORE_PATH',
+    storePassword: 'ANDROID_KEYSTORE_PASSWORD',
+    keyAlias: 'ANDROID_KEY_ALIAS',
+    keyPassword: 'ANDROID_KEY_PASSWORD'
+]
+if (signingEnv.values().any { System.getenv(it) }) {
+    keystoreProperties.clear()
+    signingEnv.each { key, env -> keystoreProperties[key] = System.getenv(env) ?: '' }
+}
+def hasReleaseKeystore = signingEnv.keySet().every { keystoreProperties[it] }
+def packageVersion = new groovy.json.JsonSlurper().parse(rootProject.file('../package.json')).version
+def releaseBuildNumber = System.getenv('RELEASE_BUILD_NUMBER')
+if (releaseBuildNumber && (!(releaseBuildNumber ==~ /[1-9][0-9]*/) || releaseBuildNumber.toLong() > 2100000000)) {
+    throw new GradleException('RELEASE_BUILD_NUMBER must be an integer from 1 to 2100000000.')
+}
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.project == project && it.name.toLowerCase().contains('release') }) {
+        if (!releaseBuildNumber) throw new GradleException('Set RELEASE_BUILD_NUMBER above the highest Play version code before a release build.')
+        if (!hasReleaseKeystore || !file(keystoreProperties['storeFile']).isFile()) {
+            throw new GradleException('Release signing is required. Set the complete ANDROID_KEYSTORE_* / ANDROID_KEY_* environment or keystore.properties.')
+        }
+    }
 }
 
 android {
@@ -22,8 +39,8 @@ android {
         applicationId "com.ricoslabs.raptorrunner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode releaseBuildNumber ? releaseBuildNumber.toInteger() : 1
+        versionName packageVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

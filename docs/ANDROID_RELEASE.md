@@ -1,117 +1,57 @@
-# Android release builds
+# Android releases
 
-This doc covers everything you need to produce a signed, Play Store-ready
-Android App Bundle (AAB) of Raptor Runner.
+[Release operations](RELEASING.md) contains the GitHub build/upload commands.
 
-## One-time setup
+Package: com.ricoslabs.raptorrunner. Android reads versionName from package.json.
+Every release requires RELEASE_BUILD_NUMBER, a positive integer above all
+previous Play uploads. Debug builds remain available without release secrets.
 
-### 1. Generate a release keystore
+## Required GitHub secrets
 
-The keystore is a private file containing the signing key for all Raptor
-Runner releases. **Losing this file or its password means you can never
-update the app on Play Store again** — Google requires every update to
-be signed with the same key. Back up to a password manager immediately.
+- ANDROID_KEYSTORE_BASE64: base64 of the existing app upload keystore.
+- ANDROID_KEYSTORE_PASSWORD: store password.
+- ANDROID_KEY_ALIAS: upload key alias.
+- ANDROID_KEY_PASSWORD: private-key password.
+- PLAY_SERVICE_ACCOUNT_JSON: service account authorized for this app in Play
+  Console. Needed for upload, not for building.
 
-```bash
-# Generated once, stored OUTSIDE the repo.
-keytool -genkey -v \
-  -keystore ~/keys/raptor-runner-release.keystore \
-  -alias raptor-runner \
-  -keyalg RSA -keysize 2048 -validity 10000
-```
+Use Raptor Runner's existing registered upload key. Do not copy another app's
+key or generate a replacement until Play Console's certificate fingerprint
+has been checked. Play App Signing may hold a different app-signing key.
+The upload key signs our AAB; Google signs delivered Play APKs.
 
-You'll be prompted for:
+A direct APK uses the upload key in this workflow. It may not update a Play
+installation signed with Google's app-signing key. Keep the distribution
+channels separate unless their signing identity has been deliberately aligned.
 
-- A keystore password (save in password manager)
-- A key password (can be the same as above)
-- Certificate metadata: name, org, etc. (use your legal LLC name)
+## Local build
 
-Enable Google Play App Signing when you first upload an AAB. That way
-Google manages the distribution key itself, and the key above is only
-the "upload key" — losing it is still painful but recoverable (Google
-can re-issue).
+Store secrets outside Git. Either export ANDROID_KEYSTORE_PATH plus the three
+password/alias variables, or use ignored android/keystore.properties based on
+android/keystore.properties.example. Relative storeFile is relative to android/app.
 
-### 2. Create `android/keystore.properties`
+~~~sh
+RELEASE_BUILD_NUMBER=BUILD_NUMBER npm run build:android:release
+~~~
 
-This file is gitignored. Copy the example and fill in real values:
+The command syncs only Android, builds AAB and APK, then verifies signatures.
+CI checks both signatures against the configured upload key's fingerprint.
+Without signing configuration or a release build number, Gradle fails rather
+than silently creating an unsigned release. apksigner uses the newest installed
+stable Android build-tools version; CI installs 36.0.0.
 
-```bash
-cp android/keystore.properties.example android/keystore.properties
-```
+## Play Console setup and upload
 
-Edit the copy with the path to the keystore, the alias, and the two
-passwords from step 1.
+Register the app, enable Play App Signing, verify the existing upload
+certificate, and grant the publisher service account app-level release access.
+Complete listing, screenshots, content rating, target audience, data-safety,
+privacy URL, and any account-specific testing requirements.
 
-## Build
+Run Build mobile apps, mode=signed, then Upload tested mobile build for that
+run ID. Start with an internal draft. Use completed for testers after console
+setup permits it. The first app upload may need the console UI.
+Production stays draft until you review and roll it out in Play Console.
 
-```bash
-# Build a signed AAB for Play Store upload
-npm run build:android:release
-# → android/app/build/outputs/bundle/release/app-release.aab
-
-# Or a signed APK for sideload / direct distribution
-npm run build:android:apk
-# → android/app/build/outputs/apk/release/app-release.apk
-```
-
-First build takes 2-5 minutes (R8 obfuscation + resource shrinking).
-Subsequent builds are ~30-60 seconds thanks to Gradle's build cache.
-
-If the keystore config is missing, the build falls through to debug
-signing — useful for local smoke-testing, but Play Store will reject
-the upload.
-
-## Versioning
-
-Before every release, bump **both** numbers in
-[android/app/build.gradle](../android/app/build.gradle):
-
-```gradle
-versionCode 2       // must be strictly greater than the previous upload
-versionName "1.1"   // the user-facing version string
-```
-
-`versionCode` is the integer Play Store uses to decide what's newer.
-`versionName` is the string shown in the Play listing.
-
-## Play Console upload
-
-1. [Play Console](https://play.google.com/console) → your app → Production →
-   Create new release → Upload the AAB.
-2. Fill in release notes ("What's new in this version?" — 500 chars max).
-3. Run through the content rating, target audience, data safety, and
-   privacy policy forms on first upload only.
-4. **New developer accounts (registered after Nov 2023) must run a
-   14-day closed test with 20+ testers before promoting to production.**
-   Account for this in your release schedule.
-
-## What R8 does in release builds
-
-`minifyEnabled true` + `shrinkResources true` in build.gradle trigger:
-
-- **Minification**: dead code elimination, method inlining, variable
-  renaming. Typical reduction: ~30% smaller APK.
-- **Resource shrinking**: drops unreferenced strings, drawables, layouts.
-- **Obfuscation**: renames classes/methods to single letters. Not a
-  security measure — just a size optimization.
-
-Capacitor's plugin bridge (`com.getcapacitor.*` and
-`@CapacitorPlugin`-annotated classes) is kept via `proguard-rules.pro`.
-If you add a native Android plugin in the future that's invoked from JS,
-add a `-keep class com.its.package.** { *; }` rule there too.
-
-## When to test release builds locally
-
-Before uploading to Play for the first time, or any time after changing
-[android/app/proguard-rules.pro](../android/app/proguard-rules.pro), do a
-full release build and install it on a real device. R8 bugs don't show
-up in debug builds.
-
-```bash
-npm run build:android:apk
-adb install -r android/app/build/outputs/apk/release/app-release.apk
-```
-
-If it crashes on launch with "ClassNotFoundException" or a JS-side
-"Plugin Foo not implemented", R8 removed something it shouldn't have.
-Check logcat, then add a matching `-keep` rule.
+The workflow preserves the exact signed AAB, APK, R8 mapping, hashes, and
+signed provenance. Back up the upload keystore independently of this repo.
+Losing an upload key requires Google's reset process; it is not a normal version bump.

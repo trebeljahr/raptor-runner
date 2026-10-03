@@ -1,145 +1,67 @@
-# iOS release builds
+# iOS releases
 
-**Prerequisite**: active Apple Developer Program enrollment ($99/year). Until
-then, you can build-and-run on the simulator via `npm run dev:ios`, but
-cannot produce a signed IPA for App Store Connect. This doc assumes the
-LLC has enrolled.
+[Release operations](RELEASING.md) contains the GitHub build/upload commands.
 
-## One-time setup
+Bundle: com.ricoslabs.raptorrunner. Team: 4BHY8H2J25.
+The existing App Store Connect app ID is 6815029628.
 
-### 1. Enroll the LLC in Apple Developer Program
+## Required GitHub secrets
 
-- [developer.apple.com/programs](https://developer.apple.com/programs/)
-- Organization enrollment needs your D-U-N-S number (free, request from
-  Dun & Bradstreet) — takes 1–2 weeks for the D-U-N-S + another few
-  days for Apple's review.
+| Secret | Purpose |
+| --- | --- |
+| APPLE_CERTIFICATE_BASE64 | Apple Distribution .p12 with its private key |
+| APPLE_CERTIFICATE_PASSWORD | .p12 password |
+| APPLE_PROVISIONING_PROFILE_BASE64 | App Store profile for this exact bundle and team |
+| APPLE_API_KEY_BASE64 | App Store Connect .p8, base64; upload only |
+| APPLE_API_KEY_ID | API key ID; upload only |
+| APPLE_API_ISSUER_ID | Issuer UUID; upload only |
 
-### 2. Register the bundle ID
+The team's distribution certificate and API key can serve multiple apps.
+The provisioning profile is app-specific; Track Your Time's profile cannot
+sign Raptor Runner. The profile must include the certificate whose private
+key is in the .p12.
 
-- [App Store Connect](https://appstoreconnect.apple.com) →
-  Certificates, Identifiers & Profiles → Identifiers → New.
-- Use `com.ricoslabs.raptorrunner` (must match
-  `ios/App/App.xcodeproj/project.pbxproj`'s
-  `PRODUCT_BUNDLE_IDENTIFIER`).
-- Capabilities: Game Center (if you enable it later — see
-  `docs/GAME_SERVICES.md`).
+The workflow validates bundle/team, expiration, App Store profile type, and
+certificate match before compiling. It creates a temporary signing keychain
+only on a disposable GitHub-hosted runner and deletes it afterward.
+The local Xcode project retains automatic signing for device development;
+CI archive/export uses explicit manual Apple Distribution signing.
+CI selects Xcode 26.3 explicitly; macos-15 otherwise defaults to Xcode 16.4.
 
-### 3. Xcode: automatic signing
+## Versioning and privacy
 
-```bash
-npm run cap:open:ios
-```
+npm run mobile:version copies package.json version into Xcode.
+Signed builds require an explicit RELEASE_BUILD_NUMBER above existing uploads.
+The export step preserves those values.
 
-In Xcode:
-- Target "App" → Signing & Capabilities.
-- Tick "Automatically manage signing".
-- Team: select your LLC's team (appears after step 1).
-- Xcode creates a provisioning profile + development certificate
-  on the fly.
+App/PrivacyInfo.xcprivacy is included in the target's Resources phase.
+It declares Preferences/UserDefaults (CA92.1) and Filesystem timestamps
+(C617.1). Native telemetry is disabled by the runtime's platform/host checks.
+Revisit the manifest and App Store privacy declarations if data use changes.
 
-### 4. App Store Connect record
+## Build and upload
 
-- [App Store Connect](https://appstoreconnect.apple.com) → My Apps → +
-  → New App.
-- Bundle ID: pick the one you just registered.
-- SKU: anything unique, e.g. `raptor-runner-1`.
-- Fill in the listing once (name, description, keywords, category
-  "Games → Arcade", age rating 4+, screenshots) — reuse for all
-  future builds.
+Use Build mobile apps with platform=ios or all and mode=signed.
+The workflow archives, exports, verifies the IPA, and saves it as a signed
+release artifact. Missing credentials are a failure.
 
-## Producing a release build
+Use Upload tested mobile build with destination=testflight and the successful
+build run ID. The uploaded IPA must match its signed source manifest.
+A TestFlight upload is not an App Store submission. Processing, beta review,
+tester groups, public review, and release remain App Store Connect operations.
 
-### Option A — from the command line
+For an unsigned compile check, use mode=smoke. It produces no store IPA.
 
-```bash
-npm run build:ios:release
-# This just runs `cap sync` and opens Xcode; actual archive happens
-# in Xcode because it's the only path that knows how to sign.
-```
+## Local archive
 
-In Xcode:
-- Product menu → Scheme → select "App".
-- Product menu → Destination → "Any iOS Device (arm64)". (Required — you
-  can't archive against a simulator.)
-- Product menu → Archive.
-- Window → Organizer → pick the new archive → Distribute App.
-- App Store Connect → Upload.
+With an installed App Store profile and distribution identity, set
+APPLE_PROVISIONING_PROFILE_NAME, IOS_EXPORT_OPTIONS (a rendered export plist),
+and RELEASE_BUILD_NUMBER, then run npm run build:ios:release.
+The plist needs method=app-store-connect, signingStyle=manual,
+signingCertificate=Apple Distribution, and this bundle's profile name.
+The CI profile helper renders this without interpolating unescaped XML.
 
-### Option B — fully scripted
-
-Possible with `xcodebuild archive` + `xcodebuild -exportArchive`, but
-requires a committed `ExportOptions.plist` referencing your signing
-identity. Defer until the app is regularly shipping; Xcode-driven is
-fine for the first few releases.
-
-## Privacy manifest
-
-`ios/App/App/PrivacyInfo.xcprivacy` is required for App Store submissions
-since May 2024. Declares what "required-reason APIs" you use and why.
-
-Raptor Runner uses `UserDefaults` (via the Capacitor Preferences plugin)
-to persist high scores. When you enroll, add the manifest:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>NSPrivacyTracking</key>
-    <false/>
-    <key>NSPrivacyTrackingDomains</key>
-    <array/>
-    <key>NSPrivacyCollectedDataTypes</key>
-    <array/>
-    <key>NSPrivacyAccessedAPITypes</key>
-    <array>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>CA92.1</string>
-            </array>
-        </dict>
-    </array>
-</dict>
-</plist>
-```
-
-`CA92.1` is Apple's approved reason code for "storing user preferences
-within the app itself". Add the file inside Xcode via File → New File →
-App Privacy. Xcode links it to the target automatically.
-
-## Versioning
-
-Before every release, bump **both** in the Xcode project settings
-(General tab):
-
-- `Version` (aka `CFBundleShortVersionString`): user-facing, e.g. `1.1`
-- `Build` (aka `CFBundleVersion`): strictly-increasing integer, e.g. `2`
-
-Apple rejects uploads with a Build number that's less than or equal to
-the previous build for the same Version.
-
-## TestFlight
-
-Every AppStoreConnect upload goes to TestFlight first. Adding internal
-testers (up to 100 Apple IDs) is instant; external testers (up to 10,000)
-need a short Apple review (usually same-day).
-
-Use TestFlight for the LLC team + a handful of trusted users before
-promoting to production. Promotion is a one-click action from App Store
-Connect once the review passes.
-
-## Common rejection reasons
-
-- **2.5.6 (web-wrapped)**: the app must feel like a native app, not a
-  bookmark. Our hiding of `.fullscreen-btn`, safe-area inset handling,
-  and native splash all address this. Keep watching for anything that
-  reads as "this is clearly a website".
-- **Missing privacy manifest**: fixed above.
-- **Age rating mismatch**: a game with no objectionable content is 4+.
-  Don't overshoot.
-- **Broken links in the listing**: if you paste the website imprint URL
-  as the Privacy Policy, make sure it actually loads and contains
-  privacy language.
+Before public submission, install through TestFlight on real iPhone/iPad
+hardware. Check audio, touch controls, background/resume, rotation, safe areas,
+offline startup, saved progress, and crash reports. Local compilation does
+not establish that those flows work on devices.

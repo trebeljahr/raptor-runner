@@ -42,5 +42,6 @@ shipped bundle.
   `raptor.trebeljahr.com` is a Cloudflare redirect rule (301, path preserved)
   to the apex — keep that rule, players still have the old URL bookmarked.
 - Desktop: `pnpm electron:build` — outputs to `release/`
+- Signed releases and store uploads: [release operations](docs/RELEASING.md)
 - Mobile: `pnpm cap:run:ios` / `pnpm cap:run:android`
 - itch.io: `pnpm itch:push:mac` / `:win` / `:linux` / `:android`

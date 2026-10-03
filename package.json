@@ -34,21 +34,17 @@
     "icons:desktop": "mkdir -p build/icon.iconset && cp public/assets/icon-512.png build/icon.png && for sz in 16 32 64 128 256 512; do sips -z $sz $sz build/icon.png --out build/icon.iconset/icon_${sz}x${sz}.png > /dev/null; done && cp build/icon.iconset/icon_32x32.png build/icon.iconset/icon_16x16@2x.png && cp build/icon.iconset/icon_64x64.png build/icon.iconset/icon_32x32@2x.png && cp build/icon.iconset/icon_256x256.png build/icon.iconset/icon_128x128@2x.png && cp build/icon.iconset/icon_512x512.png build/icon.iconset/icon_256x256@2x.png && cp build/icon.png build/icon.iconset/icon_512x512@2x.png && iconutil -c icns build/icon.iconset -o build/icon.icns && sips -z 256 256 build/icon.png --out build/icon-256.png > /dev/null && node scripts/make-ico.mjs build/icon-256.png build/icon.ico && rm -r build/icon.iconset build/icon-256.png",
     "release:tag": "bash scripts/release-tag.sh",
     "release:tag:push": "bash scripts/release-tag.sh --push",
-    "itch:push:mac": "butler push --userversion $npm_package_version release/*-mac.zip $ITCH_USER/$ITCH_GAME:osx",
-    "itch:push:win": "butler push --userversion $npm_package_version release/*-win.zip $ITCH_USER/$ITCH_GAME:windows",
-    "itch:push:linux": "butler push --userversion $npm_package_version release/*.AppImage $ITCH_USER/$ITCH_GAME:linux",
-    "itch:push:android": "butler push --userversion $npm_package_version android/app/build/outputs/apk/release/app-release.apk $ITCH_USER/$ITCH_GAME:android",
     "build:mobile": "tsc --noEmit && cross-env VITE_TARGET=capacitor vite build",
-    "cap:sync": "npm run build:mobile && cap sync",
+    "cap:sync": "npm run mobile:version && npm run build:mobile && cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "bash -c 'source scripts/android-env.sh && cap open android'",
     "cap:run:ios": "npm run cap:sync && cap run ios",
     "cap:run:android": "bash -c 'source scripts/android-env.sh && npm run build:mobile && cap sync android && cap run android'",
     "dev:android": "bash scripts/android-dev.sh",
     "dev:ios": "bash scripts/ios-dev.sh",
-    "build:android:release": "bash -c 'source scripts/android-env.sh && npm run cap:sync && cd android && ./gradlew bundleRelease && echo \"\n\u2705 AAB: android/app/build/outputs/bundle/release/app-release.aab\"'",
-    "build:android:apk": "bash -c 'source scripts/android-env.sh && npm run cap:sync && cd android && ./gradlew assembleRelease && echo \"\n\u2705 APK: android/app/build/outputs/apk/release/app-release.apk\"'",
-    "build:ios:release": "bash -c 'echo \"\u26a0\ufe0f  iOS release builds require: (1) Apple Developer account, (2) Team ID configured in Xcode, (3) a distribution certificate + provisioning profile. See docs/IOS_RELEASE.md for the full flow. Opening Xcode now.\"; npm run cap:sync && cap open ios'",
+    "build:android:release": "bash scripts/release/build-android.sh",
+    "build:android:apk": "bash scripts/release/build-android.sh",
+    "build:ios:release": "bash scripts/release/build-ios.sh",
     "android:emulator": "bash -c 'source scripts/android-env.sh && emulator -avd ${AVD:-Pixel_9_Pro} -netdelay none -netspeed full'",
     "android:kill-emulator": "bash -c 'source scripts/android-env.sh && adb emu kill'",
     "android:avds": "bash -c 'source scripts/android-env.sh && emulator -list-avds'",
@@ -56,7 +52,9 @@
     "android:logcat": "bash -c 'source scripts/android-env.sh && adb logcat -s Capacitor Capacitor/Console Capacitor/WebView chromium'",
     "mobile:assets": "capacitor-assets generate --ios --android --iconBackgroundColor \"#50b4cd\" --splashBackgroundColor \"#50b4cd\"",
     "test:mobile-assets": "node scripts/test-mobile-assets.mjs",
-    "test:browser": "node scripts/run-browser-tests.mjs"
+    "test:browser": "node scripts/run-browser-tests.mjs",
+    "release:check": "node --test scripts/release/*.test.mjs",
+    "mobile:version": "node scripts/release/mobile-version.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
@@ -105,26 +103,15 @@
     ],
     "mac": {
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip"
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.games",
       "identity": "Ricos Labs LLC (4BHY8H2J25)",
       "hardenedRuntime": true,
-      "notarize": true
+      "notarize": true,
+      "artifactName": "Raptor-Runner-${version}-macos-${arch}.${ext}"
     },
     "win": {
       "target": [
@@ -144,6 +131,7 @@
       "icon": "build/icon.ico"
     },
     "linux": {
+      "executableName": "raptor-runner",
       "target": [
         {
           "target": "AppImage",
@@ -153,7 +141,8 @@
         }
       ],
       "icon": "build/icon.png",
-      "category": "Game"
+      "category": "Game",
+      "artifactName": "Raptor-Runner-${version}-linux-${arch}.${ext}"
     }
   },
   "dependencies": {

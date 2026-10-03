@@ -39,7 +39,11 @@ fi
 echo "==> build"
 # Notarization adds several minutes per architecture: the artifact is
 # uploaded to Apple, scanned, and the resulting ticket stapled back on.
-npm run electron:build
+if [[ "$(uname -s)" == Darwin ]]; then
+  npm run electron:build -- --mac --x64 --arm64 --publish never
+else
+  npm run electron:build -- --publish never
+fi
 echo
 
 echo "==> verify"

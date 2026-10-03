@@ -40,7 +40,9 @@ case "$PLATFORM" in
     # For a non-MAS target electron-builder only ever considers
     # "Developer ID Application" certificates, so that is the one that has
     # to be present. An Apple Distribution cert does not substitute.
-    if security find-identity -v -p codesigning 2>/dev/null |
+    if [[ -n "${CSC_LINK:-}" && -n "${CSC_KEY_PASSWORD:-}" ]]; then
+      note "OK       certificate and password supplied through CSC_LINK/CSC_KEY_PASSWORD"
+    elif security find-identity -v -p codesigning 2>/dev/null |
       grep -q "Developer ID Application"; then
       note "OK       Developer ID Application certificate in keychain"
     else
@@ -69,32 +71,12 @@ case "$PLATFORM" in
   MINGW* | MSYS* | CYGWIN* | Windows_NT | win | windows)
     echo "Windows signing preflight"
 
-    has_azure="$(node -p "require('$REPO_ROOT/package.json').build?.win?.azureSignOptions ? 'yes' : 'no'" 2>/dev/null)"
-    if [[ "$has_azure" != "yes" ]]; then
-      note "build.win.azureSignOptions unset — Windows artifacts will be unsigned"
-      note "that is a SmartScreen warning for users, not a hard block"
-    else
-      # electron-builder hands auth to the Azure SDK's EnvironmentCredential,
-      # which wants these three for a service principal.
-      for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_CLIENT_SECRET; do
-        if [[ -n "${!v:-}" ]]; then
-          note "OK       $v set"
-        else
-          bad "$v (required by Azure Trusted Signing)"
-        fi
-      done
-
-      if command -v pwsh >/dev/null 2>&1 || command -v powershell.exe >/dev/null 2>&1; then
-        note "OK       PowerShell available for the TrustedSigning module"
-      else
-        bad "PowerShell — electron-builder drives Azure signing through it"
-      fi
-    fi
+    bad "Use the signed Windows GitHub build; this local wrapper has no Azure OIDC login."
     ;;
 
   Linux | linux)
     echo "Linux signing preflight"
-    note "nothing to check — AppImages ship unsigned by design"
+    bad "Use the signed Linux GitHub build to generate verifiable provenance."
     ;;
 
   *)
