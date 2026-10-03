@@ -323,7 +323,6 @@ export function Shop({ onClose, onShopChange }: ShopProps) {
             <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
           </span>
         </p>
-        <p className="shop-help">Collect coins in flower patches. Keep them after each run.</p>
         <figure className="shop-preview">
           <div
             className="shop-raptor-stage"

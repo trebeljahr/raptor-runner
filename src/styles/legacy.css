@@ -3156,7 +3156,18 @@ body.cap .score-display {
 
 .run-rewards { max-width: 30ch; font-size: 0.8rem; }
 .shop-filter { flex-wrap: wrap; }
-.shop-filter [aria-pressed="true"] { background: var(--color-sky); }
+/* Keep selection distinct from hover and keyboard focus. */
+.shop-filter .shop-item-action[aria-pressed="true"],
+.shop-filter .shop-item-action[aria-pressed="true"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-sky-deep);
+  color: var(--color-sand-contrast);
+  box-shadow: inset 0 -3px 0 var(--color-dune);
+}
+.shop-filter .shop-item-action:focus-visible,
+.shop-filter .shop-item-action.kbd-focus {
+  outline: 3px solid var(--color-dune);
+  outline-offset: 3px;
+}
 .shop-item { padding-bottom: 1.1rem; }
 @media (max-width: 500px) {
   .shop-scroll { padding: 1rem 0.7rem; }
