@@ -84,6 +84,7 @@ import {
   REDUCE_MOTION_KEY,
   REDUCE_MOTION_VALUES,
   RESERVED_KEY_CODES,
+  RESPAWN_GRACE_MS,
   REVIVE_FIRST_COST,
   REVIVE_INVULN_FRAMES,
   REVIVE_SECOND_COST,
@@ -851,6 +852,7 @@ function update(now: number) {
       if (hitObstacle) {
         state.gameOver = true;
         state.gameOverFrame = state.frame;
+        state.gameOverAt = performance.now();
         audio.playHit();
         audio.pauseMusicForGameOver();
         // Kill any rare-event looping audio (UFO hover, Santa,
@@ -1521,6 +1523,7 @@ function resetGame(hard = false) {
   state.gameOver = false;
   state.gameOverFade = 0;
   state.gameOverFrame = 0;
+  state.gameOverAt = 0;
   state.newHighScore = false;
   state.score = 0;
   state.bgVelocity = INITIAL_BG_VELOCITY;
@@ -1612,13 +1615,9 @@ function resetGame(hard = false) {
 
 function maybeResetAfterGameOver() {
   if (!state.gameOver) return;
-  // Visual + audio feedback on every restart attempt, before the
-  // cooldown check — so even a too-early press still gives the
-  // player confirmation that their input registered.
+  if (GameAPI.getRespawnDelay() > 0) return;
   (window as unknown as { __rrPulsePlayAgain?: () => void }).__rrPulsePlayAgain?.();
-  if (state.frame - state.gameOverFrame > 30) {
-    resetGame();
-  }
+  resetGame();
 }
 
 function onResize() {
@@ -1773,6 +1772,10 @@ function onKeyDown(e: KeyboardEvent) {
   // returns to the start screen — same destination as the
   // gamepad B / Circle path below.
   if (state.gameOver) {
+    if (e.repeat || GameAPI.getRespawnDelay() > 0) {
+      e.preventDefault();
+      return;
+    }
     const w = window as any;
     if (e.code === "ArrowLeft" || e.code === "ArrowUp") {
       if (w.__rrScoreCardFocusPrev) {
@@ -2352,11 +2355,15 @@ const GameAPI = {
     return state.gameOver;
   },
 
-  /** Explicit button activation may restart immediately; ambient taps
-   *  retain the death cooldown to avoid accidental restarts. */
-  restartFromGameOver(explicit = false) {
-    if (explicit && state.gameOver) resetGame();
-    else maybeResetAfterGameOver();
+  /** Remaining grace period in milliseconds, independent of frame rate. */
+  getRespawnDelay(): number {
+    if (!state.gameOver) return 0;
+    return Math.max(0, RESPAWN_GRACE_MS - (performance.now() - state.gameOverAt));
+  },
+
+  /** Every restart path honours the grace period after death. */
+  restartFromGameOver() {
+    maybeResetAfterGameOver();
   },
 
   /** Current coin cost of a mid-run revive. Starts cheap, marks
@@ -2382,13 +2389,14 @@ const GameAPI = {
    *  Returns true on success, false if the player can't afford
    *  it or isn't in a game-over state. */
   revive(): boolean {
-    if (!GameAPI.canRevive()) return false;
+    if (GameAPI.getRespawnDelay() > 0 || !GameAPI.canRevive()) return false;
     const cost = GameAPI.getReviveCost();
     state.coinsBalance -= cost;
     saveCoinsBalance(state.coinsBalance);
     state.gameOver = false;
     state.gameOverFade = 0;
     state.gameOverFrame = 0;
+    state.gameOverAt = 0;
     // Put the raptor back on solid ground with zero velocity —
     // otherwise it'd still be tumbling mid-jump from the hit.
     if (raptor) {
@@ -2476,6 +2484,7 @@ const GameAPI = {
     if (state.gameOver) return;
     state.gameOver = true;
     state.gameOverFrame = state.frame;
+    state.gameOverAt = performance.now();
     commitRunScore();
     for (const cb of GameAPI._gameOverCbs) {
       try {

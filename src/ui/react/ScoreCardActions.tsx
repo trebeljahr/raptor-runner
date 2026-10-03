@@ -2,6 +2,7 @@ import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
 
 export interface ScoreCardActionsProps {
+  respawnReady: boolean;
   reviveCost: number | null;
   reviveBalance: number | null;
   reviveAffordable: boolean;
@@ -16,6 +17,7 @@ export interface ScoreCardActionsProps {
 }
 
 export function ScoreCardActions({
+  respawnReady,
   reviveCost,
   reviveBalance,
   reviveAffordable,
@@ -47,7 +49,7 @@ export function ScoreCardActions({
         className={"revive-btn" + (!reviveAffordable ? " poor" : "")}
         type="button"
         hidden={reviveCost == null}
-        disabled={!reviveAffordable}
+        disabled={!respawnReady || !reviveAffordable}
         aria-label={`Revive for ${reviveCost ?? 0} coins`}
         onClick={handleRevive}
       >
@@ -100,6 +102,7 @@ export function ScoreCardActions({
           className="play-again-btn"
           type="button"
           aria-label="Play again"
+          disabled={!respawnReady}
           onClick={handleRestart}
         >
           <svg
@@ -130,6 +133,7 @@ export function ScoreCardActions({
             type="button"
             className="score-card-hint"
             aria-label="Restart"
+            disabled={!respawnReady}
             onClick={handleRestart}
           >
             <span className="kbd-hint">

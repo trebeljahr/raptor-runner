@@ -32,6 +32,7 @@ export interface GameState {
   gameOver: boolean;
   gameOverFade: number;
   gameOverFrame: number;
+  gameOverAt: number;
   started: boolean;
   paused: boolean;
   frame: number;
@@ -226,6 +227,7 @@ export const state: GameState = {
   gameOver: false,
   gameOverFade: 0,
   gameOverFrame: 0,
+  gameOverAt: 0,
   started: false,
   paused: true,
   frame: 0,

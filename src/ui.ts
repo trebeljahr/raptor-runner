@@ -2007,9 +2007,11 @@ let reviveAffordable = false;
 let reviveShortfall = 0;
 let runResult: { score: number; best: number; coins: number; record: boolean } | null = null;
 let cardGeneration = 0;
+let respawnTimer: ReturnType<typeof setTimeout> | null = null;
 
 function syncScoreCardActions() {
   refreshScoreCardActions({
+    respawnReady: (window.Game?.getRespawnDelay() ?? 0) === 0,
     reviveCost,
     reviveBalance,
     reviveAffordable,
@@ -2065,13 +2067,24 @@ function showScoreCard() {
   scoreCardImg.alt = `Share image: ${runResult.score} meters, ${runResult.coins} ${runResult.coins === 1 ? "coin" : "coins"} earned.`;
   startReviveOffer();
   const generation = cardGeneration;
-  // Land initial focus on the most-interesting button — Revive when
-  // offered, otherwise Play Again. Deferred to the next frame so
-  // React has mounted the buttons into the DOM by the time we try
-  // to focus one.
-  requestAnimationFrame(() => {
-    (window as any).__rrScoreCardFocusInitial?.();
-  });
+  // Enable respawn actions and focus Play Again once late jump inputs are safe.
+  if (respawnTimer !== null) clearTimeout(respawnTimer);
+  const enableRespawn = () => {
+    respawnTimer = null;
+    if (generation !== cardGeneration || !isScoreCardOpen()) return;
+    const remaining = game.getRespawnDelay();
+    if (remaining > 0) {
+      respawnTimer = setTimeout(enableRespawn, remaining);
+      return;
+    }
+    syncScoreCardActions();
+    requestAnimationFrame(() => {
+      if (generation === cardGeneration && !sharePanel.contains(document.activeElement)) {
+        (window as any).__rrScoreCardFocusInitial?.();
+      }
+    });
+  };
+  respawnTimer = setTimeout(enableRespawn, game.getRespawnDelay());
   // Defer card generation by two animation frames so the
   // death snapshot is captured in render() before the
   // worker asks for it.
@@ -2206,6 +2219,8 @@ function renderAchievementToast(ach: AchievementToast) {
 }
 
 function hideScoreCard() {
+  if (respawnTimer !== null) clearTimeout(respawnTimer);
+  respawnTimer = null;
   runResult = null;
   const announcement = document.getElementById("run-result-announcement");
   if (announcement) announcement.textContent = "";
@@ -2257,7 +2272,7 @@ function getNavigableScoreCardButtons(): HTMLElement[] {
   const share = sharePanel.querySelector<HTMLButtonElement>(".share-score-btn");
   if (share && !share.hidden && !share.disabled) list.push(share);
   const play = sharePanel.querySelector<HTMLButtonElement>(".play-again-btn");
-  if (play && !play.hidden) list.push(play);
+  if (play && !play.hidden && !play.disabled) list.push(play);
   return list;
 }
 function focusScoreCardIndex(idx: number) {
@@ -2282,7 +2297,7 @@ function currentScoreCardFocusIdx(): number {
   focusScoreCardIndex(currentScoreCardFocusIdx() - 1);
 };
 (window as any).__rrScoreCardSelect = () => {
-  if (!isScoreCardOpen()) return;
+  if (!isScoreCardOpen() || (window.Game?.getRespawnDelay() ?? 0) > 0) return;
   // Activate whatever score-card button actually holds keyboard
   // focus first. Tab can reach focusable card elements that the
   // arrow-key ring doesn't track (e.g. the restart-hint button),
@@ -2520,7 +2535,7 @@ async function handleShareClick() {
 // handleReviveClick).
 function doRestart() {
   if (window.Game?.restartFromGameOver) {
-    window.Game.restartFromGameOver(true);
+    window.Game.restartFromGameOver();
   }
 }
 // Clicking anywhere on the game-over overlay backdrop

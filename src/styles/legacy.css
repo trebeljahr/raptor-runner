@@ -1240,16 +1240,20 @@ body.gamepad-connected .score-card-hint .pad-hint {
     background-color 0.12s ease,
     transform 0.06s ease;
 }
-.play-again-btn:hover {
+.play-again-btn:hover:not(:disabled) {
   background: var(--color-sky);
 }
-.play-again-btn:active {
+.play-again-btn:active:not(:disabled) {
   transform: translateY(2px);
 }
 .play-again-btn:focus-visible,
 .play-again-btn.kbd-focus {
   outline: none;
   background: var(--color-sky);
+}
+.play-again-btn:disabled,
+.score-card-hint:disabled {
+  opacity: 0.5;
 }
 .play-again-btn svg {
   width: 16px;

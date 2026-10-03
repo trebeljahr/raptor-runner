@@ -190,3 +190,50 @@ test("save export and confirmed restore survive reload without uploads", async (
   expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(20);
   expect(posts).toEqual([]);
 });
+
+test("late jump inputs cannot respawn until the death grace period ends", async ({ page }) => {
+  await ready(page, 100);
+  await page.getByRole("button", { name: "Start Game", exact: true }).click();
+  await page.clock.install();
+  await page.clock.pauseAt(new Date());
+  await page.evaluate(() => window.Game!._forceGameOver());
+  await expect(page.locator(".play-again-btn")).toBeDisabled();
+  await expect(page.locator(".score-card-hint")).toBeDisabled();
+  await expect(page.locator(".revive-btn")).toBeDisabled();
+  const blockedInputs = () => page.evaluate(() => {
+    for (const code of ["Space", "KeyW", "Enter", "ArrowUp"]) {
+      window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+    }
+    (window as any).__rrScoreCardSelect(); // Controller confirm uses this same path.
+    document.querySelector<HTMLButtonElement>(".play-again-btn")!.click();
+    document.getElementById("score-card-overlay")!.click();
+    document.getElementById("game-canvas")!.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    window.Game!.restartFromGameOver(); // API must also enforce the grace period.
+    const revived = window.Game!.revive();
+    return { dead: window.Game!.isGameOver(), revived, coins: window.Game!.getCoinsBalance() };
+  });
+  expect(await blockedInputs()).toEqual({ dead: true, revived: false, coins: 100 });
+  await page.clock.runFor(499);
+  expect(await blockedInputs()).toEqual({ dead: true, revived: false, coins: 100 });
+  await page.clock.runFor(17);
+  await expect(page.locator(".play-again-btn")).toBeEnabled();
+  await expect(page.locator(".revive-btn")).toBeEnabled();
+  await page.evaluate(() => window.dispatchEvent(
+    new KeyboardEvent("keydown", { code: "Space", repeat: true, bubbles: true }),
+  ));
+  expect(await page.evaluate(() => window.Game!.isGameOver())).toBe(true);
+  await page.keyboard.press("Space");
+  expect(await page.evaluate(() => window.Game!.isGameOver())).toBe(false);
+  // A new death starts a fresh grace period.
+  await page.evaluate(() => {
+    window.Game!._forceGameOver();
+    window.Game!.restartFromGameOver();
+  });
+  expect(await page.evaluate(() => window.Game!.isGameOver())).toBe(true);
+  await page.clock.runFor(516);
+  await page.locator(".revive-btn").click();
+  expect(await page.evaluate(() => window.Game!.isGameOver())).toBe(false);
+  expect(await page.evaluate(() => window.Game!.getCoinsBalance())).toBe(50);
+});

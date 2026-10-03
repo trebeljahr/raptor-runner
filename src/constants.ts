@@ -287,6 +287,8 @@ export const RAINBOW_SPAWN_CHANCE = 0.5;
 
 // ── Game Over & Timing ─────────────────────────────────────
 export const GAME_OVER_FADE_RATE = 0.01;
+/** Ignore late gameplay inputs for half a second after death. */
+export const RESPAWN_GRACE_MS = 500;
 export const DELTA_TIME_CLAMP = 1 / 20;
 
 // ── Revive ─────────────────────────────────────────────────
