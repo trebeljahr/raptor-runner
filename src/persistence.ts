@@ -121,6 +121,8 @@ function mirrorWrite(key: string, value: string): void {
 
 const _pendingWrites = new Map<string, string>();
 let _flushScheduled = false;
+let _backupReloadRequired = false;
+let _lastWriteFailed = false;
 
 function _scheduleFlush(): void {
   if (_flushScheduled) return;
@@ -144,14 +146,23 @@ function _scheduleFlush(): void {
 
 function _flushPending(): void {
   if (_pendingWrites.size === 0) return;
+  // An interrupted import must recover before queued settings can overwrite it.
+  try {
+    if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== null) return;
+  } catch {
+    _lastWriteFailed = true;
+    return;
+  }
+  _lastWriteFailed = false;
   for (const [key, value] of _pendingWrites) {
     try {
       window.localStorage.setItem(key, value);
+      _pendingWrites.delete(key);
     } catch {
-      /* storage unavailable — drop silently, same as before */
+      _lastWriteFailed = true;
+      /* Retain unsaved preferences for a later flush or local backup. */
     }
   }
-  _pendingWrites.clear();
 }
 
 /** Flush all queued writes to localStorage synchronously. Called on
@@ -194,6 +205,7 @@ function _persistGet(key: string): string | null {
  *  Preferences mirror eagerly so the durable copy is in flight
  *  immediately. */
 function _persistSet(key: string, value: string): void {
+  if (_backupReloadRequired) return;
   _pendingWrites.set(key, value);
   _scheduleFlush();
   mirrorWrite(key, value);
@@ -228,7 +240,7 @@ export function setPersistenceWriteListener(
 /** The complete list of keys we mirror. Kept here so
  *  hydratePersistence() has a single source of truth and the next
  *  dev to add a key can't forget to include it in the mirror. */
-const DURABLE_KEYS: string[] = [
+export const DURABLE_KEYS: readonly string[] = [
   HIGH_SCORE_KEY,
   TOTAL_JUMPS_KEY,
   TOTAL_NIGHTS_KEY,
@@ -278,7 +290,7 @@ export async function hydratePersistence(): Promise<void> {
   if (!__IS_CAPACITOR__) return;
   try {
     const { hydrateKeys } = await import("./mobile/durable");
-    await hydrateKeys(DURABLE_KEYS);
+    await hydrateKeys([...DURABLE_KEYS]);
   } catch {
     /* fall through — continue with whatever localStorage has */
   }
@@ -298,6 +310,122 @@ export async function hydratePersistence(): Promise<void> {
 export const PERSISTENCE_SCHEMA_VERSION = 1;
 
 export type DurableSnapshotData = { [key: string]: string };
+
+export const SAVE_RESTORE_JOURNAL_KEY = "raptor-runner:saveRestoreJournal";
+
+export function getPersistenceWriteStatus(): {
+  pending: boolean;
+  failed: boolean;
+  reloadRequired: boolean;
+} {
+  return {
+    pending: _pendingWrites.size > 0,
+    failed: _lastWriteFailed,
+    reloadRequired: _backupReloadRequired,
+  };
+}
+
+/** Strict read for deliberate backup operations; includes unflushed settings.
+ *  Unlike the best-effort cloud snapshot, unavailable storage is an error. */
+export function readDurableSnapshotForBackup(): DurableSnapshotData {
+  if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== null) {
+    throw new Error("Save recovery is pending. Reload before making a backup.");
+  }
+  const data: DurableSnapshotData = Object.create(null);
+  for (const key of DURABLE_KEYS) {
+    const value = _pendingWrites.get(key) ?? window.localStorage.getItem(key);
+    if (value !== null) data[key] = value;
+  }
+  return data;
+}
+
+function writeCompleteSnapshot(data: DurableSnapshotData): void {
+  for (const key of DURABLE_KEYS) {
+    if (Object.hasOwn(data, key)) window.localStorage.setItem(key, data[key]);
+    else window.localStorage.removeItem(key);
+  }
+  for (const key of DURABLE_KEYS) {
+    if (window.localStorage.getItem(key) !== (data[key] ?? null)) {
+      throw new Error("Browser storage did not retain the complete save.");
+    }
+  }
+}
+
+/** Recover before audio/settings/state load on boot. The journal contains only
+ *  the previous game save, never another site's keys or cloud metadata. */
+export function recoverPendingSaveRestore(): void {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY);
+  } catch {
+    return; // Normal gameplay remains available when storage is denied.
+  }
+  if (raw === null) return;
+  const journal = JSON.parse(raw) as { version?: unknown; before?: unknown };
+  if (
+    journal?.version !== 1 ||
+    !journal.before ||
+    typeof journal.before !== "object" ||
+    Array.isArray(journal.before) ||
+    Object.entries(journal.before).some(
+      ([key, value]) => !DURABLE_KEYS.includes(key) || typeof value !== "string",
+    )
+  ) {
+    throw new Error("The interrupted save import could not be recovered.");
+  }
+  writeCompleteSnapshot(journal.before as DurableSnapshotData);
+  window.localStorage.removeItem(SAVE_RESTORE_JOURNAL_KEY);
+  if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== null) {
+    throw new Error("The interrupted save import could not be recovered.");
+  }
+}
+
+/** Replace only known game keys, with rollback on errors and recovery after
+ *  interruption. Never invoke platform mirrors or overwrite cloud ownership. */
+export function replaceDurableSnapshotForBackup(data: DurableSnapshotData): void {
+  if (__IS_CAPACITOR__ || window.electronAPI || _writeListener) {
+    throw new Error("Save-file import is available only in the browser edition.");
+  }
+  if (
+    Object.entries(data).some(
+      ([key, value]) => !DURABLE_KEYS.includes(key) || typeof value !== "string",
+    )
+  ) {
+    throw new Error("The save contains unsupported data.");
+  }
+  const before = readDurableSnapshotForBackup();
+  const journal = JSON.stringify({ version: 1, before });
+  // A failed journal write leaves every existing key untouched.
+  window.localStorage.setItem(SAVE_RESTORE_JOURNAL_KEY, journal);
+  if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== journal) {
+    throw new Error("Browser storage could not protect the existing save.");
+  }
+  try {
+    writeCompleteSnapshot(data);
+    window.localStorage.removeItem(SAVE_RESTORE_JOURNAL_KEY);
+    if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== null) {
+      throw new Error("Browser storage could not finish the import.");
+    }
+    // Idle/pagehide callbacks must never replay pre-import preferences.
+    for (const key of DURABLE_KEYS) _pendingWrites.delete(key);
+    // The current engine still holds its pre-import values until reload.
+    _backupReloadRequired = true;
+  } catch {
+    try {
+      writeCompleteSnapshot(before);
+      window.localStorage.removeItem(SAVE_RESTORE_JOURNAL_KEY);
+      if (window.localStorage.getItem(SAVE_RESTORE_JOURNAL_KEY) !== null) {
+        throw new Error("Recovery is still pending.");
+      }
+    } catch {
+      _backupReloadRequired = true;
+      throw new Error(
+        "Import failed. Recovery is pending; free browser storage and reload before playing.",
+      );
+    }
+    throw new Error("Import failed. Your previous save and settings were restored.");
+  }
+}
 
 /** Read every durable key's raw stored string. Flushes the pending
  *  queue first so the snapshot always reflects the latest saves. */

@@ -214,8 +214,11 @@ import {
   saveTotalJumps,
   saveTotalNightsSurvived,
   saveUnlockedAchievements,
+  getPersistenceWriteStatus,
+  recoverPendingSaveRestore,
 } from "./persistence";
 import { setReduceMotionMode } from "./reducedMotion";
+import { SaveBackupController } from "./saveBackup";
 import {
   cloudVisualWidth,
   drawCloudMorphed,
@@ -1928,6 +1931,11 @@ setHighContrastMode(loadBoolFlag(HIGH_CONTRAST_KEY, false));
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GameCallback = (...args: any[]) => void;
 
+const saveBackup = new SaveBackupController(
+  () => GameAPI._ready && !state.started,
+  () => window.location.reload(),
+);
+
 const GameAPI = {
   _ready: false as boolean,
   _readyCb: null as GameCallback | null,
@@ -1985,6 +1993,22 @@ const GameAPI = {
     }));
   },
 
+  getSaveBackupStatus() {
+    return saveBackup.getStatus();
+  },
+  exportSaveBackup() {
+    return saveBackup.export();
+  },
+  previewSaveImport(text: string) {
+    return saveBackup.preview(text);
+  },
+  cancelSaveImport() {
+    saveBackup.cancel();
+  },
+  confirmSaveImport(token: string, overwriteConfirmed: boolean) {
+    return saveBackup.confirm(token, overwriteConfirmed);
+  },
+
   getLoadingState(): LoadingState {
     return startup.getState();
   },
@@ -2001,7 +2025,7 @@ const GameAPI = {
   },
 
   start() {
-    if (!this._ready || state.started) return;
+    if (!this._ready || state.started || getPersistenceWriteStatus().reloadRequired) return;
     state.started = true;
     state.paused = false;
     const cdRoll = Math.random();
@@ -3570,6 +3594,7 @@ function autoPauseOnControllerLoss(): void {
 }
 
 async function prepareGame() {
+  recoverPendingSaveRestore();
   // Debug mode is gated on `import.meta.env.DEV` (true only for
   // `npm run dev` / `dev:web` / `dev:desktop`). Production bundles
   // from `vite build` get DEV=false, which makes the URL query
