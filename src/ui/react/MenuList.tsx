@@ -147,7 +147,7 @@ export function MenuList({ callbacks: cb }: MenuListProps) {
         )}
       <details className="menu-group">
         <summary className="menu-group-summary">About &amp; links</summary>
-        <ul>
+        <ul className="menu-group-body">
           {cb.getInstallAvailable() && (
             <li className="web-only">
               <button

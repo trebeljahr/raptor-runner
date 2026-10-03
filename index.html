@@ -912,8 +912,10 @@
                <SoundSettings> component (src/ui/react/SoundSettings.tsx).
                The <details> wrapper and its <summary> above stay
                vanilla — only the body inside is React. -->
-          <div id="sound-volume-root"></div>
-          <div class="sound-settings-body"></div>
+          <div class="menu-group-body sound-settings-content">
+            <div id="sound-volume-root"></div>
+            <div class="sound-settings-body"></div>
+          </div>
         </details>
 
         <!-- Accessibility (collapsible). Rows are rendered by the
@@ -962,8 +964,10 @@
              keep working against the rendered .menu-item buttons. -->
         <details id="save-settings" class="menu-group pre-game-only">
           <summary class="menu-group-summary">Saved progress</summary>
-          <div id="save-settings-body"></div>
-          <div id="progress-actions-root"></div>
+          <div class="menu-group-body">
+            <div id="save-settings-body"></div>
+            <div id="progress-actions-root"></div>
+          </div>
         </details>
         <div id="menu-list-root"></div>
       </div>
