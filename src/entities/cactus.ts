@@ -5,8 +5,7 @@
  *   • Cactuses — spawn manager: scrolls, retires off-screen cacti,
  *                decides the next gap, drops flower-field breathers
  *                and one coin per cactus (sole score source).
- * Score/achievement progression lives in the coin-pickup callback
- * in main.ts, not here.
+ * Achievement notifications stay in main.ts, after collision resolution.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -43,6 +42,9 @@ export class Cactus {
   h: number;
   img: HTMLImageElement | undefined;
   aspectRatio: number;
+  private _previousRight: number;
+  private _clearanceEligible = true;
+  private _clearanceResolved = false;
   private _polyCache: Polygon | null = null;
   /** Pre-allocated polygon buffer — same length as variant.collision,
    *  reused on every collisionPolygon() call so we never allocate N
@@ -59,6 +61,7 @@ export class Cactus {
     this.h = raptor.h * variant.heightScale;
     this.w = this.h * this.aspectRatio;
     this.x = state.width;
+    this._previousRight = this.x + this.w;
     this.y = state.ground - this.h;
     this._polyBuffer = variant.collision.map(() => ({ x: 0, y: 0 }));
   }
@@ -76,8 +79,21 @@ export class Cactus {
     // Shared integer dx computed once per frame in main.ts —
     // eliminates inter-entity rounding drift that made back-to-back
     // cacti appear to "dance" as their sub-pixel phases differed.
+    this._previousRight = this.x + this.w;
     this.x -= state._frameScrollDx;
     this._polyCache = null;
+  }
+
+  /** Called after collision detection. A grace-period pass never earns credit,
+   *  even if invulnerability expires before the cactus leaves the screen. */
+  resolveClearance(canReward: boolean): boolean {
+    if (this._clearanceResolved) return false;
+    const crossedPlayer =
+      this._previousRight >= this.raptor.x && this.x <= this.raptor.x + this.raptor.w;
+    if (!canReward && crossedPlayer) this._clearanceEligible = false;
+    if (this.x + this.w >= this.raptor.x) return false;
+    this._clearanceResolved = true;
+    return canReward && this._clearanceEligible && crossedPlayer;
   }
 
   collisionPolygon(): Polygon {
@@ -301,16 +317,16 @@ export class Cactuses {
     for (const c of this.cacti) c.update(frameScale);
     this.pterodactyls.update(now, frameScale);
 
-    // Retire cacti once they've fully left the screen. Every retired
-    // cactus counts as "cleared" — the collision path sets gameOver
-    // before a cactus can reach this filter, so a cactus that makes
-    // it here is one the raptor successfully jumped. Score/cosmetic
-    // thresholds still fire from the meters-based block in main.ts;
-    // this counter only drives the "25 cacti jumped" achievement.
-    const before = this.cacti.length;
-    compactInPlace(this.cacti, (c) => c.x >= -c.w);
-    const retired = before - this.cacti.length;
-    if (retired > 0) state.runCactiCleared += retired;
+    // Keep outgoing obstacles until main.ts has resolved this frame's hits.
+  }
+
+  resolveClearances(): void {
+    const canReward =
+      !state.gameOver && !state.noCollisions && state.frame >= state.invulnerableUntilFrame;
+    for (const cactus of this.cacti) {
+      if (cactus.resolveClearance(canReward)) state.runCactiCleared += 1;
+    }
+    compactInPlace(this.cacti, (c) => c.x + c.w >= this.raptor.x);
   }
 
   draw(ctx: CanvasRenderingContext2D): void {

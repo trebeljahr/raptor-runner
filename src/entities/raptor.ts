@@ -90,11 +90,19 @@ export class Raptor {
   }
 
   resize(): void {
+    const previousWidth = this.w;
+    const heightAboveGround = this.ground - this.y;
     this.w = state.width * RAPTOR_WIDTH_RATIO;
     this.h = this.w * RAPTOR_ASPECT;
     this.x = 0;
     this.ground = state.ground - this.h;
-    this.y = this.ground;
+    // Acceleration and jump height both scale with viewport width, so
+    // velocity scales by the same ratio. Height-only changes translate
+    // the trajectory without changing its phase or vertical speed.
+    const scale = previousWidth > 0 ? this.w / previousWidth : 1;
+    this.y = this.ground - Math.max(0, heightAboveGround) * scale;
+    this.velocity *= scale;
+    this._polyCache = null;
   }
 
   get downwardAcceleration(): number {

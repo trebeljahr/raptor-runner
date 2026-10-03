@@ -296,13 +296,11 @@ function _allSlotsEquipped(): boolean {
   return e.head != null && e.eyes != null && e.neck != null;
 }
 
-/** Add to inventory and auto-equip if the slot is empty. No-op if
- *  already owned. `forceEquip` overrides the empty-slot guard — used
- *  for score-milestone classics where the item IS the reward, so
- *  showing it on the raptor immediately is the celebratory moment. */
+/** Add to inventory. Purchases auto-equip an empty slot; passive rewards
+ *  can disable auto-equip to preserve the player's outfit, including bare slots. */
 export function grantCosmetic(
   id: string,
-  { forceEquip = false }: { forceEquip?: boolean } = {},
+  { forceEquip = false, autoEquip = true }: { forceEquip?: boolean; autoEquip?: boolean } = {},
 ): void {
   const def = COSMETICS_BY_ID[id];
   if (!def) return;
@@ -316,8 +314,12 @@ export function grantCosmetic(
       saveBoolFlag(storageKey, true);
     }
   }
-  if (forceEquip || state.equippedCosmetics[def.slot] == null) {
+  if (forceEquip || (autoEquip && state.equippedCosmetics[def.slot] == null)) {
     equipCosmetic(id);
+  } else {
+    // Boot migration also reads legacy wear flags. A passive grant must
+    // not silently equip the reward the next time the player opens the game.
+    _setLegacyWear(id, state.equippedCosmetics[def.slot] === id);
   }
 }
 

@@ -16,7 +16,10 @@
  *     stays visible while the menu/start-screen is open.
  *
  * Public API (exposed on window.Game):
- *   Game.onReady(cb)         – invoked once assets are loaded
+ *   Game.getLoadingState()  – loading/error/ready snapshot
+ *   Game.onLoadingStateChange(cb) – observe startup; returns unsubscribe
+ *   Game.retryLoading()     – retry failed assets; resolves to loading state
+ *   Game.onReady(cb)         – invoked once required assets and engine are ready
  *   Game.start()             – unpauses the game (call after the user
  *                              clicks the Start Game button)
  *   Game.pause() / resume()  – called when menus open/close
@@ -36,6 +39,7 @@
  */
 import "./styles/base.css";
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID } from "./achievements";
+import { GameStartup, loadGameImages, type LoadingState } from "./assetLoading";
 import { audio } from "./audio";
 import { syncEmbeddedDocs } from "./iframeAccessibility";
 import { contexts, initCanvas } from "./canvas";
@@ -717,7 +721,7 @@ function update(now: number) {
       if (crossed(PARTY_HAT_SCORE_THRESHOLD)) {
         unlockAchievement("party-time");
         if (!state.ownedCosmetics["party-hat"]) {
-          grantCosmetic("party-hat", { forceEquip: true });
+          grantCosmetic("party-hat", { autoEquip: false });
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
@@ -725,7 +729,7 @@ function update(now: number) {
       if (crossed(BOW_TIE_SCORE_THRESHOLD)) {
         unlockAchievement("dinosaurs-forever");
         if (!state.ownedCosmetics["bow-tie"]) {
-          grantCosmetic("bow-tie", { forceEquip: true });
+          grantCosmetic("bow-tie", { autoEquip: false });
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
@@ -733,7 +737,7 @@ function update(now: number) {
       if (crossed(THUG_GLASSES_SCORE_THRESHOLD)) {
         unlockAchievement("score-250");
         if (!state.ownedCosmetics["thug-glasses"]) {
-          grantCosmetic("thug-glasses", { forceEquip: true });
+          grantCosmetic("thug-glasses", { autoEquip: false });
           const crown = raptor.currentCrownPoint();
           spawnConfettiBurst(crown.x, crown.y);
         }
@@ -753,11 +757,6 @@ function update(now: number) {
 
     raptor.update(now, frameScale);
     cactuses.update(now, frameScale);
-    // "Getting The Hang Of It" fires the frame the 25th cactus
-    // finishes scrolling off the left edge. Kept outside the
-    // filter loop in cactus.ts so the achievement hook stays here
-    // with the other unlock triggers.
-    if (state.runCactiCleared >= 25) unlockAchievement("score-25");
     // Flowers scroll at ground speed like cacti. Spawn happens
     // inside Cactuses' breather roll so empty stretches read as
     // a scenic break, not dead grass.
@@ -902,6 +901,13 @@ function update(now: number) {
         }
       }
     } // end noCollisions guard
+
+    // Count actual obstacle clearance only after this frame's collision result.
+    cactuses.resolveClearances();
+    if (!state.gameOver) {
+      if (state.runCactiCleared >= 1) unlockAchievement("first-jump");
+      if (state.runCactiCleared >= 25) unlockAchievement("score-25");
+    }
 
     // Clouds drift — slower than the ground but a bit faster than
     // the first-pass fix, so the parallax reads as "distant sky"
@@ -1969,8 +1975,23 @@ const GameAPI = {
     }));
   },
 
+  getLoadingState(): LoadingState {
+    return startup.getState();
+  },
+
+  /** Emits an initial snapshot in a microtask, then each state change.
+   *  Returns an unsubscribe function. */
+  onLoadingStateChange(cb: (loading: LoadingState) => void): () => void {
+    return startup.subscribe(cb);
+  },
+
+  /** Concurrent retries share one attempt; resolves to its final state. */
+  retryLoading(): Promise<LoadingState> {
+    return startup.run();
+  },
+
   start() {
-    if (state.started) return;
+    if (!this._ready || state.started) return;
     state.started = true;
     state.paused = false;
     const cdRoll = Math.random();
@@ -2784,26 +2805,11 @@ export type GameAPI = typeof GameAPI;
 // Init
 // ══════════════════════════════════════════════════════════════════
 
-function preloadImages() {
-  return Promise.all(
-    Object.entries(IMAGE_SRCS).map(
-      ([key, src]) =>
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            IMAGES[key] = img;
-            resolve();
-          };
-          img.onerror = () => {
-            console.warn(`Failed to load ${src}`);
-            IMAGES[key] = undefined;
-            resolve();
-          };
-          img.src = src;
-        }),
-    ),
-  );
-}
+const startup = new GameStartup(
+  prepareGame,
+  () => loadGameImages(IMAGE_SRCS, IMAGES),
+  finishGameInit,
+);
 
 /**
  * Warm the GPU texture cache for every loaded image by drawing it
@@ -3553,7 +3559,7 @@ function autoPauseOnControllerLoss(): void {
   }
 }
 
-async function init() {
+async function prepareGame() {
   // Debug mode is gated on `import.meta.env.DEV` (true only for
   // `npm run dev` / `dev:web` / `dev:desktop`). Production bundles
   // from `vite build` get DEV=false, which makes the URL query
@@ -3584,7 +3590,7 @@ async function init() {
   // still references bare `ctx`, `skyCtx`, etc.) keeps working.
   // Once the render code moves into its own modules, these aliases
   // and the outer `let` declarations will be deleted.
-  if (!initCanvas("game-canvas")) return;
+  if (!initCanvas("game-canvas")) throw new Error("Game canvas unavailable");
   canvas = contexts.mainCanvas!;
   ctx = contexts.main!;
   skyCanvas = contexts.skyCanvas!;
@@ -3702,8 +3708,11 @@ async function init() {
   onResize();
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", onResize);
+}
 
-  await preloadImages();
+function finishGameInit(): void {
+  // Viewport may have changed while required assets were failing.
+  onResize();
   // Pre-upload every sprite to the GPU now so the first drawImage
   // of a rare-event sprite doesn't cause a texture-upload hitch
   // mid-run (previously killed the player when the UFO spawned).
@@ -3730,11 +3739,6 @@ async function init() {
       spawnDust(raptor.x + raptor.w * FOOT_RIGHT_OFFSET, state.ground, 1.3);
     },
     () => {
-      // First-jump achievement fires here now that score is
-      // distance-based (a fresh run crosses 1 m almost immediately,
-      // so gating off the score was effectively a no-op). Idempotent
-      // — safe to call every jump.
-      unlockAchievement("first-jump");
       maybeSpawnRareEvent();
     },
     (foot) => {
@@ -4113,12 +4117,18 @@ async function init() {
   if (GameAPI._readyCb) {
     const cb = GameAPI._readyCb;
     GameAPI._readyCb = null;
-    cb();
+    queueMicrotask(cb);
   }
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      void startup.run();
+    },
+    { once: true },
+  );
 } else {
-  init();
+  void startup.run();
 }
