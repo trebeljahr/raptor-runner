@@ -547,13 +547,14 @@
          (with a loading spinner until the worker finishes
          rendering it), a button to copy/share it, and a
          restart hint. -->
+    <div id="run-result-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="score-card-overlay" class="score-card-overlay">
       <div
         id="score-card-panel"
         class="score-card-panel"
         role="dialog"
         aria-modal="false"
-        aria-label="Game over — share your score"
+        aria-label="Run results"
       >
         <h2 class="score-card-heading">Game Over</h2>
         <div class="score-card-body">

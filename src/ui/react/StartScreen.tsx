@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Start screen content + byline — React port of the .start-content
  * and .start-byline blocks in index.html. The outer #start-screen
@@ -23,11 +22,13 @@
  * animation pipeline.
  */
 import type { MouseEvent } from "react";
+import { formatKeyCode } from "../../input/keyLabels";
 
 export interface StartScreenCallbacks {
   onStart: () => void;
   getHighScore: () => number;
   getAssetsReady: () => boolean;
+  getJumpKeys: () => string[];
 }
 
 export interface StartScreenProps {
@@ -75,7 +76,9 @@ export function StartScreen({ callbacks: cb }: StartScreenProps) {
           <span className="label">{ready ? "Start Game" : "Loading…"}</span>
         </button>
         <p className="start-hint start-hint-desktop">
-          Tip: press <kbd>Space</kbd> or tap to jump · <kbd>Esc</kbd> for menu
+          <kbd>Enter</kbd> to start · {cb.getJumpKeys().map((code, index) => (
+            <span key={code}>{index > 0 ? " / " : ""}<kbd>{formatKeyCode(code)}</kbd></span>
+          ))} to jump · <kbd>Esc</kbd> for menu
         </p>
         <p className="start-hint start-hint-touch">Tip: Tap to jump</p>
         {/* Jump = the family's confirm button; one <kbd> per family,

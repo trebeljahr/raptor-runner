@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Cosmetics body — React port of renderCosmeticsMenu() +
  * _buildCosmeticSlotRow() + _setThumbForId() from src/ui.ts. The
@@ -114,7 +113,7 @@ export interface CosmeticsMenuProps {
 
 export function CosmeticsMenu({ callbacks: cb }: CosmeticsMenuProps) {
   const Game = window.Game;
-  const all: any[] = Game?.getAllCosmetics?.() ?? [];
+  const all = Game?.getAllCosmetics?.() ?? [];
   const owned = all.filter((c) => Game?.ownsCosmetic?.(c.id) === true);
 
   return (

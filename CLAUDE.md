@@ -5,9 +5,8 @@ web (Vite → static deploy), desktop (Electron), mobile (Capacitor).
 
 ## Stack
 
-- **Vite + TypeScript**, strict mode. `tsconfig.json` includes `*.ts` and
-  `*.d.ts` only — `.tsx` files (React overlays) are picked up via Vite's
-  own pipeline.
+- **Vite + TypeScript**, strict mode. `tsconfig.json` includes `*.ts`, `*.tsx`, and
+  `*.d.ts`; React overlays are checked with the game engine.
 - **Canvas** for the game. No game framework.
 - **React** for menus, shop, settings, credits — mounted on top of the
   canvas as overlays. Each lives in `src/ui/react/<Name>.tsx` paired

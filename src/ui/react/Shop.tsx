@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Shop overlay — React port of renderShop() / refreshShopBalance() from
  * src/ui.ts. Visuals are unchanged: every CSS class name is copied
@@ -137,7 +136,7 @@ function spawnShopConfetti(originX: number, originY: number) {
 interface ShopDef {
   id: string;
   name: string;
-  slot: string;
+  slot: "head" | "eyes" | "neck";
   price: number;
   description?: string;
 }

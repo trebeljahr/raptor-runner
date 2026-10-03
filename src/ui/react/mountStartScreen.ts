@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createElement } from "react";
 /*
  * Mount helper for <StartScreen>. Hosts inside a dedicated

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Credits overlay — React port of the #credits-overlay contents in
  * index.html plus the build-time inject from vite.config.ts's

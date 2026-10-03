@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Achievements overlay — React port of renderAchievementsList() +
  * buildAchievementIconNode() from src/ui.ts. Visuals unchanged: every
@@ -29,8 +28,8 @@ interface Achievement {
   desc: string;
   unlocked?: boolean;
   secret?: boolean;
-  iconHTML?: string;
-  iconImage?: string;
+  iconHTML?: string | null;
+  iconImage?: string | null;
 }
 
 function AchievementIcon({ ach, hidden }: { ach: Achievement; hidden: boolean }) {

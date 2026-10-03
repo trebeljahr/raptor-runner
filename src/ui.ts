@@ -26,6 +26,7 @@
  * onReady gate has fired, but the capture keeps TypeScript honest.
  */
 
+import { formatKeyCode } from "./input/keyLabels";
 import { SITE_URL } from "./config/externalLinks";
 import {
   DEFAULT_JUMP_KEYS,
@@ -155,6 +156,7 @@ const START_SCREEN_CALLBACKS = {
   onStart: () => triggerStart(),
   getHighScore: () => window.Game?.getHighScore?.() || 0,
   getAssetsReady: () => assetsReady,
+  getJumpKeys: () => window.Game?.getJumpKeys?.() ?? [...DEFAULT_JUMP_KEYS],
 };
 
 function syncStartScreen() {
@@ -285,8 +287,8 @@ function scoreLoop() {
       scoreDisplay &&
       (lastAriaScore < 0 || Math.floor(target / 100) !== Math.floor(lastAriaScore / 100))
     ) {
-      const coinsForLabel = game.getCoinsBalance?.() ?? 0;
-      scoreDisplay.setAttribute("aria-label", `Score: ${target} meters, ${coinsForLabel} coins`);
+      const coinsForLabel = game.getRunCoins?.() ?? 0;
+      scoreDisplay.setAttribute("aria-label", `Score: ${target} meters, ${coinsForLabel} coins this run`);
       lastAriaScore = target;
       lastAriaCoins = coinsForLabel;
     }
@@ -330,6 +332,9 @@ function scoreLoop() {
 }
 function showScoreDisplay() {
   displayedScore = 0;
+  lastAriaScore = -1;
+  lastAriaCoins = -1;
+  lastCoinAriaAt = 0;
   // Per-run coins start at 0 each run — HUD opens on 0 and ticks
   // up with pickups, no stale carry-over from the prior attempt.
   displayedCoins = window.Game?.getRunCoins?.() ?? 0;
@@ -798,6 +803,10 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
 
 function syncAccessibilityUI() {
   refreshAccessibilitySettings(ACCESSIBILITY_SETTINGS_CALLBACKS);
+  syncStartScreen();
+  const keys = START_SCREEN_CALLBACKS.getJumpKeys().map(formatKeyCode).join(", ");
+  document.getElementById("game-canvas")?.setAttribute("aria-label",
+    `Raptor Runner. Press ${keys} or tap to jump. Press Escape for the menu.`);
 }
 
 // ───────── Fullscreen button ─────────
@@ -1511,6 +1520,7 @@ const MENU_LIST_CALLBACKS = {
   onFullscreen: handleFullscreenClick,
   onQuit: handleQuitClick,
   getInstallAvailable: () => deferredInstallPrompt != null,
+  getReturnLabel: () => window.Game?.isGameOver() ? "Back to results" : "Resume game",
   getFullscreenLabel: () => "Fullscreen: " + (fullscreenState ? "on" : "off"),
 };
 
@@ -2053,22 +2063,19 @@ let reviveCost: number | null = null;
 // so they can see "you have N coins" without dismissing the offer.
 // Null means the score card isn't visible (or revive is hidden).
 let reviveBalance: number | null = null;
-// True iff the player can currently afford the revive. Flips to
-// false when the 5s window elapses (expireReviveOffer) — the button
-// stays rendered, just in its disabled "poor" state.
 let reviveAffordable = false;
-// Bumped on every startReviveOffer so React remounts the revive
-// button and the CSS drain animation replays from its from-frame.
-// The vanilla code achieved the same thing with a manual
-// `void reviveBtn.offsetHeight` reflow between classList toggles.
-let reviveKey = 0;
+let reviveShortfall = 0;
+let runResult: { score: number; best: number; coins: number; record: boolean } | null = null;
+let cardGeneration = 0;
 
 function syncScoreCardActions() {
   refreshScoreCardActions({
     reviveCost,
     reviveBalance,
     reviveAffordable,
-    reviveKey,
+    reviveShortfall,
+    result: runResult,
+    shareReady: currentCardBlob != null,
     shareLabel,
     onRevive: handleReviveClick,
     onShare: handleShareClick,
@@ -2077,6 +2084,7 @@ function syncScoreCardActions() {
 }
 
 function clearCard() {
+  cardGeneration += 1;
   if (currentCardUrl) {
     URL.revokeObjectURL(currentCardUrl);
     currentCardUrl = null;
@@ -2095,11 +2103,21 @@ function showScoreCard() {
   // image. The spinner is swapped for the real image once
   // the worker returns.
   clearCard();
-  if (scoreCardSlot) scoreCardSlot.classList.remove("loaded");
+  if (scoreCardSlot) scoreCardSlot.classList.remove("loaded", "failed");
   sharePanel.classList.add("visible");
   if (scoreCardOverlay) scoreCardOverlay.classList.add("visible");
   shareLabel = originalShareLabel;
+  runResult = { score: Math.floor(game.getScore()), best: Math.floor(game.getHighScore()),
+    coins: game.getRunCoins(), record: game.isNewHighScore() };
+  const finalText = `Game over. ${runResult.score} meters. ${runResult.coins} coins earned. ${runResult.record ? "New personal best." : `Personal best: ${runResult.best} meters.`}`;
+  const announcement = document.getElementById("run-result-announcement");
+  if (announcement) announcement.textContent = finalText;
+  scoreDisplay?.setAttribute("aria-label", finalText);
+  lastAriaScore = runResult.score;
+  lastAriaCoins = runResult.coins;
+  scoreCardImg.alt = `Share image: ${runResult.score} meters, ${runResult.coins} coins earned.`;
   startReviveOffer();
+  const generation = cardGeneration;
   // Land initial focus on the most-interesting button — Revive when
   // offered, otherwise Play Again. Deferred to the next frame so
   // React has mounted the buttons into the DOM by the time we try
@@ -2115,7 +2133,7 @@ function showScoreCard() {
       game
         .generateScoreCard()
         .then((blob) => {
-          if (!blob || !sharePanel.classList.contains("visible")) {
+          if (!blob || generation !== cardGeneration || !sharePanel.classList.contains("visible")) {
             return;
           }
           currentCardBlob = blob;
@@ -2124,9 +2142,15 @@ function showScoreCard() {
             if (scoreCardSlot) scoreCardSlot.classList.add("loaded");
           };
           scoreCardImg.src = currentCardUrl;
+          syncScoreCardActions();
         })
         .catch((e) => {
           console.warn("score card failed", e);
+          if (generation === cardGeneration) {
+            scoreCardSlot?.classList.add("failed");
+            shareLabel = "Share image unavailable";
+            syncScoreCardActions();
+          }
         });
     });
   });
@@ -2214,9 +2238,12 @@ function showAchievementToast(ach: AchievementToast) {
 }
 
 function hideScoreCard() {
+  runResult = null;
+  const announcement = document.getElementById("run-result-announcement");
+  if (announcement) announcement.textContent = "";
   if (sharePanel) sharePanel.classList.remove("visible");
   if (scoreCardOverlay) scoreCardOverlay.classList.remove("visible");
-  if (scoreCardSlot) scoreCardSlot.classList.remove("loaded");
+  if (scoreCardSlot) scoreCardSlot.classList.remove("loaded", "failed");
   clearCard();
   shareInFlight = false;
   shareLabel = originalShareLabel;
@@ -2224,29 +2251,8 @@ function hideScoreCard() {
   syncScoreCardActions();
 }
 
-// ─── Revive offer ─────────────────────────────────────────
-// The revive button sits above the Share/Play-again row. Always
-// visible on game-over so the option is discoverable — but the
-// button renders in a disabled "poor" state (desaturated, no click)
-// when the player can't afford the current cost. A drain bar along
-// the bottom signals the 5-second offer window. Click → spend coins
-// → dismiss the score card and hand control back to the game loop
-// (main.ts then runs a ~1s invulnerability grace period).
-//
-// All state flows through syncScoreCardActions() into the React
-// <ScoreCardActions> component — reviveCost / reviveAffordable /
-// reviveBalance / reviveKey drive the rendered button.
-const REVIVE_OFFER_MS = 5000;
-let reviveExpireTimer: number | null = null;
-
-/** Hide the button AND the balance hint. Only used when the whole
- *  score card closes (restart / revive success) — expiry uses
- *  expireReviveOffer() below, which keeps the button visible. */
+// The offer stays available until the player leaves the results.
 function hideReviveOffer() {
-  if (reviveExpireTimer !== null) {
-    clearTimeout(reviveExpireTimer);
-    reviveExpireTimer = null;
-  }
   if (coinFillRaf !== null) {
     cancelAnimationFrame(coinFillRaf);
     coinFillRaf = null;
@@ -2268,7 +2274,7 @@ let coinFillRaf: number | null = null;
 // Mini-menu on the game-over card: the three action buttons are
 // navigable with D-pad ←/→ (gamepad), keyboard ←/→, and activate on
 // face-A / Enter. Revive is skipped when not offered (null cost) or
-// disabled (can't afford + expiry). Mirrors the main menu's
+// disabled (can't afford). Mirrors the main menu's
 // getNavigableMenuItems / focusKbd pattern so keyboard and gamepad
 // share the exact same code path.
 let _scoreCardFocusIdx = 0;
@@ -2398,17 +2404,6 @@ function startCoinFillAnim(total: number, runCoins: number) {
   coinFillRaf = requestAnimationFrame(step);
 }
 
-/** Fires when the 5-second window elapses. Button stays rendered
- *  in the DOM (through the React component) so the player can
- *  still see the revive option + their coin balance, but
- *  reviveAffordable flips to false so clicks are ignored and the
- *  drain bar stops. */
-function expireReviveOffer() {
-  reviveExpireTimer = null;
-  reviveAffordable = false;
-  syncScoreCardActions();
-}
-
 function startReviveOffer() {
   hideReviveOffer();
   if (!window.Game?.isGameOver || !window.Game?.getReviveCost) return;
@@ -2426,20 +2421,9 @@ function startReviveOffer() {
   // we don't want the drain bar's visibility to flicker during the
   // animation.
   reviveAffordable = balance >= cost;
-  // Bumping the key remounts the revive button in React so the
-  // CSS .draining keyframe restarts from its from-frame on every
-  // offer — equivalent to the vanilla reflow trick.
-  reviveKey += 1;
+  reviveShortfall = Math.max(0, cost - balance);
   syncScoreCardActions();
-  // Pour the run's coins into the balance visually + audibly.
   startCoinFillAnim(balance, runCoins);
-  // Drain bar only plays when the offer is actually live — i.e.,
-  // the player has enough coins. A draining bar on a can't-afford
-  // button reads as "hurry up and buy" when there's nothing to buy
-  // with.
-  if (reviveAffordable) {
-    reviveExpireTimer = window.setTimeout(expireReviveOffer, REVIVE_OFFER_MS);
-  }
 }
 
 function handleReviveClick() {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createElement } from "react";
 /*
  * Mount helper for <DebugSettings>. Hosts inside the existing

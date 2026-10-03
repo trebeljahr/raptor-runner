@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createElement } from "react";
 /*
  * Two mount helpers — one each for the About and Imprint overlays —

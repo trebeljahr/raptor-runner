@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Debug settings body — React port of the rows inside the pause
  * menu's <details id="debug-settings"> block. Rendered only when

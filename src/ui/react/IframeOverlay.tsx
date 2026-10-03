@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Generic iframe-sheet overlay — shared shell for the About and
  * Imprint overlays. Both are just a close × and an iframe pointing

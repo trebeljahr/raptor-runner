@@ -1,36 +1,13 @@
-// @ts-nocheck
-/*
- * Score-card action row — React port of the Revive / Share / Play-again
- * buttons + the "Press Enter / ● to restart" hint below the game-over
- * PNG preview. The PNG slot itself (<div id="score-card-slot">) and the
- * .visible class toggles on #score-card-overlay / #score-card-panel
- * stay in vanilla ui.ts — the blob lifecycle, the async card generation,
- * and the panel visibility aren't component-tree concerns.
- *
- * All state is owned by ui.ts: reviveCost (null hides the button),
- * reviveKey (increment to restart the .draining keyframe — React
- * re-uses the same CSS class, but we change the `key` prop on the
- * revive button so it remounts and the animation fires from the
- * from-frame again, same effect as the vanilla code's manual reflow
- * trick), shareLabel (updated by ui.ts's clipboard/share-sheet flow
- * via flashShareLabel). The component is a dumb renderer — every click
- * delegates to a callback prop.
- */
 import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
 
 export interface ScoreCardActionsProps {
   reviveCost: number | null;
-  // Player's current coin balance, rendered under the revive
-  // button as "You have N coins". Null means the hint stays
-  // hidden (score card closed, or revive not on offer).
   reviveBalance: number | null;
-  // False when the player can't afford reviveCost OR the 5s
-  // offer window has expired. The button stays in the DOM so the
-  // revive option remains visible, but it renders in the .poor
-  // greyed-out state and ignores clicks.
   reviveAffordable: boolean;
-  reviveKey: number;
+  reviveShortfall: number;
+  result: { score: number; best: number; coins: number; record: boolean } | null;
+  shareReady: boolean;
   shareLabel: string;
   onRevive: () => void;
   onShare: () => void;
@@ -41,7 +18,9 @@ export function ScoreCardActions({
   reviveCost,
   reviveBalance,
   reviveAffordable,
-  reviveKey,
+  reviveShortfall,
+  result,
+  shareReady,
   shareLabel,
   onRevive,
   onShare,
@@ -64,23 +43,18 @@ export function ScoreCardActions({
 
   return (
     <>
+      {result && <div className="run-result">
+        <p className="run-result-score"><strong>{result.score}</strong> meters</p>
+        <p>{result.record ? "New personal best" : `${Math.max(0, result.best - result.score)} m from your best (${result.best} m)`}</p>
+        <p>{result.coins} coins earned</p>
+      </div>}
       <button
-        key={reviveKey}
-        className={
-          "revive-btn" +
-          // Drain bar only animates when the offer is actually live
-          // — a draining bar on an unaffordable button reads as
-          // 'hurry up and buy' when there's nothing to buy with.
-          (reviveCost != null && reviveAffordable ? " draining" : "") +
-          // .poor state: desaturated panel, non-interactive cursor.
-          // Matches the CSS rule that also gates on :disabled so the
-          // same visual applies after the offer window expires.
-          (reviveCost != null && !reviveAffordable ? " poor" : "")
-        }
+        className={"revive-btn" + (!reviveAffordable ? " poor" : "")}
         type="button"
         hidden={reviveCost == null}
         disabled={!reviveAffordable}
         aria-label={`Revive for ${reviveCost ?? 0} coins`}
+        aria-describedby="revive-status"
         onClick={handleRevive}
       >
         <span className="revive-btn-inner">
@@ -89,22 +63,25 @@ export function ScoreCardActions({
             Revive · <span>{reviveCost ?? 0}</span>
           </span>
         </span>
-        <span className="revive-btn-progress" aria-hidden="true"></span>
+
       </button>
       {/* No aria-live here on purpose: the coin-fill tween rewrites
           this number every animation frame for ~1.2s, and a live
           region would queue dozens of announcements. Screen readers
           still get the settled value when reading the card. */}
       <div className="revive-balance" hidden={reviveCost == null || reviveBalance == null}>
-        You have <span>{reviveBalance ?? 0}</span>
+        You have <span>{reviveBalance ?? 0}</span> coins
         <img src="assets/coin.png" alt="" className="coin-icon" aria-hidden="true" />
       </div>
+      {reviveCost != null && <p className="revive-status" id="revive-status">
+        {reviveAffordable ? "Available until you start another run." : `Need ${reviveShortfall} more coins to revive.`}
+      </p>}
       <div className="score-card-actions">
         {/* No aria-label: the visible label IS the accessible name, so
             the "Copied!" / "Shared!" feedback flashes are announced
             (the label span is a polite live region) instead of being
             masked by a static override. */}
-        <button className="share-score-btn" type="button" onClick={handleShare}>
+        <button className="share-score-btn" type="button" disabled={!shareReady} onClick={handleShare}>
           <span className="inner">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="18" cy="5" r="3"></circle>

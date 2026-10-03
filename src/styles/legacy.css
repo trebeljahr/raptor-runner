@@ -1172,46 +1172,7 @@ body.gamepad-connected .score-card-hint .pad-hint {
   filter: grayscale(0.5) opacity(0.7);
 }
 .revive-btn.poor .revive-btn-progress,
-.revive-btn:disabled .revive-btn-progress {
-  background: var(--color-dune-dim);
-}
-.revive-btn-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.revive-btn .coin-icon {
-  width: 1.15em;
-  height: 1.15em;
-}
-/* Drain bar along the bottom edge. Runs a fresh keyframe
-         animation each time .draining is applied — a keyframe
-         (vs. a transition) restarts cleanly on class re-add even
-         when the preceding class removal + re-add happen in the
-         same microtask and would otherwise be batched. */
-.revive-btn-progress {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 4px;
-  background: var(--color-dune);
-  transform: scaleX(0);
-  transform-origin: left center;
-  pointer-events: none;
-}
-.revive-btn.draining .revive-btn-progress {
-  animation: revive-drain 5s linear forwards;
-}
-@keyframes revive-drain {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-/* Score-card layout tweak — when the revive offer is present
+.revive-btn:disabled /* Score-card layout tweak — when the revive offer is present
          it sits centered above the Share/Restart duo with a snug gap.
          The panel's column flexbox already handles the stacking. */
 .score-card-panel .revive-btn {
@@ -3161,4 +3122,16 @@ body.cap .top-right-buttons {
 body.cap .score-display {
   top: calc(18px + env(safe-area-inset-top, 0px));
   left: calc(18px + env(safe-area-inset-left, 0px));
+}
+
+/* Results remain readable before the share image is ready. */
+.run-result { text-align: center; line-height: 1.35; }
+.run-result p { margin: 0.2rem 0; }
+.run-result-score strong { font-size: 1.5em; }
+.revive-status { max-width: 28ch; text-align: center; font-size: 0.8rem; margin: 0 0 0.35rem; }
+.share-score-btn:disabled { opacity: 0.55; cursor: default; }
+.score-card-slot.failed { display: none; }
+@media (max-height: 520px) and (orientation: landscape) {
+  .run-result { font-size: 0.8rem; }
+  .revive-status { font-size: 0.7rem; }
 }

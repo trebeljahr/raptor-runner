@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Sound Settings body — React port of the 9-channel toggle list that
  * lives inside the pause menu's <details id="sound-settings"> block

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /*
  * Main pause-menu navigation list + footer — React port of the <ul>
  * of buttons between the cosmetics / debug sections and the
@@ -39,6 +38,7 @@ export interface MenuListCallbacks {
   onQuit: () => void;
 
   getInstallAvailable: () => boolean;
+  getReturnLabel: () => string;
   getFullscreenLabel: () => string;
 }
 
@@ -438,7 +438,7 @@ export function MenuList({ callbacks: cb }: MenuListProps) {
             cb.onClose();
           }}
         >
-          Resume game
+          {cb.getReturnLabel()}
         </button>
       </div>
       <p className="menu-hint">
