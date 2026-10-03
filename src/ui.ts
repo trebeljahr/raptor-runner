@@ -41,7 +41,6 @@ import {
   refreshAccessibilitySettings,
 } from "./ui/react/mountAccessibilitySettings";
 import { refreshAchievements } from "./ui/react/mountAchievements";
-import { refreshCosmeticsMenu } from "./ui/react/mountCosmeticsMenu";
 import { refreshCredits } from "./ui/react/mountCredits";
 import { refreshDebugSettings } from "./ui/react/mountDebugSettings";
 import { refreshAboutOverlay, refreshImprintOverlay } from "./ui/react/mountIframeOverlay";
@@ -1702,8 +1701,6 @@ function refreshPerfUI() {
 // Both entries are hidden in the markup by default and only
 // shown once the player actually unlocks them — or always in
 // debug mode for testing.
-const cosmeticsGroup = document.getElementById("cosmetics");
-const _cosmeticsList = document.getElementById("cosmetics-list");
 const menuShopBtn = document.getElementById("menu-shop");
 const menuShopBalanceValue = document.getElementById("menu-shop-balance-value");
 const shopOverlay = document.getElementById("shop-overlay");
@@ -1779,41 +1776,8 @@ function _spriteUrlForId(id: string): string | null {
 
 function refreshEasterEggUI() {
   if (!window.Game) return;
-  renderCosmeticsMenu();
   refreshShopMenuBalance();
   refreshStartRaptorCosmetics();
-}
-
-/** Callbacks passed to <CosmeticsMenu>. Equip / unequip fire the
- *  Game API mutation then trigger renderCosmeticsMenu() to repaint
- *  the React tree and refreshStartRaptorCosmetics() to update the
- *  (non-React) start-screen raptor preview. */
-const COSMETICS_MENU_CALLBACKS = {
-  onEquipCosmetic: (id: string) => {
-    window.Game?.equipCosmetic?.(id);
-    renderCosmeticsMenu();
-    refreshStartRaptorCosmetics();
-  },
-  onUnequipSlot: (slot: "head" | "eyes" | "neck") => {
-    window.Game?.unequipSlot?.(slot);
-    renderCosmeticsMenu();
-    refreshStartRaptorCosmetics();
-  },
-};
-
-/**
- * Rebuild the cosmetics section of the menu. Called on every
- * menu-open and after any equip change so the React tree stays in
- * sync with the latest state.
- *
- * The section is discoverable even before the first item is earned.
- * Per-slot equipment controls render through <CosmeticsMenu>.
- */
-function renderCosmeticsMenu() {
-  const game = window.Game;
-  if (!cosmeticsGroup || !game) return;
-  cosmeticsGroup.hidden = false;
-  refreshCosmeticsMenu(COSMETICS_MENU_CALLBACKS);
 }
 
 // ───────── Shop ─────────

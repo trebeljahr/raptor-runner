@@ -879,25 +879,6 @@
           </span>
         </button>
 
-        <!-- Equipped items stay discoverable before the first purchase. -->
-        <details id="cosmetics" class="cosmetics menu-group">
-          <summary class="cosmetics-summary menu-group-summary">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 2L19 18H5L12 2z"></path>
-              <circle cx="12" cy="2" r="1.5" fill="currentColor"></circle>
-            </svg>
-            Equipped items
-          </summary>
-          <!-- Populated by the React <CosmeticsMenu> component
-               (src/ui/react/CosmeticsMenu.tsx) on every menu-open and
-               after any equip change. One subsection per owned slot
-               with equip buttons + a "None" row. The outer <details>
-               and #cosmetics-list host div stay here so the
-               hidden-attribute gating in ui.ts's renderCosmeticsMenu
-               keeps working. -->
-          <div class="cosmetics-body menu-group-body" id="cosmetics-list"></div>
-        </details>
-
         <!-- Sound Settings (collapsible) -->
         <details id="sound-settings" class="sound-settings">
           <summary class="sound-settings-summary">
