@@ -1878,9 +1878,7 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   outline-offset: 1px;
 }
 /* Accessibility rows: a .menu-item shell holding a label on the
-         left and a native control (range / select) at the right edge —
-         same layout idea as the debug score editor. Only the surface
-         styling is overridden; keyboard behavior stays native. */
+         left and a range, choice, or key-binding control at the right. */
 .menu-panel .accessibility-row {
   cursor: default;
 }
@@ -1904,34 +1902,19 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
-.menu-panel .accessibility-select {
-  min-width: 0;
-  margin-left: auto;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  background: #ffffff;
-  color: #222;
-  font: inherit;
-  font-size: 0.9rem;
-}
-/* Solid deep teal, not the earlier 50%-alpha sky tint: a focus
-         indicator on a white control surface needs to clear the 3:1
-         non-text contrast bar, and the translucent ring measured well
-         under it. --color-sky-deep is the same token the shop's
-         d-pad focus ring uses. */
+/* Range controls retain a clear focus outline. */
 .menu-panel .accessibility-range:focus-visible,
-.menu-panel .accessibility-select:focus-visible,
+.menu-panel .accessibility-choice:focus-visible,
 .menu-panel .accessibility-keycap:focus-visible,
 .menu-panel .accessibility-keyreset:focus-visible,
 .menu-panel .accessibility-range.kbd-focus,
-.menu-panel .accessibility-select.kbd-focus,
+.menu-panel .accessibility-choice.kbd-focus,
 .menu-panel .accessibility-keycap.kbd-focus,
 .menu-panel .accessibility-keyreset.kbd-focus {
   outline: 2px solid var(--color-sky-deep);
   outline-offset: 1px;
 }
-/* Key-binding row: the capture button shares the select surface so
+/* Key-binding row: the capture button shares the choice surface so
          the row reads as one family of controls; wrap is enabled so the
          rejection hint can drop to its own line without squeezing the
          binding text. */
@@ -1941,12 +1924,13 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
 .menu-panel .accessibility-keycap,
 .menu-panel .accessibility-keyreset {
   padding: 0.25rem 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  background: #ffffff;
-  color: #222;
+  border: 2px solid var(--color-dune);
+  border-radius: 4px;
+  background: var(--color-coin);
+  color: var(--color-dune);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  min-height: 44px;
   cursor: pointer;
 }
 .menu-panel .accessibility-keycap {
@@ -1956,8 +1940,8 @@ body[data-debug="true"] .menu-panel.pre-game .in-game-only {
 }
 .menu-panel .accessibility-keycap.capturing {
   border-style: dashed;
-  color: #555;
-  font-style: italic;
+  color: var(--color-sand-contrast);
+  background: var(--color-sky-deep);
 }
 .menu-panel .accessibility-keyreset {
   flex-shrink: 0;
@@ -3215,4 +3199,48 @@ body.cap .score-display {
   border-width: 2px;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
+}
+
+/* Choice controls use the same physical keys as the shop and menu. */
+.menu-panel .accessibility-choice-row .inner { flex-wrap: wrap; }
+.accessibility-choice-group { display: flex; align-items: stretch; gap: 0.25rem; margin-left: auto; max-width: 100%; }
+.menu-panel .accessibility-choice,
+.menu-panel .accessibility-choice-step {
+  appearance: none;
+  border: 2px solid var(--color-dune);
+  border-radius: 4px;
+  background: var(--color-sand-contrast);
+  color: var(--color-dune);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+.menu-panel .accessibility-choice { min-width: 5.5em; background: var(--color-coin); }
+.menu-panel .accessibility-choice-step { min-width: 44px; font-size: 1.25rem; }
+.menu-panel .accessibility-choice:hover,
+.menu-panel .accessibility-choice-step:hover,
+.menu-panel .accessibility-keycap:hover,
+.menu-panel .accessibility-keyreset:hover { background: var(--color-sky); }
+.menu-panel .accessibility-choice:focus-visible,
+.menu-panel .accessibility-choice-step:focus-visible,
+.menu-panel .accessibility-choice.kbd-focus,
+.menu-panel .accessibility-choice-step.kbd-focus,
+.menu-panel .accessibility-keycap:focus-visible,
+.menu-panel .accessibility-keyreset:focus-visible,
+.menu-panel .accessibility-keycap.kbd-focus,
+.menu-panel .accessibility-keyreset.kbd-focus {
+  background: var(--color-sky-deep);
+  color: var(--color-sand-contrast);
+  outline: 2px solid var(--color-dune);
+  outline-offset: 2px;
+}
+.menu-panel .accessibility-keycap { min-width: 0; flex: 1; overflow-wrap: anywhere; white-space: normal; }
+@media (max-width: 500px) {
+  .menu-panel .accessibility-choice-row .inner > span:first-child,
+  .menu-panel .accessibility-keybind .inner > span:first-child { flex-basis: 100%; }
+  .accessibility-choice-group { width: 100%; margin-left: 0; }
+  .menu-panel .accessibility-choice { flex: 1; }
 }

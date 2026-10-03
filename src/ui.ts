@@ -678,8 +678,7 @@ const ACCESSIBILITY_SETTINGS_CALLBACKS: AccessibilitySettingsCallbacks = {
       get: () => {
         // Snap the displayed choice to the nearest preset: the Game
         // setter accepts any value in range (a build that allowed a
-        // continuous slider may have stored e.g. 1.2), and a <select>
-        // with an unlisted value would render blank.
+        // continuous slider may have stored e.g. 1.2).
         const current = window.Game?.getTextScale?.() ?? 1;
         let nearest: number = TEXT_SCALE_PRESETS[0];
         for (const preset of TEXT_SCALE_PRESETS) {
@@ -1270,16 +1269,16 @@ window.__rrSubOverlayFocusAtEdge = (dir: 1 | -1): boolean => {
 // skipped right past the "Sound Settings" row and the
 // player couldn't fold it open/closed with a controller.
 function getNavigableMenuItems(): HTMLElement[] {
-  // Accessibility rows (slider / select / key-capture) are a
+  // Accessibility rows (slider / choice / key-capture) are a
   // non-focusable .menu-item DIV wrapping the real control. The ring
   // must hold the CONTROLS, not the wrapper: focusKbd on a div is a
   // silent no-op and click() on it changes nothing, which would make
   // those settings dead weight on a controller. So the wrapper is
-  // filtered out below and its inner range/select/buttons are matched
+  // filtered out below and its inner range/choice/buttons are matched
   // here instead.
   const all = overlay.querySelectorAll<HTMLElement>(
     ".menu-item, .sound-settings-summary, .menu-group-summary, " +
-      ".accessibility-range, .accessibility-select, .accessibility-keycap, .accessibility-keyreset, .save-settings input",
+      ".accessibility-range, .accessibility-choice, .accessibility-choice-step, .accessibility-keycap, .accessibility-keyreset, .save-settings input",
   );
   const list: HTMLElement[] = [];
   for (const el of all) {
@@ -1370,12 +1369,12 @@ window.__rrMenuFocusPrev = () => {
  *  because click() already does the right thing for them. */
 function findAccessibilityRowFor(el: HTMLElement) {
   for (const row of ACCESSIBILITY_SETTINGS_CALLBACKS.rows) {
-    if (el.id === `accessibility-${row.id}`) return row;
+    if (el.id === `accessibility-${row.id}` || el.dataset.accessibilityRow === row.id) return row;
   }
   return null;
 }
 
-/** Gamepad-adjust a slider (clamp) or select (cycle) control. Routes
+/** Gamepad-adjust a slider (clamp) or choice (cycle) control. Routes
  *  through the row descriptor's set() — the same code path as the
  *  pointer/keyboard handlers in <AccessibilitySettings> — so
  *  persistence and re-render behave identically across inputs.
@@ -1398,7 +1397,7 @@ function adjustAccessibilityControl(target: HTMLElement, dir: number): boolean {
     }
     return true;
   }
-  if (target instanceof HTMLSelectElement && target.classList.contains("accessibility-select")) {
+  if (target.dataset.accessibilityRow) {
     const row = findAccessibilityRowFor(target);
     if (!row || row.kind !== "select") return false;
     const current = row.get();
@@ -1419,18 +1418,16 @@ window.__rrMenuSelect = () => {
   const idx = currentMenuFocusIdx();
   const target = items[idx];
   if (!target) return;
-  // Range/select controls have no useful click(): the face button
-  // nudges the slider up / cycles the select instead, so a controller
-  // is never parked on a row it can't change even without d-pad
-  // left/right.
-  if (adjustAccessibilityControl(target, 1)) return;
+  // Range controls need an explicit nudge; choice and key-binding
+  // buttons use their click handler, including Previous buttons.
+  if (target instanceof HTMLInputElement && adjustAccessibilityControl(target, 1)) return;
   if (typeof target.click === "function") {
     target.click();
   }
 };
 
 // Gamepad d-pad left/right hook (main.ts calls this from the in-menu
-// branch): adjusts the focused slider/select and reports whether the
+// branch): adjusts the focused slider/choice and reports whether the
 // press was consumed — main.ts uses the return value to keep d-pad
 // LEFT working as "back" on every non-adjustable row.
 window.__rrMenuAdjust = (dir: number): boolean => {

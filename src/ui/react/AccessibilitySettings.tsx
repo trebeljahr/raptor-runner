@@ -18,7 +18,13 @@ import { formatKeyCode } from "../../input/keyLabels";
  * set() so labels and control positions stay honest. The component
  * is a dumb renderer, same contract as the other menu overlays.
  */
-import { type ChangeEvent, type MouseEvent, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type MouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useState,
+} from "react";
 
 /** Boolean on/off row. Rendered as a .menu-item button with the
  *  same "Label: on/off" text convention as the sound toggles. */
@@ -46,8 +52,7 @@ export interface AccessibilitySliderRow {
   set: (value: number) => void;
 }
 
-/** String-enum row rendered as a native <select> — keyboard and
- *  screen-reader behavior comes for free. */
+/** String-enum row rendered as a branded, adjustable choice control. */
 export interface AccessibilitySelectRow {
   kind: "select";
   id: string;
@@ -174,28 +179,76 @@ function SliderRow({ row }: { row: AccessibilitySliderRow }) {
 }
 
 function SelectRow({ row }: { row: AccessibilitySelectRow }) {
-  const inputId = `accessibility-${row.id}`;
-  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    row.set(e.currentTarget.value);
+  const value = row.get();
+  const index = Math.max(
+    0,
+    row.options.findIndex((option) => option.value === value),
+  );
+  const current = row.options[index];
+  if (!current) return null;
+  const choose = (direction: number) => {
+    const next = (index + direction + row.options.length) % row.options.length;
+    row.set(row.options[next].value);
+  };
+  const handleKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === "Home") row.set(row.options[0].value);
+    else if (event.key === "End") row.set(row.options[row.options.length - 1].value);
+    else choose(event.key === "ArrowLeft" ? -1 : 1);
   };
   return (
-    <div className="menu-item accessibility-row">
-      <span className="inner">
-        <label htmlFor={inputId}>{row.label}</label>
-        <select
-          id={inputId}
-          className="accessibility-select"
-          value={row.get()}
-          onChange={handleChange}
-          onClick={stop}
+    <div className="menu-item accessibility-row accessibility-choice-row">
+      <div className="inner">
+        <span id={`accessibility-${row.id}-label`}>{row.label}</span>
+        <div
+          className="accessibility-choice-group"
+          role="group"
+          aria-labelledby={`accessibility-${row.id}-label`}
+          onKeyDown={handleKey}
         >
-          {row.options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </span>
+          <button
+            type="button"
+            className="accessibility-choice-step"
+            data-accessibility-row={row.id}
+            aria-label={`Previous ${row.label.toLowerCase()}`}
+            onClick={(event) => {
+              stop(event);
+              choose(-1);
+            }}
+          >
+            ‹
+          </button>
+          <button
+            id={`accessibility-${row.id}`}
+            type="button"
+            className="accessibility-choice"
+            data-accessibility-row={row.id}
+            aria-label={`${row.label}: ${current.label}. Next option`}
+            onClick={(event) => {
+              stop(event);
+              choose(1);
+            }}
+          >
+            <span aria-live="polite" aria-atomic="true">
+              {current.label}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="accessibility-choice-step"
+            data-accessibility-row={row.id}
+            aria-label={`Next ${row.label.toLowerCase()}`}
+            onClick={(event) => {
+              stop(event);
+              choose(1);
+            }}
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
