@@ -26,7 +26,9 @@ JS
 # Prove APK and AAB were signed by the configured upload key, not a debug key.
 if [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
   expected="$(keytool -J-Duser.language=en -list -v -keystore "$ANDROID_KEYSTORE_PATH" -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEYSTORE_PASSWORD | sed -n 's/.*SHA256: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-  actual="$("$apksigner" verify --print-certs "$apk" | sed -n 's/Signer #1 certificate SHA-256 digest: //p')"
+  # SDK versions label certificate lines either "Signer #1" or "V2 Signer:".
+  # Require every reported signer digest to match the configured upload key.
+  actual="$("$apksigner" verify --print-certs "$apk" | sed -nE 's/^.*certificate SHA-256 digest: ([[:xdigit:]]{64})$/\1/p' | tr '[:upper:]' '[:lower:]' | sort -u)"
   aab_cert="$(keytool -J-Duser.language=en -printcert -jarfile "$aab" | sed -n 's/.*SHA256: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
   [[ -n "$expected" && "$actual" = "$expected" && "$aab_cert" = "$expected" ]] || { echo 'Android signer differs from upload key.' >&2; exit 1; }
 fi
