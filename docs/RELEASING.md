@@ -100,8 +100,9 @@ mobile run ID and destination play or testflight.
 
 - Play defaults to an internal draft. Choose completed for internal/alpha/beta
   testers when the app is eligible. Production uploads must remain drafts;
-  review and roll out in Play Console. Changes are not automatically sent for
-  review. Initial app setup and the first upload may require Play Console.
+  review and roll out in Play Console. Internal uploads use Play's automatic
+  processing; other tracks keep changes out of review until submitted in Play
+  Console. Initial app setup and the first upload may require Play Console.
 - TestFlight uploads the verified IPA. App Store review and public release
   remain in App Store Connect; uploading does not promise approval or availability.
 

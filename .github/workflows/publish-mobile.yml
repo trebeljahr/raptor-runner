@@ -70,9 +70,10 @@ jobs:
           packageName: com.ricoslabs.raptorrunner
           releaseFiles: ${{ steps.source.outputs.file }}
           mappingFile: ${{ steps.source.outputs.mapping }}
-          track: ${{ inputs.play_track }}
+          tracks: ${{ inputs.play_track }}
           status: ${{ inputs.play_status }}
-          changesNotSentForReview: true
+          # Play rejects this flag on internal tracks, even for draft releases.
+          changesNotSentForReview: ${{ inputs.play_track != 'internal' }}
 
   testflight:
     if: inputs.destination == 'testflight'
