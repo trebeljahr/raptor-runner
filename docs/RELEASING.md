@@ -146,12 +146,17 @@ controller input, save paths, and updates through a Steam beta installation.
 Steam supplies SteamAppId=5035590, which enables the existing integration.
 Direct downloads do not enable Steam just because the client is running.
 
-Use a dedicated builder account with access only to this app. Authenticate once
-with Valve's SteamCMD, then save its base64 config/config.vdf as STEAM_CONFIG_VDF.
-STEAM_USERNAME names that account. The config contains refresh credentials:
+Steam requires an account with Edit App Metadata and Publish App Changes To
+Steam permissions. Valve recommends a dedicated builder account with only these
+permissions. One builder account can serve several games through Steamworks
+permission groups; a separate account per game is optional. An existing admin
+account also works, but its reusable CI session belongs to that broader account.
+
+Authenticate once with Valve's SteamCMD, then save its base64 config/config.vdf
+as STEAM_CONFIG_VDF. STEAM_USERNAME names that account. A browser login does not
+replace this SteamCMD authentication. The config contains refresh credentials:
 never commit it or upload it as a build artifact. Renew it if Steam Guard asks
-for authentication again. No production password or personal account is needed
-in these scripts.
+for authentication again. The upload script does not require a password.
 
 ## Credential setup
 
