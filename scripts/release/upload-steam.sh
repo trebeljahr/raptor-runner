@@ -4,11 +4,42 @@ set -euo pipefail
 : "${STEAM_CONFIG_VDF:?Missing authorized SteamCMD session}"
 steam_dir="$RUNNER_TEMP/raptor-steamcmd"
 umask 077
-mkdir -p "$steam_dir/config"
-trap 'rm -rf "$steam_dir"' EXIT
+mkdir -p "$steam_dir"
+config_path=''
+config_staged=0
+cleanup() {
+  if (( config_staged )); then
+    if [[ -f "$steam_dir/config-before.vdf" ]]; then
+      cp "$steam_dir/config-before.vdf" "$config_path"
+    else
+      rm -f "$config_path"
+    fi
+  fi
+  rm -rf "$steam_dir"
+}
+trap cleanup EXIT
 curl --fail --location --retry 3 https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz -o "$steam_dir/steamcmd.tar.gz"
 tar -xzf "$steam_dir/steamcmd.tar.gz" -C "$steam_dir"
-printf '%s' "$STEAM_CONFIG_VDF" | base64 --decode > "$steam_dir/config/config.vdf"
+# Bootstrap before staging credentials: SteamCMD may use a data directory separate
+# from its executable, and its first update initializes that configuration.
+if ! "$steam_dir/steamcmd.sh" +quit < /dev/null > "$steam_dir/bootstrap.log" 2>&1; then
+  echo 'SteamCMD initialization failed before authentication.' >&2
+  exit 1
+fi
+steam_log_dir=$(sed -n 's/^Logging directory: //p' "$steam_dir/bootstrap.log" | tr -d '\r' | tail -n 1)
+if [[ "$steam_log_dir" != "$RUNNER_TEMP/"* && "$steam_log_dir" != "$HOME/"* ]] || [[ "$steam_log_dir" == *'/../'* || "$steam_log_dir" != */logs ]]; then
+  echo 'SteamCMD did not report an expected private data directory.' >&2
+  exit 1
+fi
+config_path="${steam_log_dir%/logs}/config/config.vdf"
+mkdir -p "$(dirname "$config_path")"
+printf '%s' "$STEAM_CONFIG_VDF" | base64 --decode > "$steam_dir/session.vdf"
+if [[ -f "$config_path" ]]; then
+  cp "$config_path" "$steam_dir/config-before.vdf"
+fi
+config_staged=1
+cp "$steam_dir/session.vdf" "$config_path"
+chmod 600 "$config_path"
 # Session config contains refresh credentials. Keep all Steam logs out of artifacts.
 steam_status=0
 "$steam_dir/steamcmd.sh" +login "$STEAM_USERNAME" +run_app_build "$PWD/artifacts/steam-build.vdf" +quit < /dev/null > "$steam_dir/upload.log" 2>&1 || steam_status=$?
