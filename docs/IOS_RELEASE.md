@@ -39,6 +39,17 @@ It declares Preferences/UserDefaults (CA92.1) and Filesystem timestamps
 (C617.1). Native telemetry is disabled by the runtime's platform/host checks.
 Revisit the manifest and App Store privacy declarations if data use changes.
 
+## Encryption declaration
+
+Info.plist declares ITSAppUsesNonExemptEncryption=false. The mobile app does
+not implement encryption algorithms or bundle a cryptography library. Its
+Capacitor dependencies use Apple APIs; the UUID helper uses the system SHA256
+implementation. The release verifier checks the declaration in the exported IPA.
+Reassess this declaration when adding encryption or changing native dependencies.
+
+Existing uploads without the key need the same declaration in App Store Connect
+before TestFlight testing. See [Apple’s encryption documentation](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations).
+
 ## Build and upload
 
 Use Build mobile apps with platform=ios or all and mode=signed.

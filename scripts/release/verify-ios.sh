@@ -15,6 +15,7 @@ codesign -dv --verbose=4 "$app" 2>&1 | grep -F 'Authority=Apple Distribution:'
 [[ "$(plutil -extract CFBundleIdentifier raw -o - "$app/Info.plist")" = com.ricoslabs.raptorrunner ]]
 [[ "$(plutil -extract CFBundleVersion raw -o - "$app/Info.plist")" = "$RELEASE_BUILD_NUMBER" ]]
 [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$app/Info.plist")" = "$(node -p "require('./package.json').version")" ]]
+[[ "$(plutil -extract ITSAppUsesNonExemptEncryption raw -o - "$app/Info.plist")" = false ]]
 plutil -lint "$app/PrivacyInfo.xcprivacy"
 security cms -D -i "$app/embedded.mobileprovision" > "$scratch/profile.plist"
 python3 scripts/release/ios-profile.py "$scratch/profile.plist"
