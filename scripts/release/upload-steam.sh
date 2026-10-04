@@ -26,11 +26,13 @@ if ! "$steam_dir/steamcmd.sh" +quit < /dev/null > "$steam_dir/bootstrap.log" 2>&
   echo 'SteamCMD initialization failed before authentication.' >&2
   exit 1
 fi
-steam_log_dir=$(sed -n 's/^Logging directory: //p' "$steam_dir/bootstrap.log" | tr -d '\r' | tail -n 1)
+# Linux SteamCMD quotes this path: Logging directory: '/home/runner/Steam/logs'
+steam_log_dir=$(tr -d '\r' < "$steam_dir/bootstrap.log" | sed -n "s/^Logging directory: '\{0,1\}\([^']*\)'\{0,1\}$/\1/p" | tail -n 1)
 if [[ "$steam_log_dir" != "$RUNNER_TEMP/"* && "$steam_log_dir" != "$HOME/"* ]] || [[ "$steam_log_dir" == *'/../'* || "$steam_log_dir" != */logs ]]; then
-  echo 'SteamCMD did not report an expected private data directory.' >&2
+  printf 'SteamCMD did not report an expected private data directory (got: %q).\n' "$steam_log_dir" >&2
   exit 1
 fi
+echo "SteamCMD data directory: ${steam_log_dir%/logs}"
 config_path="${steam_log_dir%/logs}/config/config.vdf"
 mkdir -p "$(dirname "$config_path")"
 printf '%s' "$STEAM_CONFIG_VDF" | base64 --decode > "$steam_dir/session.vdf"

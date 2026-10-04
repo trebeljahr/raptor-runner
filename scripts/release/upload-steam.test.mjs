@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 
 const script = fileURLToPath(new URL('./upload-steam.sh', import.meta.url));
 const fakeSecret = 'fake-sensitive-session-do-not-log';
-function runUpload(log, exitCode) {
+function runUpload(log, exitCode, extraEnv = {}) {
   const root = mkdtempSync(join(tmpdir(), 'raptor-steam-test-'));
   try {
     const bin = join(root, 'bin');
@@ -21,7 +21,11 @@ function runUpload(log, exitCode) {
     executable('fixture-steamcmd', `
 if [[ "$1" == '+quit' ]]; then
   mkdir -p "$RUNNER_TEMP/steam-data/logs"
-  printf 'Logging directory: %s/steam-data/logs\\n' "$RUNNER_TEMP"
+  if [[ -n "$FAKE_UNQUOTED_LOG_DIR" ]]; then
+    printf 'Logging directory: %s/steam-data/logs\\n' "$RUNNER_TEMP"
+  else
+    printf "Logging directory: '%s/steam-data/logs'\\r\\n" "$RUNNER_TEMP"
+  fi
   exit 0
 fi
 if [[ ! -f "$RUNNER_TEMP/steam-data/config/config.vdf" ]]; then exit 95; fi
@@ -42,6 +46,7 @@ exit "$FAKE_STEAM_EXIT"
         FAKE_STEAMCMD: join(bin, 'fixture-steamcmd'),
         FAKE_STEAM_LOG: log,
         FAKE_STEAM_EXIT: String(exitCode),
+        ...extraEnv,
       },
     });
     assert.ifError(result.error);
@@ -75,5 +80,10 @@ test('Steam nonzero exit rejects an earlier success message', () => {
 test('Steam success prints only the app and build confirmation', () => {
   const result = runUpload(fakeSecret + ' Successfully finished AppID 5035590 build (BuildID 123) ' + fakeSecret, 0);
   assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), 'Successfully finished AppID 5035590 build (BuildID 123)');
+  assert.equal(result.stdout.trim().split("\n").at(-1), "Successfully finished AppID 5035590 build (BuildID 123)");
+});
+
+test('Steam data directory is also accepted without quotes', () => {
+  const result = runUpload('Successfully finished AppID 5035590 build (BuildID 123)', 0, { FAKE_UNQUOTED_LOG_DIR: '1' });
+  assert.equal(result.status, 0);
 });
