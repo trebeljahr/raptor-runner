@@ -82,9 +82,23 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y lib32gcc-s1
+          # SteamCMD looks for its session in ~/Steam even when the binary is elsewhere.
+          # Refuse an existing directory instead of replacing another installation.
+          if [[ -e "$HOME/Steam" || -L "$HOME/Steam" ]]; then
+            echo 'Unexpected existing Steam installation on the hosted runner.' >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/raptor-steamcmd"
+          ln -s "$RUNNER_TEMP/raptor-steamcmd" "$HOME/Steam"
       - name: Upload Steam depots
         if: inputs.destination == 'steam'
         env:
           STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
           STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
         run: bash scripts/release/upload-steam.sh
+      - name: Remove Steam home link
+        if: always() && inputs.destination == 'steam'
+        run: |
+          if [[ -L "$HOME/Steam" && "$(readlink "$HOME/Steam")" == "$RUNNER_TEMP/raptor-steamcmd" ]]; then
+            rm "$HOME/Steam"
+          fi
