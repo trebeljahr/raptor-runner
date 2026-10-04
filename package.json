@@ -84,6 +84,7 @@
   "build": {
     "appId": "com.trebeljahr.raptor-runner",
     "productName": "Raptor Runner",
+    "electronLanguages": ["en", "en-US"],
     "directories": {
       "output": "release",
       "buildResources": "build"
