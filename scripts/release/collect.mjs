@@ -22,7 +22,9 @@ if (['macos', 'windows', 'linux'].includes(platform)) {
   const unpacked = platform === 'windows' ? 'win-unpacked' : platform === 'linux' ? 'linux-unpacked' :
     arch === 'arm64' ? 'mac-arm64' : 'mac';
   const archive = join(output, 'Raptor-Runner-' + appVersion + '-' + platform + '-' + arch + '-depot.tar.gz');
-  execFileSync('tar', ['-czf', archive, '-C', join('release', unpacked), '.'], { stdio: 'inherit' });
+  // COPYFILE_DISABLE stops macOS tar from adding AppleDouble ._* files for extended attributes.
+  execFileSync('tar', ['-czf', archive, '-C', join('release', unpacked), '.'],
+    { stdio: 'inherit', env: { ...process.env, COPYFILE_DISABLE: '1' } });
   if (platform === 'windows' && mode === 'signed') copy('release/signing-evidence.json', 'windows-signing-evidence.json');
 } else if (platform === 'android') {
   buildNumber(process.env.RELEASE_BUILD_NUMBER);

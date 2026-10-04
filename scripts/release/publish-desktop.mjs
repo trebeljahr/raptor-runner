@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { repository, requireCredentials, requireDesktopSet } from './lib.mjs';
@@ -64,7 +64,11 @@ if (destination === 'itch') {
     const sub = manifest.platform === 'macos' ? 'macos/' + manifest.arch : manifest.platform;
     const directory = join(root, sub);
     mkdirSync(directory, { recursive: true });
-    execute('tar', ['-xzf', one(manifest, '-depot.tar.gz'), '-C', directory]);
+    // macOS tar stores extended attributes as AppleDouble ._* entries. GNU tar on the
+    // Linux runner unpacks them as real files, which breaks the app's code seal.
+    execute('tar', ['-xzf', one(manifest, '-depot.tar.gz'), '--exclude', '._*', '-C', directory]);
+    const appleDouble = readdirSync(directory, { recursive: true }).find((name) => /(^|\/)\._/.test(name));
+    if (appleDouble) throw new Error('Depot still contains AppleDouble metadata: ' + appleDouble);
   }
   cpSync('scripts/release/steam-macos.sh', join(root, 'macos', 'raptor-runner.sh'));
   execute('chmod', ['+x', join(root, 'macos', 'raptor-runner.sh')]);
