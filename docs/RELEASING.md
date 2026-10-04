@@ -152,14 +152,22 @@ permissions. One builder account can serve several games through Steamworks
 permission groups; a separate account per game is optional. An existing admin
 account also works, but its reusable CI session belongs to that broader account.
 
-Authenticate once with Valve's SteamCMD, then save its base64 config/config.vdf
-as STEAM_CONFIG_VDF. STEAM_USERNAME names that account. A browser login does not
-replace this SteamCMD authentication. The config contains refresh credentials:
-never commit it or upload it as a build artifact. If extracting a single account
-from a shared config, preserve both its ConnectCache token and the matching
-Authentication/RememberedMachineID entry. A token without its machine record
-cannot authenticate on a fresh runner. Renew the session if Steam Guard asks
-for authentication again. The upload script does not require a password.
+Authenticate once with Valve's SteamCMD on Linux x86_64, then save its base64
+~/Steam/config/config.vdf as STEAM_CONFIG_VDF. A session from macOS SteamCMD
+failed on the hosted Linux runner with Invalid Password; a session from a Linux
+server worked. Use a throwaway HOME so the login stays separate and is easy to
+delete afterwards:
+
+```bash
+HOME=~/steam-ci ./steamcmd.sh +login ACCOUNT +quit
+ssh HOST 'base64 -w0 ~/steam-ci/Steam/config/config.vdf' | gh secret set STEAM_CONFIG_VDF --env release-steam
+```
+
+Then delete ~/steam-ci on that server. STEAM_USERNAME names the account. A
+browser login does not replace this SteamCMD authentication. The config contains
+refresh credentials: never commit it or upload it as a build artifact. Renew the
+session if Steam Guard asks for authentication again. The upload script does not
+require a password.
 
 ## Credential setup
 
