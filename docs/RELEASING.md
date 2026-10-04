@@ -155,7 +155,10 @@ account also works, but its reusable CI session belongs to that broader account.
 Authenticate once with Valve's SteamCMD, then save its base64 config/config.vdf
 as STEAM_CONFIG_VDF. STEAM_USERNAME names that account. A browser login does not
 replace this SteamCMD authentication. The config contains refresh credentials:
-never commit it or upload it as a build artifact. Renew it if Steam Guard asks
+never commit it or upload it as a build artifact. If extracting a single account
+from a shared config, preserve both its ConnectCache token and the matching
+Authentication/RememberedMachineID entry. A token without its machine record
+cannot authenticate on a fresh runner. Renew the session if Steam Guard asks
 for authentication again. The upload script does not require a password.
 
 ## Credential setup
