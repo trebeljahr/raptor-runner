@@ -182,7 +182,8 @@ app.setName("Raptor Runner");
 function resolveSteamAppId(): number | null {
   // Steam supplies SteamAppId when launching a depot. Restrict that automatic
   // path to our app; preserve the explicit developer override.
-  const fromEnv = process.env.STEAM_APP_ID ??
+  const fromEnv =
+    process.env.STEAM_APP_ID ??
     (process.env.SteamAppId === "5035590" ? process.env.SteamAppId : undefined);
   if (fromEnv) {
     const n = Number(fromEnv);
@@ -211,7 +212,6 @@ const resolvedAppId = resolveSteamAppId();
 if (resolvedAppId !== null) {
   try {
     steamClient = steamworks.init(resolvedAppId);
-    steamworks.electronEnableSteamOverlay();
     console.log(`[steam] init ok, appid ${resolvedAppId}`);
   } catch (err) {
     console.warn("[steam] init failed, running without Steam:", err);
@@ -219,6 +219,38 @@ if (resolvedAppId !== null) {
   }
 } else {
   console.log("[steam] no app id configured, skipping Steam init");
+}
+
+// ── Steam overlay ──────────────────────────────────────────────────
+// electronEnableSteamOverlay() appends `--in-process-gpu` and
+// `--disable-direct-composition`. In-process GPU moves all GPU work
+// onto the browser main thread, which also handles input and IPC; the
+// Steam build ran visibly slower than the same game in a browser
+// because of it. The game loop clamps dt at DELTA_TIME_CLAMP, so once
+// frames get long enough the game itself runs in slow motion.
+//
+// The overlay only hooks Electron when the GPU runs in-process, so the
+// switches are the price of the overlay. Pay it where the overlay
+// works (Windows, Linux/Steam Deck) and skip it on macOS, where the
+// overlay does not reliably attach to Chromium. Launch options let a
+// player override either way: `--steam-overlay` / `--no-steam-overlay`.
+//
+// `true` disables steamworks.js's 60 Hz webContents.invalidate() loop.
+// It exists to keep the overlay redrawing over idle pages; the game
+// renders every animation frame even while paused, so the invalidator
+// only added a second full repaint per frame.
+function wantSteamOverlay(): boolean {
+  if (app.commandLine.hasSwitch("no-steam-overlay")) return false;
+  if (app.commandLine.hasSwitch("steam-overlay")) return true;
+  return process.platform !== "darwin";
+}
+
+const steamOverlayEnabled = steamClient !== null && wantSteamOverlay();
+if (steamOverlayEnabled) {
+  steamworks.electronEnableSteamOverlay(true);
+  console.log("[steam] overlay enabled (in-process GPU)");
+} else if (steamClient) {
+  console.log("[steam] overlay disabled, GPU stays out of process");
 }
 
 // ── Steam Input ────────────────────────────────────────────────────
@@ -371,6 +403,11 @@ if (steamClient) {
         activeSet: lastRequestedSet,
         digital,
       };
+      // With no live controller (keyboard players, unresolved
+      // manifest) the snapshot only needs to stay fresh, not low-
+      // latency: every 6th tick (~100 ms) is well inside the
+      // renderer's 250 ms freshness window and cuts idle IPC by 6x.
+      if (!snapshot.available && tick % 6 !== 1) return;
       for (const w of BrowserWindow.getAllWindows()) {
         if (!w.isDestroyed()) w.webContents.send("steam-input:frame", snapshot);
       }
@@ -471,7 +508,7 @@ const OVERLAY_DIALOG_MAP: Record<OverlayDialog, number> = {
   Achievements: 6,
 };
 handle("steam:openOverlay", (_evt, dialog: OverlayDialog) => {
-  if (!steamClient) return false;
+  if (!steamClient || !steamOverlayEnabled) return false;
   const code = OVERLAY_DIALOG_MAP[dialog];
   if (code == null) return false;
   try {
@@ -486,6 +523,13 @@ handle("steam:openOverlay", (_evt, dialog: OverlayDialog) => {
 // Open the Steam overlay to a specific URL (store page, news, etc.).
 handle("steam:openOverlayUrl", (_evt, url: string) => {
   if (!steamClient) return false;
+  if (!steamOverlayEnabled) {
+    // No overlay to draw in: hand the page to the Steam client instead.
+    shell.openExternal(`steam://openurl/${url}`).catch(() => {
+      /* Steam gone — nothing to open */
+    });
+    return true;
+  }
   try {
     steamClient.overlay.activateToWebPage(url);
     return true;

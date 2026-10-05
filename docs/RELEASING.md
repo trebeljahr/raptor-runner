@@ -146,6 +146,11 @@ controller input, save paths, and updates through a Steam beta installation.
 Steam supplies SteamAppId=5035590, which enables the existing integration.
 Direct downloads do not enable Steam just because the client is running.
 
+The Steam overlay costs frame rate: it needs Chromium's in-process GPU, which
+puts all GPU work on the browser main thread. The overlay is on for Windows and
+Linux and off for macOS, where it does not attach reliably. Players can
+override this with the launch option `--steam-overlay` or `--no-steam-overlay`.
+
 Steam requires an account with Edit App Metadata and Publish App Changes To
 Steam permissions. Valve recommends a dedicated builder account with only these
 permissions. One builder account can serve several games through Steamworks
