@@ -831,10 +831,11 @@ app.whenReady().then(() => {
 
   // macOS dock icon. In packaged builds this comes from the .icns
   // baked into the app bundle (build.mac.icon), but in dev mode
-  // Electron shows its own icon unless we override it here. Windows
-  // / Linux dock/taskbar icons come from the BrowserWindow `icon:`
-  // option below.
-  if (process.platform === "darwin" && app.dock) {
+  // Electron shows its own icon unless we override it here. Packaged
+  // builds skip this: public/assets/icon-512.png is not in the asar.
+  // Windows / Linux dock/taskbar icons come from the BrowserWindow
+  // `icon:` option below.
+  if (process.platform === "darwin" && app.dock && !app.isPackaged) {
     try {
       app.dock.setIcon(path.join(__dirname, "..", "public", "assets", "icon-512.png"));
     } catch (err) {
