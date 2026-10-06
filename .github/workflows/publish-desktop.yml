@@ -13,7 +13,7 @@ on:
         options: [downloads-draft, itch, steam]
         default: downloads-draft
       steam_branch:
-        description: Steam beta branch; empty uploads without setting a build live (default branch uses Steamworks)
+        description: Steam beta branch to set live; empty uses the STEAM_TEST_BRANCH variable, none uploads only (default branch uses Steamworks)
         type: string
         default: ""
 
@@ -76,6 +76,7 @@ jobs:
           STEAM_DEPOT_LINUX: ${{ vars.STEAM_DEPOT_LINUX }}
           STEAM_DEPOT_MACOS: ${{ vars.STEAM_DEPOT_MACOS }}
           STEAM_BRANCH: ${{ inputs.steam_branch }}
+          STEAM_TEST_BRANCH: ${{ vars.STEAM_TEST_BRANCH }}
         run: node scripts/release/publish-desktop.mjs steam
       - name: Install SteamCMD runtime
         if: inputs.destination == 'steam'

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildNumber, desktopTargets, repository, requireCredentials, requireDesktopSet, requireMain, sha256, validateManifest, validateRun, version } from './lib.mjs';
+import { buildNumber, desktopTargets, repository, requireCredentials, requireDesktopSet, requireMain, sha256, steamBranch, validateManifest, validateRun, version } from './lib.mjs';
 
 const run = {
   id: 123, head_repository: { full_name: repository }, event: 'workflow_dispatch',
@@ -66,4 +66,15 @@ test('artifact integrity rejects modified, unsigned, wrong-commit and unsafe pay
     writeFileSync(path, 'tampered binary');
     assert.throws(() => validateManifest(manifest, run, directory), /checksum mismatch/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+test('Steam test uploads go live on a beta branch, never default', () => {
+  assert.equal(steamBranch('', 'internal'), 'internal');
+  assert.equal(steamBranch(undefined, 'internal'), 'internal');
+  assert.equal(steamBranch('playtest', 'internal'), 'playtest');
+  assert.equal(steamBranch('none', 'internal'), '');
+  assert.equal(steamBranch('', ''), '');
+  for (const branch of ['default', 'public', 'Internal', 'abc', 'bad branch', 'a'.repeat(33)]) {
+    assert.throws(() => steamBranch(branch, 'internal'));
+    assert.throws(() => steamBranch('', branch));
+  }
 });

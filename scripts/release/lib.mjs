@@ -95,3 +95,14 @@ export function requireDesktopSet(manifests) {
     throw new Error('Publishing desktop requires all four targets from one version and one successful run.');
   }
 }
+
+// Valve forbids automatic SetLive on default, so test uploads go to a beta branch.
+// An empty input falls back to the repository's test branch; "none" uploads only.
+export function steamBranch(input, fallback) {
+  const branch = input?.trim() || fallback?.trim() || '';
+  if (branch === 'none') return '';
+  if (branch && (!/^[a-z0-9_-]{4,32}$/.test(branch) || branch === 'default' || branch === 'public')) {
+    throw new Error('Choose a Steam beta branch (4-32 lowercase characters), or "none" to upload without setting a build live.');
+  }
+  return branch;
+}

@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { repository, requireCredentials, requireDesktopSet } from './lib.mjs';
+import { repository, requireCredentials, requireDesktopSet, steamBranch } from './lib.mjs';
 
 const [destination] = process.argv.slice(2);
 const { run, manifests } = JSON.parse(readFileSync('artifacts/verified.json'));
@@ -74,8 +74,8 @@ if (destination === 'itch') {
   execute('chmod', ['+x', join(root, 'macos', 'raptor-runner.sh')]);
   const ids = ['WINDOWS', 'LINUX', 'MACOS'].map((os) => process.env['STEAM_DEPOT_' + os]);
   if (ids.some((id) => !/^[1-9]\d*$/.test(id)) || new Set(ids).size !== ids.length) throw new Error('Set three distinct Steam depot IDs.');
-  const branch = process.env.STEAM_BRANCH || '';
-  if (branch && (!/^[a-zA-Z0-9_-]+$/.test(branch) || branch === 'default')) throw new Error('Choose a Steam beta branch or leave empty for upload only.');
+  const branch = steamBranch(process.env.STEAM_BRANCH, process.env.STEAM_TEST_BRANCH);
+  console.log(branch ? 'Steam build will go live on beta branch ' + branch + '.' : 'Steam build will upload without going live.');
   const quote = (value) => JSON.stringify(String(value));
   const depots = ids.map((id, i) => quote(id) + ' { "ContentRoot" ' + quote(join(root, ['windows', 'linux', 'macos'][i])) +
     ' "FileMapping" { "LocalPath" "*" "DepotPath" "." "recursive" "1" } "FileExclusion" "steam_appid.txt" }').join('\n');

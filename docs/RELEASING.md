@@ -85,14 +85,16 @@ desktop run ID containing all four targets. Choose one destination:
   Channels are osx-arm64, osx-x64, osx-dmg-arm64, osx-dmg-x64, windows,
   windows-setup, and linux. Archive old osx/osx-dmg uploads in the itch dashboard
   after verifying the new channels; the workflow does not delete them.
-- **steam**: uploads three explicitly configured depots. Empty steam_branch
-  uploads only; a beta branch sets that branch live. Promotion to default and
-  the first public launch remain Steamworks actions.
+- **steam**: uploads three explicitly configured depots and sets the build live
+  on a beta branch. Empty steam_branch uses the STEAM_TEST_BRANCH repository
+  variable (internal); steam_branch=none uploads only. Steam testers opt in
+  under Properties → Betas. Promotion to default and the first public launch
+  remain Steamworks actions.
 
 ~~~sh
 gh workflow run publish-desktop.yml --ref main -f run_id=DESKTOP_RUN_ID -f destination=downloads-draft
 gh workflow run publish-desktop.yml --ref main -f run_id=DESKTOP_RUN_ID -f destination=itch
-gh workflow run publish-desktop.yml --ref main -f run_id=DESKTOP_RUN_ID -f destination=steam -f steam_branch=beta
+gh workflow run publish-desktop.yml --ref main -f run_id=DESKTOP_RUN_ID -f destination=steam
 ~~~
 
 **Upload tested mobile build** (publish-mobile.yml) takes a successful signed
