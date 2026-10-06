@@ -578,12 +578,7 @@ function savePrefs(patch: Prefs): void {
 handle("window:setFullscreen", (evt, wantFullscreen: boolean) => {
   const win = BrowserWindow.fromWebContents(evt.sender);
   if (!win || win.isDestroyed()) return false;
-  const isMac = process.platform === "darwin";
-  if (isMac) {
-    win.setSimpleFullScreen(!!wantFullscreen);
-  } else {
-    win.setFullScreen(!!wantFullscreen);
-  }
+  win.setFullScreen(!!wantFullscreen);
   savePrefs({ fullscreen: !!wantFullscreen });
   return !!wantFullscreen;
 });
@@ -593,7 +588,7 @@ handle("window:setFullscreen", (evt, wantFullscreen: boolean) => {
 handle("window:isFullscreen", (evt) => {
   const win = BrowserWindow.fromWebContents(evt.sender);
   if (!win || win.isDestroyed()) return false;
-  return process.platform === "darwin" ? win.isSimpleFullScreen() : win.isFullScreen();
+  return win.isFullScreen();
 });
 
 // ── Steam Cloud save mirror ────────────────────────────────────────
@@ -699,8 +694,12 @@ function createWindow(): void {
   // Default fullscreen for desktop games. Player can opt-out via the
   // Fullscreen toggle in the settings menu; that writes prefs.json,
   // which we read here to restore the preference on next launch.
+  // Steam launches always start fullscreen: a windowed choice saved by
+  // an earlier session (or a DRM-free copy sharing userData) must not
+  // make the game open in a window from the Steam library. The menu
+  // toggle still works for the rest of the session.
   const prefs = loadPrefs();
-  const wantFullscreen = prefs.fullscreen !== false; // default true
+  const wantFullscreen = steamClient !== null || prefs.fullscreen !== false;
 
   const win = new BrowserWindow({
     width: 1280,
@@ -716,17 +715,11 @@ function createWindow(): void {
       sandbox: true,
       webviewTag: false,
     },
-    // Fullscreen + simpleFullScreen together are required on macOS:
-    //   - `fullscreen: true` alone uses Lion-style Spaces transition
-    //     which animates the window visibly even with show: false
-    //     (caused the earlier FOUC-behind-splash bug).
-    //   - `simpleFullscreen: true` alone just ENABLES the capability;
-    //     the window still opens windowed unless fullscreen is set.
-    //   - Both together: window opens instantly at screen size in
-    //     pre-Lion style fullscreen, no Spaces animation.
-    // On Windows/Linux plain fullscreen is already animation-free.
-    fullscreen: wantFullscreen,
-    simpleFullscreen: isMac,
+    // macOS enters native fullscreen (its own Space) after the window
+    // is shown, see ready-to-show below. Requesting it here on a hidden
+    // window runs the Spaces animation before the splash has painted.
+    // On Windows/Linux plain fullscreen is animation-free.
+    fullscreen: wantFullscreen && !isMac,
     titleBarStyle: isMac ? "hiddenInset" : "default",
     // Windows/Linux: keep the menu bar out of the frame even if the
     // player hits Alt. installApplicationMenu() also nulls the menu
@@ -741,7 +734,9 @@ function createWindow(): void {
   // already the splash — so the window becomes visible already
   // showing the splash, no black/white flash.
   win.once("ready-to-show", () => {
-    if (!win.isDestroyed()) win.show();
+    if (win.isDestroyed()) return;
+    win.show();
+    if (isMac && wantFullscreen) win.setFullScreen(true);
   });
 
   secureWindow(win);
