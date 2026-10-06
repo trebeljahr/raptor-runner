@@ -222,7 +222,7 @@ export function updateLightning(frameScale: number, now: number) {
     // then composites it per frame via drawImage + globalAlpha,
     // turning ~30–45 frames of shadow-blurred strokes into a single
     // image blit.
-    _renderBoltToCache(result.path);
+    bakeLightningBolt(result.path);
     // If the bolt struck a cactus, blacken it
     // Blacken the struck dune cactus (they scroll slowly enough
     // for the visual to read).
@@ -405,8 +405,9 @@ function _getBoltBBox(points: any[]): {
  *  bounding box — a typical bolt spans maybe ⅓ the viewport width
  *  and full height, so ~⅓ the clear + shadow work a full-viewport
  *  cache would do. Per-frame fade is handled by drawLightning's
- *  globalAlpha. Called once when a new strike fires. */
-function _renderBoltToCache(points: any[]): void {
+ *  globalAlpha. Called once when a new strike fires, and once at
+ *  startup by the effect warm-up. */
+export function bakeLightningBolt(points: any[]): void {
   if (!points.length) return;
   const bbox = _getBoltBBox(points);
   if (bbox.w <= 0 || bbox.h <= 0) return;
@@ -415,16 +416,18 @@ function _renderBoltToCache(points: any[]): void {
     _boltCacheCtx = _boltCache.getContext("2d");
   }
   if (!_boltCacheCtx) return;
-  if (_boltCache.width !== bbox.w || _boltCache.height !== bbox.h) {
-    _boltCache.width = bbox.w;
-    _boltCache.height = bbox.h;
+  // Grow only. Every resize reallocates the backing GPU texture, and
+  // doing that on each strike was part of the hitch at the flash.
+  // Unused margins stay transparent, so blitting the whole cache is
+  // still correct.
+  if (_boltCache.width < bbox.w || _boltCache.height < bbox.h) {
+    _boltCache.width = Math.max(_boltCache.width, bbox.w);
+    _boltCache.height = Math.max(_boltCache.height, bbox.h);
   }
   _boltCacheDx = bbox.x;
   _boltCacheDy = bbox.y;
   const c = _boltCacheCtx;
-  // Resizing a canvas already clears it; clearRect is only needed
-  // when we REUSE an existing cache at the same size. Cheap either way.
-  c.clearRect(0, 0, bbox.w, bbox.h);
+  c.clearRect(0, 0, _boltCache.width, _boltCache.height);
   // Translate so the bolt's world-space coords land inside the
   // bounding-box-sized cache.
   c.save();

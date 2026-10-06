@@ -154,6 +154,7 @@ import {
 } from "./effects/rareEvents";
 import {
   _generateBoltPath,
+  bakeLightningBolt,
   drawLightning,
   drawRain,
   shouldRainForCycle,
@@ -1647,6 +1648,7 @@ function onResize() {
   invalidateSkyCache();
   initDunes();
   computeSkyGradient();
+  warmEffectCaches();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2862,6 +2864,147 @@ function warmImageTextures() {
   }
 }
 
+/**
+ * Re-bake the effect sprites whose size follows the viewport. Each one
+ * otherwise rebuilds on its first frame after a resize, and Steam
+ * launches go fullscreen right after init, so those rebuilds landed
+ * mid-run.
+ */
+function warmEffectCaches() {
+  if (state.width <= 0 || state.height <= 0) return;
+  ensureRainbowCache();
+  warmMeteorSprites();
+}
+
+/**
+ * Render one real frame for each weather and rare-event state before
+ * the first run. The GPU compiles a pipeline the first time it meets a
+ * new mix of shader, blend mode and filter, and a cold compile blocks
+ * the frame for 50-180 ms. macOS caches compiled pipelines per app
+ * binary, so every new build starts cold. Driving the real draw code
+ * here catches every mix the effects use, which a hand-kept list of
+ * warm-up strokes kept missing.
+ *
+ * Runs synchronously and restores state before it returns, so only
+ * the clean last frame is ever presented.
+ */
+function warmEffectPipelines() {
+  if (!ctx || !fgCtx || !canvas || state.width <= 0 || state.height <= 0) return;
+  const w = state.width;
+  const h = state.height;
+  const ground = state.ground;
+  const saved = {
+    isRaining: state.isRaining,
+    rainIntensity: state.rainIntensity,
+    lightning: state.lightning,
+    rainbow: state.rainbow,
+    activeRareEvent: state.activeRareEvent,
+  };
+
+  // Canvas 2D drops recorded draws once a later draw covers the whole
+  // canvas. Reading the canvas into a scratch target after each frame
+  // forces the recorded work through to the GPU.
+  const sink = document.createElement("canvas");
+  sink.width = sink.height = 256;
+  const sinkCtx = sink.getContext("2d");
+  const frame = () => {
+    render();
+    sinkCtx?.drawImage(canvas, 0, 0, 1, 1);
+  };
+
+  const template = state.duneCacti[0] ?? spawnDuneCactus(0);
+  const struck = {
+    ...template,
+    wx: state.duneOffset + w * 0.5,
+    depth: 1,
+    dead: false,
+    struck: true,
+    struckAge: 1,
+  };
+  state.duneCacti.push(struck);
+  spawnAsh(w * 0.5, ground - 20, struck.w, struck.h);
+
+  try {
+    state.isRaining = true;
+    state.rainIntensity = 0.6;
+    spawnRain(60);
+    updateRain(0.3);
+    const bolt = _generateBoltPath().path;
+    bakeLightningBolt(bolt);
+    state.lightning = { alpha: 0.85, nextAt: Number.POSITIVE_INFINITY, bolt };
+    state.rainbow = { age: 2, life: RAINBOW_LIFETIME_SEC };
+    state.activeRareEvent = {
+      id: "ufo",
+      age: 5,
+      life: 20,
+      x: w * 0.6,
+      y: h * 0.35,
+      beam: true,
+      phase: "abduct",
+      targetCactus: template,
+      cactusLift: 0.5,
+      abductSx: w * 0.6,
+      abductDuneY: ground - 20,
+    };
+    frame();
+
+    // Full intensity takes the branch that skips the stars.
+    state.rainIntensity = 1;
+    state.lightning = { alpha: 0, nextAt: Number.POSITIVE_INFINITY };
+    state.rainbow = null;
+    state.activeRareEvent = { id: "santa", age: 3, life: 6, x: w * 0.5, y: h * 0.12 };
+    frame();
+
+    resetRain();
+    state.isRaining = false;
+    state.rainIntensity = 0;
+    const events = [
+      { id: "tumbleweed", age: 5, life: 25, x: w * 0.5, y: ground - 30, rot: 1 },
+      {
+        id: "meteor",
+        age: 1,
+        life: 5,
+        x: w * 0.6,
+        y: h * 0.3,
+        vx: -200,
+        vy: 300,
+        startX: w * 0.8,
+        startY: -10,
+        targetX: w * 0.5,
+        targetY: ground - 10,
+      },
+      ...[2.7, 3.5].map((age) => ({
+        id: "meteor",
+        age,
+        life: 5,
+        startX: w * 0.8,
+        impact: true,
+        impactX: w * 0.5,
+        impactY: ground - 10,
+      })),
+      // Sparkle shapes blink in and out, so sample several ages.
+      ...[0.02, 0.3, 0.45, 0.6, 0.75].map((t) => ({
+        id: "comet",
+        age: t * 8,
+        life: 8,
+        x: w * 1.3 - t * w * 1.6,
+        y: h * 0.05 + t * h * 0.25,
+      })),
+    ];
+    for (const evt of events) {
+      state.activeRareEvent = evt;
+      frame();
+    }
+  } finally {
+    resetRain();
+    state.ash.length = 0;
+    const i = state.duneCacti.indexOf(struck);
+    if (i >= 0) state.duneCacti.splice(i, 1);
+    Object.assign(state, saved);
+  }
+  render();
+}
+
 // ══════════════════════════════════════════════════════════════════
 // Cinematic / filming mode (F9)
 // ══════════════════════════════════════════════════════════════════
@@ -3879,6 +4022,8 @@ function finishGameInit(): void {
     ctx.stroke();
     ctx.restore();
   }
+
+  warmEffectPipelines();
 
   canvas.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("keydown", onKeyDown);
