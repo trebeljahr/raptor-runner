@@ -633,6 +633,16 @@ body.needs-rotate .rotate-prompt {
   width: auto;
   max-width: min(92vw, 420px);
 }
+/* Steam pops its own achievement notification on every unlock, so
+       a second card at top center reads as a duplicate competing
+       for attention. Tuck ours under the score pill instead, where
+       it reads as part of the HUD rather than a rival popup. */
+html.has-steam .achievement-toasts {
+  top: calc(70px + env(safe-area-inset-top, 0px));
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  transform: none;
+  align-items: flex-start;
+}
 /* Achievement unlock toast: was a frosted-white capsule with
        * a blur backdrop — the most glassmorphism-adjacent thing on
        * screen. Swap for the same flat sand-on-dune language every
