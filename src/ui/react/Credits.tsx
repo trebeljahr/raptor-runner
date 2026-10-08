@@ -98,7 +98,7 @@ export function Credits({ callbacks: cb }: CreditsProps) {
             </li>
             <li>
               <a
-                href="https://github.com/trebeljahr/velociraptor"
+                href="https://github.com/trebeljahr/raptor-runner"
                 target="_blank"
                 rel="noreferrer noopener"
               >

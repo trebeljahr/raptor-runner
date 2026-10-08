@@ -302,7 +302,7 @@ export function MenuList({ callbacks: cb }: MenuListProps) {
           <li className="web-only">
             <a
               className="menu-item"
-              href="https://github.com/trebeljahr/velociraptor"
+              href="https://github.com/trebeljahr/raptor-runner"
               target="_blank"
               rel="noreferrer noopener"
             >

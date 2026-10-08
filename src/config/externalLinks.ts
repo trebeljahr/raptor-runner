@@ -10,7 +10,7 @@
 
 /** Itch.io store page. Standard user-page pattern — replace if the
  *  project slug ever moves. */
-export const ITCH_STORE_URL = "https://trebeljahr.itch.io/raptor-runner";
+export const ITCH_STORE_URL = "https://ricoslabs.itch.io/raptor-runner";
 
 /** Steam store page — app 5035590, same id as steam_appid.txt. */
 export const STEAM_STORE_URL = "https://store.steampowered.com/app/5035590/Raptor_Runner/";
@@ -24,7 +24,7 @@ export const STEAM_WISHLIST_URL = `${STEAM_STORE_URL}?snr=1_wishlist_`;
 export const PORTFOLIO_URL = "https://portfolio.trebeljahr.com";
 
 /** Public GitHub mirror. */
-export const GITHUB_URL = "https://github.com/trebeljahr/velociraptor";
+export const GITHUB_URL = "https://github.com/trebeljahr/raptor-runner";
 
 /** Canonical web home. raptor.trebeljahr.com is retired and 301s here,
  *  so every share text, legal link and og:url should use this one. */
