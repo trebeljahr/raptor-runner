@@ -37,6 +37,7 @@
  *     when a coherent subsystem can move out without dragging the
  *     remaining cross-cutting state with it.
  */
+import "./headlessRaf";
 import { FramePerformance } from "./framePerformance";
 import "./styles/base.css";
 import { achievementProgress } from "./achievementProgress";
@@ -4280,6 +4281,18 @@ function finishGameInit(): void {
       .catch(() => {
         /* ignore — missing bridge must not break the web game */
       });
+  }
+
+  // Trailer recorder hooks (scripts/record-trailer-shots.mjs). The DEV
+  // literal lets Rollup drop the import and src/trailer.ts from prod.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("trailer") === "1") {
+    void import("./trailer").then(({ installTrailerHooks }) =>
+      installTrailerHooks({
+        raptor: () => raptor,
+        cactuses: () => cactuses,
+        start: () => GameAPI.start(),
+      }),
+    );
   }
 
   GameAPI._ready = true;

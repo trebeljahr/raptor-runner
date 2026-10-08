@@ -209,45 +209,52 @@ export function updateLightning(frameScale: number, now: number) {
     now > state.lightning.nextAt &&
     Math.random() < LIGHTNING_FLASH_PROBABILITY * frameScale
   ) {
-    state.lightning.alpha = 0.7 + Math.random() * 0.2;
-    state.lightning.nextAt =
-      now +
-      LIGHTNING_MIN_COOLDOWN_MS +
-      Math.random() * (LIGHTNING_MAX_COOLDOWN_MS - LIGHTNING_MIN_COOLDOWN_MS);
-    // Generate a jagged bolt path — preferring cacti as targets
-    const result = _generateBoltPath();
-    state.lightning.bolt = result.path;
-    // Bake the jagged bolt + branches (with expensive shadowBlur)
-    // to an offscreen canvas exactly once per strike. drawLightning
-    // then composites it per frame via drawImage + globalAlpha,
-    // turning ~30–45 frames of shadow-blurred strokes into a single
-    // image blit.
-    bakeLightningBolt(result.path);
-    // If the bolt struck a cactus, blacken it
-    // Blacken the struck dune cactus (they scroll slowly enough
-    // for the visual to read).
-    if (result.struckDuneCactus) {
-      result.struckDuneCactus.struck = true;
-      result.struckDuneCactus.struckAge = 0;
-    }
-    // Delay thunder after the flash — random 0.1–0.6s simulating
-    // varying strike distances (~35–200m away).
-    const thunderDelay =
-      THUNDER_DELAY_MIN_MS + Math.random() * (THUNDER_DELAY_MAX_MS - THUNDER_DELAY_MIN_MS);
-    setTimeout(() => audio.playThunder(), thunderDelay);
-    if (!audio.muted) hapticThunder();
-    // Gamepad rumble — medium rumble for thunder.
-    try {
-      const gp = navigator.getGamepads?.()[0];
-      if (gp?.vibrationActuator) {
-        gp.vibrationActuator.playEffect("dual-rumble", {
-          duration: 80,
-          weakMagnitude: 0.5,
-          strongMagnitude: 0.3,
-        });
-      }
-    } catch (_) {}
+    strikeLightning(now);
   }
+}
+
+/** One full lightning strike: flash, baked bolt, blackened dune
+ *  cactus, delayed thunder. Exported so the dev-only trailer
+ *  recorder can land a strike on a chosen frame. */
+export function strikeLightning(now: number) {
+  state.lightning.alpha = 0.7 + Math.random() * 0.2;
+  state.lightning.nextAt =
+    now +
+    LIGHTNING_MIN_COOLDOWN_MS +
+    Math.random() * (LIGHTNING_MAX_COOLDOWN_MS - LIGHTNING_MIN_COOLDOWN_MS);
+  // Generate a jagged bolt path — preferring cacti as targets
+  const result = _generateBoltPath();
+  state.lightning.bolt = result.path;
+  // Bake the jagged bolt + branches (with expensive shadowBlur)
+  // to an offscreen canvas exactly once per strike. drawLightning
+  // then composites it per frame via drawImage + globalAlpha,
+  // turning ~30–45 frames of shadow-blurred strokes into a single
+  // image blit.
+  bakeLightningBolt(result.path);
+  // If the bolt struck a cactus, blacken it
+  // Blacken the struck dune cactus (they scroll slowly enough
+  // for the visual to read).
+  if (result.struckDuneCactus) {
+    result.struckDuneCactus.struck = true;
+    result.struckDuneCactus.struckAge = 0;
+  }
+  // Delay thunder after the flash — random 0.1–0.6s simulating
+  // varying strike distances (~35–200m away).
+  const thunderDelay =
+    THUNDER_DELAY_MIN_MS + Math.random() * (THUNDER_DELAY_MAX_MS - THUNDER_DELAY_MIN_MS);
+  setTimeout(() => audio.playThunder(), thunderDelay);
+  if (!audio.muted) hapticThunder();
+  // Gamepad rumble — medium rumble for thunder.
+  try {
+    const gp = navigator.getGamepads?.()[0];
+    if (gp?.vibrationActuator) {
+      gp.vibrationActuator.playEffect("dual-rumble", {
+        duration: 80,
+        weakMagnitude: 0.5,
+        strongMagnitude: 0.3,
+      });
+    }
+  } catch (_) {}
 }
 
 export function _generateBoltPath() {

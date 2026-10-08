@@ -55,6 +55,10 @@
     "test:mobile-assets": "node scripts/test-mobile-assets.mjs",
     "test:browser": "node scripts/run-browser-tests.mjs",
     "release:check": "node --test scripts/release/*.test.mjs",
+    "trailer:shots": "node scripts/record-trailer-shots.mjs",
+    "trailer:shots:list": "node scripts/record-trailer-shots.mjs --list",
+    "trailer:render": "node scripts/render-trailer.mjs",
+    "trailer:test": "node --test scripts/lib/trailer-timeline.test.mjs",
     "mobile:version": "node scripts/release/mobile-version.mjs"
   },
   "devDependencies": {
