@@ -27,6 +27,8 @@ xcrun assetutil --info "$app/Contents/Resources/Assets.car" | grep -q '"PixelWid
 archs="$(lipo -archs "$app/Contents/MacOS/Raptor Runner")"
 [[ "$archs" == *x86_64* && "$archs" == *arm64* ]] || fail "Not universal: $archs"
 if find "$app" -iname '*steam*' | grep -q .; then fail 'Steam SDK files in the store build.'; fi
+unreadable="$(find "$app" ! -perm -o=r | head -5)"
+[[ -z "$unreadable" ]] || fail "Files other users cannot read (App Store rejects these): $unreadable"
 
 if [[ "${MAS_UNSIGNED:-}" = 1 ]]; then
   echo "Unsigned MAS bundle OK: $app"

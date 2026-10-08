@@ -40,6 +40,11 @@ else
     : "${APPLE_API_KEY_ID:?Set APPLE_API_KEY_ID for the upload.}"
     : "${APPLE_API_ISSUER_ID:?Set APPLE_API_ISSUER_ID for the upload.}"
   fi
+  # The profile is copied into the bundle with its file mode. A 0600 copy from
+  # a keys folder makes App Store Connect reject the pkg (ITMS-90255).
+  profile="$(mktemp -d)/embedded.provisionprofile"
+  install -m 0644 "$MAS_PROVISIONING_PROFILE" "$profile"
+  export MAS_PROVISIONING_PROFILE="$profile"
   args+=("-c.buildVersion=$RELEASE_BUILD_NUMBER" "-c.forceCodeSigning=true")
 fi
 
