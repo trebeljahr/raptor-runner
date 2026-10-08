@@ -13,11 +13,16 @@ sign, publish to itch, or submit to a mobile store.
 | Linux x64 | AppImage and unpacked app depot with signed build provenance | Website downloads, itch, Steam |
 | Android | Signed AAB, APK, R8 mapping | Google Play; APK retained for device tests |
 | iOS arm64 | Signed App Store IPA | TestFlight, then App Store Connect |
+| macOS universal (sandboxed) | Signed installer pkg | Mac App Store; local build, see [MAC_APP_STORE.md](MAC_APP_STORE.md) |
 
 Windows/Linux ARM builds are not enabled: the bundled steamworks.js native
 module supports x64 on those systems. Mac ARM and Intel both have native builds.
-Microsoft Store and Mac App Store are deferred. MAS requires Electron's separate
-sandbox build, entitlements, a store profile, and separate validation.
+Microsoft Store is deferred. The Mac App Store build runs locally with
+`pnpm build:mas`; see [MAC_APP_STORE.md](MAC_APP_STORE.md).
+
+App Store screenshots: `pnpm build && node scripts/store-screenshots.mjs`
+writes iPhone 6.9-inch, iPad 13-inch, Mac and iPhone Duo sets to
+store-screenshots/.
 
 Linux has no Gatekeeper-style universal signing authority. The workflow signs
 GitHub provenance for its files. This proves repository/workflow/commit origin;

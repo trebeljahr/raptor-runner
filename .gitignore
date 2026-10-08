@@ -92,3 +92,6 @@ venv/
 # Browser regression artifacts
 playwright-report/
 test-results/
+
+# App Store screenshots — regenerate with scripts/store-screenshots.mjs
+store-screenshots/
