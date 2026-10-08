@@ -40,7 +40,7 @@ entitlements="$(codesign -d --entitlements - --xml "$app" 2>/dev/null)"
 grep -q 'com.apple.security.app-sandbox' <<<"$entitlements" || fail 'App is not sandboxed.'
 grep -q '4BHY8H2J25.com.ricoslabs.raptorrunner' <<<"$entitlements" || fail 'Missing application identifier or group.'
 [[ -f "$app/Contents/embedded.provisionprofile" ]] || fail 'Missing embedded.provisionprofile.'
-pkgs=("$release_dir"/*.pkg)
+pkgs=("$release_dir"/mas-universal/*.pkg)
 [[ ${#pkgs[@]} -eq 1 ]] || fail 'Expected one pkg.'
 pkgutil --check-signature "${pkgs[0]}" | grep -E '(3rd Party Mac Developer Installer|Mac Installer Distribution): Ricos Labs LLC'
 echo "Signed MAS package OK: ${pkgs[0]}"

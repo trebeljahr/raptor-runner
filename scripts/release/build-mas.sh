@@ -51,7 +51,7 @@ npx --no-install electron-builder "${args[@]}"
 RELEASE_DIR="$out" bash scripts/release/verify-mas.sh
 
 if [[ $upload = 1 ]]; then
-  pkgs=("$out"/*.pkg)
+  pkgs=("$out"/mas-universal/*.pkg)
   xcrun altool --validate-app --file "${pkgs[0]}" --type macos \
     --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER_ID"
   xcrun altool --upload-app --file "${pkgs[0]}" --type macos \
