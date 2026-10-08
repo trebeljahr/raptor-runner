@@ -21,13 +21,16 @@
  *   If Steam isn't running / the user isn't logged in / the SDK fails
  *   to load, steamClient stays null and every bridge call short-
  *   circuits — the game still runs and unlocks land in localStorage.
+ *
+ *   Mac App Store builds (process.mas) never load steamworks.js: the
+ *   module is left out of that package and the sandbox would block the
+ *   Steam client IPC anyway.
  */
 
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain, Menu, shell, type IpcMainInvokeEvent } from "electron";
-import steamworks from "steamworks.js";
 import { STEAM_ACTION_SETS, STEAM_DIGITAL_ACTIONS } from "./steamInputActions";
 
 const isDev = !app.isPackaged;
@@ -205,12 +208,16 @@ function resolveSteamAppId(): number | null {
   return null;
 }
 
-type SteamClient = ReturnType<typeof steamworks.init>;
+type Steamworks = typeof import("steamworks.js");
+type SteamClient = ReturnType<Steamworks["init"]>;
+let steamworks: Steamworks | null = null;
 let steamClient: SteamClient | null = null;
 
-const resolvedAppId = resolveSteamAppId();
+const resolvedAppId = process.mas ? null : resolveSteamAppId();
 if (resolvedAppId !== null) {
   try {
+    // Loaded lazily so packages without the native module still start.
+    steamworks = require("steamworks.js") as Steamworks;
     steamClient = steamworks.init(resolvedAppId);
     console.log(`[steam] init ok, appid ${resolvedAppId}`);
   } catch (err) {
@@ -247,7 +254,7 @@ function wantSteamOverlay(): boolean {
 
 const steamOverlayEnabled = steamClient !== null && wantSteamOverlay();
 if (steamOverlayEnabled) {
-  steamworks.electronEnableSteamOverlay(true);
+  steamworks?.electronEnableSteamOverlay(true);
   console.log("[steam] overlay enabled (in-process GPU)");
 } else if (steamClient) {
   console.log("[steam] overlay disabled, GPU stays out of process");

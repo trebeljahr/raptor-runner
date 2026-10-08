@@ -45,6 +45,7 @@
     "build:android:release": "bash scripts/release/build-android.sh",
     "build:android:apk": "bash scripts/release/build-android.sh",
     "build:ios:release": "bash scripts/release/build-ios.sh",
+    "build:mas": "bash scripts/release/build-mas.sh",
     "android:emulator": "bash -c 'source scripts/android-env.sh && emulator -avd ${AVD:-Pixel_9_Pro} -netdelay none -netspeed full'",
     "android:kill-emulator": "bash -c 'source scripts/android-env.sh && adb emu kill'",
     "android:avds": "bash -c 'source scripts/android-env.sh && emulator -list-avds'",
@@ -84,7 +85,10 @@
   "build": {
     "appId": "com.trebeljahr.raptor-runner",
     "productName": "Raptor Runner",
-    "electronLanguages": ["en", "en-US"],
+    "electronLanguages": [
+      "en",
+      "en-US"
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"
