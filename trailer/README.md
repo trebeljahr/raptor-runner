@@ -39,25 +39,33 @@ BASE_URL=http://localhost:51843 pnpm trailer:shots --shots=storm-lightning,rainb
 
 - `pnpm trailer:shots:list` prints the shot list.
 - `--fps=30` halves capture time; `--seconds=N` overrides every length.
-- About 30–120 s wall time per shot on an M-series Mac; all 17 take ~20–40 min.
+- About 30–180 s wall time per shot on an M-series Mac; all 19 take ~30–50 min.
 - Re-recording a shot gives the same footage: `Math.random` is seeded from
   the slug, and game time steps one frame at a time.
-- Each clip gets a sidecar `NN-<slug>.events.json`: the clip second of
-  every coin pickup, jump and lightning strike, for placing sound effects
-  in the edit file.
+- Each clip gets two sidecars. `NN-<slug>.events.json` lists the clip
+  second of every coin pickup, jump, lightning strike, game over and any
+  `clip` (the raptor passing through an obstacle: should be none).
+  `NN-<slug>.pose.json` holds the raptor's run-cycle frame and height for
+  every frame, for matching cuts on the raptor's pose.
 - Vite's file watcher ignores `.claude/` paths, so a dev server started in
   a worktree under `.claude/worktrees/` keeps serving stale modules after an
   edit to `src/`. Restart the dev server after changing the game code.
 
 Shots live in `SHOTS` in `scripts/record-trailer-shots.mjs`. Per shot:
 `phase` (time of day, `PHASE.*`), `rate` (sky sweep in day cycles per
-second), `moon` (moon phase, 0.5 = full), `stand` (`{ x, clouds }`: freeze
-the world and stand the raptor still while the sky turns and clouds race,
-for the time-lapse), `outfit` (cosmetic ids from `src/cosmetics.ts`),
-`rain` (`off`, `build`, `full`), `lead` (game seconds run before the first
-frame), `speed`, `seed`, `setup` (actions at the start of the lead) and
-`beats` (actions on a given second: `strike`, `rainRamp(to, seconds)`,
-`shootingStar`, `pterodactyl`, `breather`).
+second), `moon` (moon phase, 0.5 = full), `obstacles: false` (an open
+desert: no cacti, pterodactyls or coins), `raptorAt` (pin the raptor's x;
+below 0 is off screen, for sky-only plates), `stand` (freeze the world and
+stand the raptor still), `hud` (keep the game's own overlays; starts the run
+with the real Start Game button), `score` (the run's distance at the start),
+`outfit` (cosmetic ids from `src/cosmetics.ts`), `rain` (`off`, `build`,
+`full`), `lead` (game seconds run before the first frame), `speed`, `seed`,
+`setup` (actions at the start of the lead) and `beats` (actions on a given
+second: `strike`, `rainRamp(to, seconds)`, `shootingStar`, `pterodactyl`,
+`breather`, `crash`).
+
+- **Time-lapse:** the raptor runs as in a normal run, on an open desert,
+  while a full day turns in 7 s.
 
 - **Storm:** one continuous take. `rainRamp` eases the rain in over 6.5 s and
   out over 4.5 s, slower and smoother than the game's own fades, and the
@@ -65,19 +73,25 @@ frame), `speed`, `seed`, `setup` (actions at the start of the lead) and
 - **Night:** the phase lock starts on the second day cycle, so the game's
   own shooting stars fall at night (from the second night on, as in a real
   run); `shootingStar` adds one on a chosen second.
+- **Night plate:** night sky with shooting stars and the raptor off screen;
+  blurred, it is the background of every title card.
+- **Game over:** HUD on, a 1841 m run, `crash` turns the autopilot off and
+  collisions on, so the next cactus ends it and the score card comes up.
 - **Outfit parade:** ten takes share one `seed`, sky and lead, so the
   scenery, cacti and jumps are identical (verified: 57 dB PSNR away from the
   raptor, matching event logs). Cutting between them at continuous clip
   times changes only the outfit.
 
 The director (`window.__trailer`) hides every DOM overlay, owns all 14
-cosmetics, keeps rare events and random rain out of the frame, and runs an
-autopilot that jumps each cactus and low pterodactyl with the apex over the
-obstacle. Collisions are off, so a take never ends in a game over.
+cosmetics and keeps rare events and random rain out of the frame. Its
+autopilot simulates the jump arc against every obstacle's real collision
+outline (cacti and both pterodactyl heights, with the airborne pose) and
+jumps on the frame with the widest clearance, so the raptor never clips an
+obstacle. Collisions stay off as a safety net, except in the game-over shot.
 
 ## 2. Edit file
 
-`trailer/steam-52s.json` is the current cut. Fields:
+`trailer/steam-54s.json` is the current cut. Fields:
 
 | Field | Meaning |
 |---|---|
@@ -85,29 +99,34 @@ obstacle. Collisions are off, so a take never ends in a game over.
 | `clips` | clip folder, relative to the main checkout (override with `--clips=`) |
 | `music` | `file`, `in` (seconds into the track), `gainDb`, `fadeIn`, `fadeOut`, `credit`, `automation` (`[[second in the cut, dB], …]`, linear between points: duck the calm opening, dip before the drop) |
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
-| `titles[]` | transparent overlays: `style` (`end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
+| `titles[]` | transparent overlays: `style` (`glass`, `end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
 | `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
 | `sfx[]` | `file` (repo path) or `synth` (`swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
 | `note`, `notes` | free text, ignored by the renderer |
 
-Pacing in `steam-52s.json` follows the music's two swells: a calm midday
-run with the music low, a swell into the first drop (8.4 s) on a time-lapse
-of a full day around the standing raptor, the night sky with shooting stars,
-one storm from first drops to rainbow, then the flower stretch in the
-track's quiet passage, a second swell into the outfit parade (36.9 s, cuts
-shrinking from 1.0 s to 0.5 s), a four-shot recap and the end card. Cards
-are hard cuts carried by a soft whoosh; no dips to black.
+Pacing in `steam-54s.json` follows the music's two swells: a calm midday
+run with the music low, then a title card into the first drop (8.4 s) on the
+time-lapse, the night sky with shooting stars, one storm from first drops to
+rainbow, the flower stretch in the track's quiet passage, a second card into
+the outfit parade (36.9 s, cuts shrinking from 1.0 s to 0.5 s), a real game
+over and the end card. Transitions carry no synthesized whooshes: only the
+music, a soft low thump on the drops and the game's own sounds.
 
-The edit was generated from the event logs (sound effects land on the
-recorded coin, jump and strike frames); edit the JSON directly to tune it.
+Every cut between two gameplay clips is matched on the raptor's pose: the
+frame before the new in-point shows the same run-cycle pose, held as long,
+as the last frame of the previous cut (or the same height and direction
+mid-jump), so the run cycle continues across the cut. Out-points are pulled
+back to a frame on the ground. The edit was generated from the event and
+pose logs; edit the JSON directly to tune it.
 
-Cards use the game's display font (Unbounded, from
-`@fontsource-variable/unbounded`) over the game's own sky gradients
-(`SKY_COLORS`) and a dune silhouette. The end card uses the designed assets
-in `trailer/assets/`: `raptor-runner-logo.png` (the transparent wordmark from
-the key art) and `library-hero.png` (the Steam library hero), shown whole
-along the bottom with its sky extended upward.
+Title cards are clip cuts of the night plate with `look.blur`, under a
+`glass` title: the game's own night sky behind a frosted panel, in the
+game's display font (Unbounded, from `@fontsource-variable/unbounded`). The
+end card uses the designed assets in `trailer/assets/`:
+`raptor-runner-logo.png` (the transparent wordmark from the key art) and
+`library-hero.png` (the Steam library hero), shown whole along the bottom
+with its sky extended upward.
 
 Times are rounded to whole frames; the MP4 and both timelines agree to the
 frame. The renderer refuses an `out` past a clip's end or a title outside the
@@ -116,7 +135,7 @@ cut.
 ## 3. Render
 
 ```bash
-pnpm trailer:render trailer/steam-52s.json
+pnpm trailer:render trailer/steam-54s.json
 ```
 
 - `--clips=<dir>` / `--out=<dir>` override the folders.
@@ -135,7 +154,7 @@ python3.12 -m venv /tmp/otio && /tmp/otio/bin/pip install opentimelineio otio-fc
 ```
 
 ```bash
-/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-52s/steam-52s.otio
+/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-54s/steam-54s.otio
 ```
 
 ## 4. Fine-tune in Resolve
@@ -177,7 +196,9 @@ Only assets whose licence allows use in a trailer are in the cut:
 
   > Jump sound: "SFX_Jump_22" by jalastram, licensed under CC BY 3.0, https://creativecommons.org/licenses/by/3.0/
 
-- Transition sounds (`swell`, `whoosh`, `thump`) are synthesized by ffmpeg.
+- The low `thump` on the drops is synthesized by ffmpeg. The `swell` and
+  `whoosh` synths stay available but are not in the current cut.
+- Game over: the cactus impact sound (Pixabay, freesound_community).
 - Not used: the shop sound (CC BY 3.0) and every rare-event sound.
 
 The authoritative list for the game is `src/credits.ts`.

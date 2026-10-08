@@ -71,6 +71,7 @@ const breather = (page) => page.evaluate(() => window.__trailer.breather());
 const rainRamp = (to, seconds) => (page) =>
   page.evaluate(([to, s]) => window.__trailer.rainRamp(to, s), [to, seconds]);
 const shootingStar = (page) => page.evaluate(() => window.__trailer.shootingStar());
+const crash = (page) => page.evaluate(() => window.__trailer.crash());
 
 // Outfit parade: every look is the same take (same seed, sky, cacti and
 // jumps), so cutting between them at continuous clip times changes only
@@ -101,7 +102,12 @@ const LOOKS = [
 //   rate      day cycles per second the sky sweeps forward (0 = locked)
 //   moon      moon phase (0 new, 0.5 full)
 //   stand     { x, clouds }: freeze the world and stand the raptor at x
-//             (fraction of the width) while clouds race; for time-lapses
+//             (fraction of the width) while clouds race
+//   obstacles false: an open desert, no cacti, pterodactyls or coins
+//   raptorAt  pin the raptor's x (fraction of the width, < 0 off screen)
+//   hud       keep the game's overlays (score, game over); starts the run
+//             with the real Start Game button
+//   score     the run's distance in meters at the start
 //   outfit    cosmetic ids to wear (src/cosmetics.ts)
 //   rain      "off" | "build" | "full" weather at the start of the lead
 //   lead      game seconds run (not recorded) before the first frame, so
@@ -122,13 +128,14 @@ export const SHOTS = [
   },
   {
     slug: "timelapse",
-    describe: "Time-lapse: the raptor stands still while a full day turns around it",
+    describe: "Time-lapse: the raptor runs an open desert while a full day turns",
     phase: PHASE.afternoon,
-    rate: 1 / 12,
+    rate: 1 / 7,
     moon: 0.5,
-    stand: { x: 0.34, clouds: 0.22 },
+    obstacles: false,
+    speed: 8,
     lead: 0.5,
-    seconds: 12,
+    seconds: 8,
   },
   {
     slug: "flower-field",
@@ -186,6 +193,30 @@ export const SHOTS = [
     lead: 3,
     seconds: 8,
   },
+  {
+    slug: "night-plate",
+    describe: "Card background: night sky with shooting stars, raptor off screen",
+    phase: PHASE.midnight - 0.03,
+    rate: 0.004,
+    moon: 0.5,
+    obstacles: false,
+    raptorAt: -2,
+    speed: 7,
+    lead: 4,
+    seconds: 14,
+    beats: [0.5, 2.1, 3.4, 5.0, 6.6, 8.1, 9.5, 11.2, 12.6].map((at) => ({ at, run: shootingStar })),
+  },
+  {
+    slug: "game-over",
+    describe: "HUD on: a long run ends on a cactus, the score card comes up",
+    hud: true,
+    phase: PHASE.golden,
+    outfit: ["cowboy-hat", "bandana"],
+    score: 1841,
+    lead: 2,
+    seconds: 7,
+    beats: [{ at: 1.2, run: crash }],
+  },
   ...LOOKS.map(([name, outfit]) => ({
     slug: `parade-${name}`,
     describe: `Outfit parade: ${outfit.join(", ") || "no outfit"}`,
@@ -197,6 +228,17 @@ export const SHOTS = [
 // ---------------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Reject after `ms`: a stalled page or screenshot must not hang a run. */
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => {
+      timer = setTimeout(() => rej(new Error(`stalled: ${label} (${ms / 1000}s)`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 async function pumpUntil(page, predicate, timeoutMs = 120000) {
   const end = Date.now() + timeoutMs;
@@ -217,17 +259,27 @@ async function stage(page, shot) {
     page,
     () => !!window.__trailer && window.Game?.getLoadingState().status === "ready",
   );
+  await page.evaluate(() => document.getElementById("boot-splash")?.remove());
+  // HUD shots start the way a player does, so the start screen closes and
+  // the score and game-over overlays behave as in the shipped game.
+  if (shot.hud) {
+    await page.getByRole("button", { name: "Start Game", exact: true }).click();
+    await page.evaluate((dt) => window.__trailer.step(dt), 1000 / FPS);
+  }
   await page.evaluate(
     ({ shot }) => {
-      document.getElementById("boot-splash")?.remove();
+      window.__reseed();
       const T = window.__trailer;
-      T.begin();
+      T.begin({ hud: !!shot.hud });
       T.outfit(shot.outfit ?? []);
       T.setPhase(shot.phase, { rate: shot.rate ?? 0 });
       if (shot.speed) T.speed(shot.speed);
       if (shot.rain) T.rain(shot.rain);
       if (shot.moon !== undefined) T.moon(shot.moon);
       if (shot.stand) T.stand(shot.stand.x, shot.stand.clouds);
+      if (shot.obstacles === false) T.obstacles(false);
+      if (shot.raptorAt !== undefined) T.raptorAt(shot.raptorAt);
+      if (shot.score) T.score(shot.score);
     },
     { shot: { ...shot, setup: undefined, beats: undefined } },
   );
@@ -280,30 +332,55 @@ async function record(page, shot, file) {
   // effects in the edit file can land on the exact pickup or strike.
   const events = [];
   const last = {};
-  for (let f = 0; f < frames; f++) {
-    const t = f / FPS;
-    while (pending.length && pending[0].at <= t) await pending.shift().run(page);
-    const ev = await page.evaluate((dt) => window.__trailer.step(dt), 1000 / FPS);
-    if (ev) {
-      for (const kind of ["coins", "jumps", "strikes"]) {
-        if (last[kind] !== undefined && ev[kind] > last[kind])
-          events.push({ t: Number(t.toFixed(3)), kind });
-        last[kind] = ev[kind];
+  const pose = []; // per frame: [run-cycle frame, height above ground]
+  try {
+    for (let f = 0; f < frames; f++) {
+      const t = f / FPS;
+      while (pending.length && pending[0].at <= t) await pending.shift().run(page);
+      const ev = await withTimeout(
+        page.evaluate((dt) => window.__trailer.step(dt), 1000 / FPS),
+        30000,
+        `step to frame ${f}`,
+      );
+      if (ev) {
+        pose.push([ev.frame, ev.air]);
+        if (ev.over && !last.over) events.push({ t: Number(t.toFixed(3)), kind: "gameover" });
+        if (ev.clip && !last.clip) {
+          events.push({
+            t: Number(t.toFixed(3)),
+            kind: "clip",
+            what: ev.clip,
+            air: ev.air,
+            speed: ev.speed,
+          });
+        }
+        last.clip = ev.clip;
+        last.over = ev.over;
+        for (const kind of ["coins", "jumps", "strikes"]) {
+          if (last[kind] !== undefined && ev[kind] > last[kind])
+            events.push({ t: Number(t.toFixed(3)), kind });
+          last[kind] = ev[kind];
+        }
+      }
+      const { data } = await withTimeout(
+        cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 95, optimizeForSpeed: true }),
+        30000,
+        `screenshot of frame ${f}`,
+      );
+      if (!ffmpeg.stdin.write(Buffer.from(data, "base64"))) {
+        await new Promise((r) => ffmpeg.stdin.once("drain", r));
       }
     }
-    const { data } = await cdp.send("Page.captureScreenshot", {
-      format: "jpeg",
-      quality: 95,
-      optimizeForSpeed: true,
-    });
-    if (!ffmpeg.stdin.write(Buffer.from(data, "base64"))) {
-      await new Promise((r) => ffmpeg.stdin.once("drain", r));
-    }
+  } catch (err) {
+    ffmpeg.kill("SIGKILL");
+    await cdp.detach().catch(() => {});
+    throw err;
   }
   ffmpeg.stdin.end();
   await done;
   await cdp.detach();
   await writeFile(file.replace(/\.mp4$/, ".events.json"), `${JSON.stringify(events, null, 1)}\n`);
+  await writeFile(file.replace(/\.mp4$/, ".pose.json"), `${JSON.stringify({ fps: FPS, pose })}\n`);
   return frames;
 }
 
@@ -353,38 +430,52 @@ async function main() {
   });
   try {
     for (const { shot, index } of shots) {
-      // Fresh context per shot: empty localStorage, so every take starts
-      // from the same new save.
-      const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-      await context.addInitScript(
-        (seed) => {
-          localStorage.setItem("raptor-runner:muted", "1");
-          // mulberry32: same slug, same cacti, clouds and bolts every take.
-          let a = seed >>> 0;
-          Math.random = () => {
-            a = (a + 0x6d2b79f5) >>> 0;
-            let t = a;
-            t = Math.imul(t ^ (t >>> 15), t | 1);
-            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-          };
-        },
-        seedFor(shot.seed ?? shot.slug),
-      );
-      const page = await context.newPage();
-      page.on("pageerror", (e) => console.warn(`  [page error] ${shot.slug}: ${e.message}`));
-      const started = Date.now();
-      try {
-        await stage(page, shot);
-        const file = `${OUT}/${String(index + 1).padStart(2, "0")}-${shot.slug}.mp4`;
-        const frames = await record(page, shot, file);
-        const info = await page.evaluate(() => window.__trailer.info());
-        const secs = ((Date.now() - started) / 1000).toFixed(0);
-        console.log(
-          `  ✓ ${relative(process.cwd(), file)} (${frames} frames, ${secs}s wall; coins ${info.coins}, rain ${info.rain.toFixed(2)}${info.rainbow ? ", rainbow" : ""})`,
+      // A take can stall inside headless Chrome (a screenshot that never
+      // returns); it then times out and is recorded again from scratch.
+      let done = false;
+      for (let attempt = 1; attempt <= 3 && !done; attempt++) {
+        // Fresh context per shot: empty localStorage, so every take starts
+        // from the same new save.
+        const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+        await context.addInitScript(
+          (seed) => {
+            localStorage.setItem("raptor-runner:muted", "1");
+            // mulberry32: same slug, same cacti, clouds and bolts every take.
+            let a = seed >>> 0;
+            // Reseeded just before the run starts: how many frames load-time
+            // pumping draws from the stream depends on wall time.
+            window.__reseed = () => {
+              a = seed >>> 0;
+            };
+            Math.random = () => {
+              a = (a + 0x6d2b79f5) >>> 0;
+              let t = a;
+              t = Math.imul(t ^ (t >>> 15), t | 1);
+              t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          },
+          seedFor(shot.seed ?? shot.slug),
         );
-      } finally {
-        await context.close();
+        const page = await context.newPage();
+        page.on("pageerror", (e) => console.warn(`  [page error] ${shot.slug}: ${e.message}`));
+        const started = Date.now();
+        try {
+          await withTimeout(stage(page, shot), 300000, `staging ${shot.slug}`);
+          const file = `${OUT}/${String(index + 1).padStart(2, "0")}-${shot.slug}.mp4`;
+          const frames = await record(page, shot, file);
+          const info = await page.evaluate(() => window.__trailer.info());
+          const secs = ((Date.now() - started) / 1000).toFixed(0);
+          console.log(
+            `  ✓ ${relative(process.cwd(), file)} (${frames} frames, ${secs}s wall; coins ${info.coins}, rain ${info.rain.toFixed(2)}${info.rainbow ? ", rainbow" : ""})`,
+          );
+          done = true;
+        } catch (err) {
+          if (attempt === 3) throw err;
+          console.warn(`  ! ${shot.slug}: ${err.message}; retrying (${attempt}/3)`);
+        } finally {
+          await context.close().catch(() => {});
+        }
       }
     }
   } finally {

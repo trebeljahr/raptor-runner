@@ -25,7 +25,7 @@ import { maybeSpawnShootingStar } from "./effects/particles";
 import { resetRain, strikeLightning } from "./effects/weather";
 import type { Cactuses } from "./entities/cactus";
 import type { Raptor } from "./entities/raptor";
-import { lerpColor } from "./helpers";
+import { lerpColor, type Polygon, polygonsOverlap } from "./helpers";
 import { computeSkyGradient } from "./render/sky";
 import { state } from "./state";
 
@@ -50,6 +50,8 @@ export function installTrailerHooks(host: TrailerHost): void {
   let ramp: { from: number; to: number; t: number; seconds: number } | null = null;
   let standX: number | null = null;
   let cloudRate = 0; // screen widths per second while standing
+  let clearObstacles = false;
+  let raptorX: number | null = null;
   // Last seen x per obstacle: pterodactyls fly toward the raptor faster
   // than the ground scrolls, so the jump lead uses each one's own speed.
   const lastX = new WeakMap<object, number>();
@@ -108,29 +110,120 @@ export function installTrailerHooks(host: TrailerHost): void {
     state.lightning.nextAt = Number.POSITIVE_INFINITY;
   };
 
-  /** Jump so the apex lands over the next cactus or low pterodactyl. */
-  const drive = () => {
-    const r = host.raptor();
-    if (!autopilot || r.y !== r.ground || state.gameOver) return;
-    const a = r.downwardAcceleration;
-    if (!(a > 0)) return;
-    const airFrames = 2 * Math.sqrt((2 * r.h * JUMP_CLEARANCE_MULTIPLIER) / a);
-    const pxPerFrame = state.bgVelocity * (state.width / VELOCITY_SCALE_DIVISOR);
-    const mid = r.x + r.w * 0.55;
-    const c = host.cactuses();
-    const ahead = [...c.cacti, ...c.pterodactyls.pteros.filter((p) => p.isLowFlight)].filter(
-      (o) => o.x + o.w > r.x,
-    );
-    for (const o of ahead) {
-      const prev = lastX.get(o);
-      lastX.set(o, o.x);
-      const closing = prev === undefined ? pxPerFrame : Math.max(pxPerFrame, prev - o.x);
-      const d = o.x + o.w / 2 - mid;
-      if (d > 0 && d <= (airFrames * closing) / 2) {
-        r.jump();
-        return;
+  // ── Autopilot ────────────────────────────────────────────────────
+  // Simulates the raptor's jump arc against every obstacle's collision
+  // outline and jumps on the frame that gives the widest clearance, so a
+  // take never clips a cactus or flies into a high pterodactyl. Outlines
+  // are reduced to per-column top/bottom profiles (BIN px wide), which is
+  // cheap enough to test dozens of jump timings every frame.
+  const BIN = 6;
+  const SAFE = 6; // px of clearance treated as a clean pass
+  type Profile = { x0: number; top: number[]; bot: number[] };
+  const profile = (poly: Polygon): Profile => {
+    let x0 = Number.POSITIVE_INFINITY;
+    let x1 = Number.NEGATIVE_INFINITY;
+    for (const p of poly) {
+      x0 = Math.min(x0, p.x);
+      x1 = Math.max(x1, p.x);
+    }
+    const n = Math.max(1, Math.ceil((x1 - x0) / BIN) + 1);
+    const top = new Array<number>(n).fill(Number.POSITIVE_INFINITY);
+    const bot = new Array<number>(n).fill(Number.NEGATIVE_INFINITY);
+    const mark = (x: number, y: number) => {
+      const i = Math.min(n - 1, Math.max(0, Math.floor((x - x0) / BIN)));
+      if (y < top[i]) top[i] = y;
+      if (y > bot[i]) bot[i] = y;
+    };
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / (BIN / 2)));
+      for (let k = 0; k <= steps; k++) {
+        mark(p.x + ((q.x - p.x) * k) / steps, p.y + ((q.y - p.y) * k) / steps);
       }
     }
+    return { x0, top, bot };
+  };
+
+  /** Smallest vertical gap between raptor and obstacle where they overlap. */
+  const gap = (r: Profile, dy: number, o: Profile, dx: number): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < r.top.length; i++) {
+      if (r.top[i] === Number.POSITIVE_INFINITY) continue;
+      const j = Math.floor((r.x0 + i * BIN - (o.x0 + dx)) / BIN);
+      if (j < 0 || j >= o.top.length || o.top[j] === Number.POSITIVE_INFINITY) continue;
+      const sep = Math.max(o.top[j] - (r.bot[i] + dy), r.top[i] + dy - o.bot[j]);
+      if (sep < best) best = sep;
+    }
+    return best;
+  };
+
+  /** `fs`: this step's length in 60 fps frames (the game's frameScale). */
+  const drive = (fs: number) => {
+    const r = host.raptor();
+    const c = host.cactuses();
+    const pxPerStep = state.bgVelocity * (state.width / VELOCITY_SCALE_DIVISOR) * fs;
+    const obstacles = [...c.cacti, ...c.pterodactyls.pteros]
+      .filter((o) => o.x + o.w > r.x)
+      .map((o) => {
+        const prev = lastX.get(o);
+        lastX.set(o, o.x);
+        const closing = prev === undefined ? pxPerStep : Math.max(pxPerStep, prev - o.x);
+        return { o, closing };
+      });
+    // A sliver of a step (a fast-forward's remainder) can't time a jump.
+    if (!autopilot || fs < 0.25 || r.y !== r.ground || state.gameOver || obstacles.length === 0) {
+      return;
+    }
+    const a = r.downwardAcceleration;
+    if (!(a > 0)) return;
+    const v0 = Math.sqrt(2 * a * r.h * JUMP_CLEARANCE_MULTIPLIER);
+    const air = Math.ceil((2 * v0) / (a * fs)) + 1;
+    // Airborne the game switches to the idle pose's outline. The polygon
+    // is cached per frame, so clear the cache around the probe.
+    const cache = r as unknown as { _polyCache: unknown };
+    const raptor = profile(r.collisionPolygon());
+    const groundY = r.y;
+    r.y = groundY - 1;
+    cache._polyCache = null;
+    const raptorAir = profile(r.collisionPolygon());
+    r.y = groundY;
+    cache._polyCache = null;
+    const near = obstacles
+      .filter(({ o, closing }) => o.x - (r.x + r.w) < closing * (air + 40))
+      .map(({ o, closing }) => ({ p: profile(o.collisionPolygon()), closing }));
+    if (near.length === 0) return;
+    const LATEST = Math.ceil(30 / fs);
+    const horizon = air + LATEST + 10;
+    // A jump is judged until just after it lands: the next obstacle gets
+    // its own jump once the raptor is back on the ground.
+    const clearance = (jumpAt: number | null) => {
+      let worst = Number.POSITIVE_INFINITY;
+      const until = jumpAt === null ? horizon : jumpAt + air + Math.ceil(3 / fs);
+      for (let t = 1; t <= until; t++) {
+        let dy = 0;
+        if (jumpAt !== null && t > jumpAt) {
+          const n = t - jumpAt;
+          dy = Math.min(0, -v0 * fs * n + (a * fs * fs * n * (n + 1)) / 2);
+        }
+        for (const { p, closing } of near) {
+          const g = gap(dy < 0 ? raptorAir : raptor, dy, p, -closing * t);
+          if (g < worst) worst = g;
+        }
+      }
+      return worst;
+    };
+    if (clearance(null) >= SAFE) return;
+    let bestAt = 0;
+    let best = Number.NEGATIVE_INFINITY;
+    for (let k = 0; k <= LATEST; k++) {
+      const g = clearance(k);
+      if (g > best + 0.5) {
+        best = g;
+        bestAt = k;
+      }
+    }
+    if (bestAt === 0) r.jump();
   };
 
   // The game eases rainIntensity toward 0 or 1 inside update(). Pre-
@@ -172,6 +265,15 @@ export function installTrailerHooks(host: TrailerHost): void {
     if (!allowEvents) state.activeRareEvent = null;
     if (!allowBreathers) state._nextBreatherAtScore = state.score + 1e9;
     if (speed !== null) state.bgVelocity = speed;
+    if (clearObstacles) {
+      // An open desert: drop each cactus, pterodactyl and coin as it
+      // spawns (in place: the game holds these arrays across frames).
+      const c = host.cactuses();
+      c.cacti.length = 0;
+      c.pterodactyls.pteros.length = 0;
+      if (state.coins) state.coins.length = 0;
+    }
+    if (raptorX !== null) host.raptor().x = state.width * raptorX;
     if (standX !== null) {
       // Hold the standing pose: an infinite last-advance time stops the
       // run cycle from stepping on the next update.
@@ -182,7 +284,7 @@ export function installTrailerHooks(host: TrailerHost): void {
       // Time-lapse clouds: the world is frozen, so they race on their own.
       for (const c of state.clouds) c.x -= state.width * cloudRate * (dtMs / 1000);
     } else {
-      drive();
+      drive((dtMs / 1000) * 60);
     }
   };
 
@@ -191,13 +293,41 @@ export function installTrailerHooks(host: TrailerHost): void {
     beforeFrame(dtMs);
     (window as unknown as { __rafStep: (dt: number) => number }).__rafStep(dtMs);
 
-    return { coins: state.runCoins, jumps: state.runJumps, strikes };
+    const r = host.raptor();
+    // Did the raptor pass through an obstacle this frame? (Collisions are
+    // off in most takes, so the recorder logs it as a "clip" event.)
+    const c = host.cactuses();
+    const rp = r.collisionPolygon();
+    const hit = [...c.cacti, ...c.pterodactyls.pteros].find(
+      (o) => o.x < r.x + r.w && o.x + o.w > r.x && polygonsOverlap(rp, o.collisionPolygon()),
+    );
+    const clip = !hit
+      ? false
+      : "isLowFlight" in hit
+        ? hit.isLowFlight
+          ? "low pterodactyl"
+          : "high pterodactyl"
+        : "cactus";
+    return {
+      clip,
+      coins: state.runCoins,
+      jumps: state.runJumps,
+      strikes,
+      // Pose for match cuts: run-cycle frame and height above ground in
+      // raptor heights.
+      frame: r.frame,
+      air: Number(((r.ground - r.y) / r.h).toFixed(3)),
+      over: state.gameOver,
+      speed: Number(state.bgVelocity.toFixed(2)),
+    };
   };
 
   const api = {
     /** Start a run with every cosmetic owned and nothing equipped. */
-    begin() {
-      document.body.classList.add("cinematic-mode");
+    /** Start a run with every cosmetic owned and nothing equipped. With
+     *  `hud`, the game's own overlays stay visible (score, game over). */
+    begin({ hud = false } = {}) {
+      if (!hud) document.body.classList.add("cinematic-mode");
       for (const c of COSMETICS) grantCosmetic(c.id, { autoEquip: false });
       outfit([]);
       host.start();
@@ -206,7 +336,9 @@ export function installTrailerHooks(host: TrailerHost): void {
     },
     step,
     advance(ms: number, dtMs = 1000 / 60) {
-      for (let left = ms; left > 0; left -= dtMs) step(Math.min(dtMs, left));
+      // Whole frames only: a floating-point remainder would be a near-zero step.
+      const frames = Math.round(ms / dtMs);
+      for (let i = 0; i < frames; i++) step(dtMs);
     },
     setPhase,
     outfit,
@@ -255,6 +387,25 @@ export function installTrailerHooks(host: TrailerHost): void {
     speed(v: number | null) {
       speed = v;
       if (v !== null) state.bgVelocity = v;
+    },
+    /** Pin the raptor's x (fraction of the width; < 0 is off screen, for
+     *  sky-only background plates); null puts it back under the game. */
+    raptorAt(x: number | null) {
+      raptorX = x;
+      if (x === null) host.raptor().resize();
+    },
+    /** Open desert: no cacti, pterodactyls or coins. */
+    obstacles(on: boolean) {
+      clearObstacles = !on;
+    },
+    /** Set the run's distance without firing its milestone unlocks. */
+    score(meters: number) {
+      state.score = meters;
+    },
+    /** Let the next obstacle end the run (autopilot off, collisions on). */
+    crash() {
+      autopilot = false;
+      state.noCollisions = false;
     },
     autopilot(on: boolean) {
       autopilot = on;

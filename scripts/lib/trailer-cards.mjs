@@ -10,6 +10,8 @@
 //   intertitle   opaque sky card, centred text; used as a cut between shots.
 //                `sky`: day | gold | dusk | night | storm
 //   art          opaque full-frame artwork (`background`, `position`, `fit`)
+//   glass        transparent, a frosted panel with one line of text; goes
+//                over blurred night-sky footage as a title card
 //   lower-third  transparent, bottom left, on a dark band for contrast
 //   end-logo     transparent, the designed wordmark PNG (`logo`, `align`)
 //   end-cta      transparent, the call to action plate (`lines`, `align`)
@@ -135,6 +137,25 @@ function lowerThird({ text, kicker }) {
   };
 }
 
+/**
+ * Frosted glass panel with a line of text (`\n` breaks it), centred. Laid over blurred
+ * night-sky footage (a clip cut with `look.blur`), it reads as the game's
+ * own sky behind glass.
+ */
+function glass({ text }) {
+  return {
+    css: `
+      .g { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+           width: max-content; max-width: 1760px; padding: 54px 96px 60px; border-radius: 40px;
+           background: linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.06));
+           border: 2px solid rgba(255,255,255,.26);
+           box-shadow: 0 24px 80px rgba(4,8,20,.35), inset 0 1px 0 rgba(255,255,255,.25);
+           font-size: 84px; line-height: 1.12; text-align: center; letter-spacing: -0.01em;
+           color: ${WHITE}; text-shadow: 0 3px 18px rgba(4,8,20,.45); }`,
+    body: `<div class="g">${esc(text).replace(/\n/g, "<br>")}</div>`,
+  };
+}
+
 // Horizontal anchor of the end-card column: "center" or "right".
 const column = (align) => (align === "right" ? "left: 50%; right: 3%;" : "left: 0; right: 0;");
 
@@ -171,6 +192,7 @@ const KINDS = {
   intertitle,
   art,
   "lower-third": lowerThird,
+  glass,
   "end-logo": endLogo,
   "end-cta": endCta,
 };
