@@ -13,11 +13,15 @@
 import {
   INITIAL_BG_VELOCITY,
   JUMP_CLEARANCE_MULTIPLIER,
+  RAIN_FADE_IN_RATE,
+  RAIN_FADE_OUT_RATE,
   RAINBOW_LIFETIME_SEC,
+  RAPTOR_IDLE_FRAME,
   SKY_COLORS,
   VELOCITY_SCALE_DIVISOR,
 } from "./constants";
 import { COSMETIC_SLOTS, COSMETICS, equipCosmetic, grantCosmetic, unequipSlot } from "./cosmetics";
+import { maybeSpawnShootingStar } from "./effects/particles";
 import { resetRain, strikeLightning } from "./effects/weather";
 import type { Cactuses } from "./entities/cactus";
 import type { Raptor } from "./entities/raptor";
@@ -31,7 +35,9 @@ export interface TrailerHost {
   start: () => void;
 }
 
-type RainMode = "off" | "build" | "full" | "stopping";
+type RainMode = "off" | "build" | "full" | "stopping" | "ramp";
+
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 export function installTrailerHooks(host: TrailerHost): void {
   let phaseRate = 0; // day cycles per second while the phase is locked
@@ -41,6 +47,9 @@ export function installTrailerHooks(host: TrailerHost): void {
   let rain: RainMode = "off";
   let speed: number | null = null;
   let strikes = 0;
+  let ramp: { from: number; to: number; t: number; seconds: number } | null = null;
+  let standX: number | null = null;
+  let cloudRate = 0; // screen widths per second while standing
   // Last seen x per obstacle: pterodactyls fly toward the raptor faster
   // than the ground scrolls, so the jump lead uses each one's own speed.
   const lastX = new WeakMap<object, number>();
@@ -58,7 +67,8 @@ export function installTrailerHooks(host: TrailerHost): void {
 
   /** Lock the day cycle at `phase` (0..1, see CINEMATIC_PHASES). */
   const setPhase = (phase: number, { snap = true, rate = 0 } = {}) => {
-    const base = Math.floor(state.smoothPhase);
+    // Cycle 1 or later: shooting stars only start on the second night.
+    const base = Math.max(1, Math.floor(state.smoothPhase));
     state.cinematicPhaseLock = base + phase;
     state.smoothPhase = state.cinematicPhaseLock;
     state.lastCycleIndex = Math.floor(state.smoothPhase);
@@ -123,11 +133,36 @@ export function installTrailerHooks(host: TrailerHost): void {
     }
   };
 
+  // The game eases rainIntensity toward 0 or 1 inside update(). Pre-
+  // compensate for that step so the value it renders is the ramp's.
+  const applyRamp = (dtMs: number) => {
+    if (!ramp) return;
+    ramp.t = Math.min(ramp.seconds, ramp.t + dtMs / 1000);
+    const k = ramp.seconds > 0 ? smoothstep(ramp.t / ramp.seconds) : 1;
+    const want = ramp.from + (ramp.to - ramp.from) * k;
+    const fs = (dtMs / 1000) * 60;
+    const raining = ramp.to >= ramp.from;
+    state.isRaining = raining;
+    if (raining) {
+      state.rainEndPhase = state.smoothPhase + 100;
+      const a = RAIN_FADE_IN_RATE * fs;
+      state.rainIntensity = Math.max(0, (want - a) / (1 - a));
+    } else {
+      state.rainEndPhase = 0;
+      state.rainIntensity = want / (1 - RAIN_FADE_OUT_RATE * fs);
+    }
+    if (ramp.t >= ramp.seconds && ramp.to === 0) {
+      ramp = null;
+      rain = "stopping";
+    }
+  };
+
   const beforeFrame = (dtMs: number) => {
     if (phaseRate && state.cinematicPhaseLock !== null) {
       state.cinematicPhaseLock += (phaseRate * dtMs) / 1000;
     }
     if (rain === "off" && state.isRaining) setRain("off");
+    if (ramp) applyRamp(dtMs);
     if (
       (rain === "build" || rain === "full") &&
       state.lightning.nextAt !== Number.POSITIVE_INFINITY
@@ -137,13 +172,25 @@ export function installTrailerHooks(host: TrailerHost): void {
     if (!allowEvents) state.activeRareEvent = null;
     if (!allowBreathers) state._nextBreatherAtScore = state.score + 1e9;
     if (speed !== null) state.bgVelocity = speed;
-    drive();
+    if (standX !== null) {
+      // Hold the standing pose: an infinite last-advance time stops the
+      // run cycle from stepping on the next update.
+      const r = host.raptor();
+      r.x = state.width * standX;
+      r.frame = RAPTOR_IDLE_FRAME;
+      r.lastFrameAdvanceAt = Number.POSITIVE_INFINITY;
+      // Time-lapse clouds: the world is frozen, so they race on their own.
+      for (const c of state.clouds) c.x -= state.width * cloudRate * (dtMs / 1000);
+    } else {
+      drive();
+    }
   };
 
   /** Render one frame; returns run counters so the recorder can log events. */
   const step = (dtMs = 1000 / 60) => {
     beforeFrame(dtMs);
     (window as unknown as { __rafStep: (dt: number) => number }).__rafStep(dtMs);
+
     return { coins: state.runCoins, jumps: state.runJumps, strikes };
   };
 
@@ -172,6 +219,27 @@ export function installTrailerHooks(host: TrailerHost): void {
     /** Moon phase, 0 = new, 0.5 = full. */
     moon(phase: number) {
       state.moonPhase = phase;
+    },
+    /** Ease the rain intensity to `to` (0..1) over `seconds`, slower and
+     *  smoother than the game's own fades. Easing to 0 lets the
+     *  rainbow roll fire as the rain thins out. */
+    rainRamp(to: number, seconds: number) {
+      rain = "ramp";
+      ramp = { from: state.rainIntensity, to, t: 0, seconds };
+      state.lightning.nextAt = Number.POSITIVE_INFINITY;
+      if (to < state.rainIntensity) state._debugRainStop = true;
+    },
+    /** Freeze the world and stand the raptor at `x` (fraction of the
+     *  width) for a time-lapse; null runs again. */
+    stand(x: number | null, clouds = 0.2) {
+      standX = x;
+      cloudRate = clouds;
+      speed = x === null ? null : 0;
+      if (x !== null) state.bgVelocity = 0;
+    },
+    /** One shooting star now (night sky only). */
+    shootingStar() {
+      maybeSpawnShootingStar(1e6);
     },
     rainbow() {
       state.rainbow = { age: 0, life: RAINBOW_LIFETIME_SEC };

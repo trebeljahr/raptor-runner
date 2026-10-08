@@ -2,15 +2,17 @@
 //
 // Homebrew's ffmpeg ships without drawtext, and a PNG imports into any NLE,
 // so text is laid out in HTML with the game's own display font (Unbounded)
-// and screenshot. Colours follow the title screen: dark brown ink, the cream
-// of the menu buttons, and the amber of the ground band.
+// and screenshot. Card backgrounds are the game's own sky gradients
+// (SKY_COLORS in src/constants.ts) over a dune silhouette, so a card reads
+// as a moment of the day cycle rather than a slide.
 //
 // Kinds:
-//   intertitle   opaque ink card, centred text; used as a cut between shots
+//   intertitle   opaque sky card, centred text; used as a cut between shots.
+//                `sky`: day | gold | dusk | night | storm
+//   art          opaque full-frame artwork (`background`, `position`, `fit`)
 //   lower-third  transparent, bottom left, on a dark band for contrast
-//   end-logo     transparent, the "Raptor Runner" wordmark above the middle
-//   end-cta      transparent, the call to action under the wordmark
-//   end          opaque all-in-one end card on key art
+//   end-logo     transparent, the designed wordmark PNG (`logo`, `align`)
+//   end-cta      transparent, the call to action plate (`lines`, `align`)
 
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -20,9 +22,25 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 import { CHROME } from "./trailer-paths.mjs";
 
-const INK = "#2a1d12";
-const CREAM = "#f8ecd0";
-const AMBER = "#e8ae3c";
+const WHITE = "#fffaf0";
+const GOLD = "#ffd36b"; // the coin
+const LOGO_INK = "#3b2a1c"; // outline colour of the designed wordmark
+const LOGO_CREAM = "#fbecc8";
+
+const rgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
+// Bands from SKY_COLORS: day, golden hour, sunset magenta, blue hour, night.
+const DAY = [80, 180, 205];
+const GOLDEN = [240, 170, 70];
+const MAGENTA = [220, 90, 120];
+const BLUE_HOUR = [40, 65, 130];
+const NIGHT = [21, 34, 56];
+const SKIES = {
+  day: { top: [44, 132, 170], bottom: DAY, kicker: WHITE },
+  gold: { top: MAGENTA, bottom: GOLDEN, kicker: WHITE },
+  dusk: { top: BLUE_HOUR, bottom: MAGENTA, kicker: GOLD },
+  night: { top: NIGHT, bottom: BLUE_HOUR, kicker: GOLD, stars: true },
+  storm: { top: [34, 40, 48], bottom: [78, 88, 100], kicker: GOLD },
+};
 
 const esc = (s) =>
   String(s).replace(
@@ -34,28 +52,70 @@ const page = (fontUrl, w, h, body, css) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 @font-face { font-family: Unbounded; font-weight: 200 900; src: url("${fontUrl}") format("woff2"); }
 html, body { margin: 0; width: ${w}px; height: ${h}px; background: transparent; overflow: hidden; }
-body { font-family: Unbounded, sans-serif; font-weight: 800; color: ${CREAM}; }
+body { font-family: Unbounded, sans-serif; font-weight: 800; color: ${WHITE}; }
 ${css}
 </style></head><body>${body}</body></html>`;
 
-/** The wordmark: cream letters with a thick ink outline, as on the key art. */
-const wordmark = (size) => `
-  font-size: ${size}px; line-height: 1.02; font-weight: 900; letter-spacing: -0.01em;
-  color: ${CREAM}; -webkit-text-stroke: ${Math.round(size * 0.075)}px ${INK};
-  paint-order: stroke fill; text-align: center;`;
+/** Two rolling dune layers along the bottom, like the game's parallax. */
+const DUNES = `<svg class="dunes" viewBox="0 0 1920 300" preserveAspectRatio="none">
+  <path d="M0 150 C240 90 420 120 640 140 S1080 70 1320 110 S1720 150 1920 100 V300 H0Z" fill="rgba(0,0,0,.14)"/>
+  <path d="M0 220 C300 170 520 200 760 215 S1220 160 1500 190 S1800 220 1920 200 V300 H0Z" fill="rgba(0,0,0,.22)"/>
+</svg>`;
 
-/** Ink card: small amber kicker over one big cream line, both centred. */
-function intertitle({ text, kicker }) {
+/** Deterministic star field for the night card. */
+function stars() {
+  let a = 7;
+  const rand = () => {
+    a = (a * 16807) % 2147483647;
+    return a / 2147483647;
+  };
+  return Array.from({ length: 90 }, () => {
+    const s = 1 + rand() * 2.4;
+    return `<i style="left:${(rand() * 100).toFixed(2)}%;top:${(rand() * 62).toFixed(2)}%;width:${s.toFixed(1)}px;height:${s.toFixed(1)}px;opacity:${(0.35 + rand() * 0.6).toFixed(2)}"></i>`;
+  }).join("");
+}
+
+/** Sky card: small kicker over one big line, both centred, dunes below. */
+function intertitle({ text, kicker, sky = "night" }) {
+  const s = SKIES[sky];
+  if (!s) throw new Error(`unknown card sky "${sky}" (${Object.keys(SKIES).join(", ")})`);
   return {
     css: `
-      body { background: ${INK}; }
-      .c { position: absolute; inset: 0; display: flex; flex-direction: column;
+      body { background: linear-gradient(to bottom, ${rgb(s.top)}, ${rgb(s.bottom)}); }
+      .dunes { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 300px; }
+      .stars i { position: absolute; border-radius: 50%; background: #fff; }
+      .c { position: absolute; inset: 0 0 90px; display: flex; flex-direction: column;
            align-items: center; justify-content: center; padding: 0 140px; }
-      .k { font-size: 38px; font-weight: 700; letter-spacing: 0.18em; color: ${AMBER};
-           text-transform: uppercase; margin-bottom: 30px; padding-left: 0.18em; }
-      .t { font-size: 104px; line-height: 1.08; text-align: center; letter-spacing: -0.01em; }
-      .rule { width: 132px; height: 10px; border-radius: 5px; background: ${AMBER}; margin-top: 44px; }`,
-    body: `<div class="c">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${esc(text)}</div><div class="rule"></div></div>`,
+      .k { font-size: 36px; font-weight: 700; letter-spacing: 0.2em; color: ${s.kicker};
+           text-transform: uppercase; margin-bottom: 28px; padding-left: 0.2em;
+           text-shadow: 0 2px 12px rgba(0,0,0,.35); }
+      .t { font-size: 104px; line-height: 1.08; text-align: center; letter-spacing: -0.01em;
+           text-shadow: 0 4px 24px rgba(0,0,0,.35); }`,
+    body: `${s.stars ? `<div class="stars">${stars()}</div>` : ""}${DUNES}<div class="c">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${esc(text)}</div></div>`,
+    opaque: true,
+  };
+}
+
+/**
+ * Full-frame artwork. `fit: "cover"` crops to fill. `fit: "width"` shows a
+ * wide piece whole (e.g. the 3840x1240 Steam library hero) along the bottom;
+ * `extend` (a CSS background, e.g. a gradient matched to the art's top edge)
+ * fills the frame above it, and the art's top edge fades into it.
+ */
+function art({ background, position = "center", fit = "cover", extend = "#7fd6ee" }) {
+  if (fit === "width") {
+    return {
+      css: `
+        body { background: ${extend}; }
+        .img { position: absolute; left: 0; bottom: 0; width: 100%;
+               -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%); }`,
+      body: `<img class="img" src="${background}">`,
+      opaque: true,
+    };
+  }
+  return {
+    css: `body { background: url("${background}") ${position} / cover no-repeat; }`,
+    body: "",
     opaque: true,
   };
 }
@@ -65,79 +125,60 @@ function lowerThird({ text, kicker }) {
   return {
     css: `
       .band { position: absolute; left: 0; right: 0; bottom: 0; height: 360px;
-              background: linear-gradient(to top, rgba(20,12,6,.72), rgba(20,12,6,.38) 55%, transparent); }
+              background: linear-gradient(to top, rgba(10,16,30,.7), rgba(10,16,30,.35) 55%, transparent); }
       .l3 { position: absolute; left: 112px; bottom: 104px; padding-left: 28px;
-            border-left: 10px solid ${AMBER}; }
-      .k  { font-size: 32px; font-weight: 700; letter-spacing: 0.16em; color: ${AMBER};
+            border-left: 10px solid ${GOLD}; }
+      .k  { font-size: 32px; font-weight: 700; letter-spacing: 0.16em; color: ${GOLD};
             text-transform: uppercase; margin-bottom: 8px; }
       .t  { font-size: 76px; line-height: 1.05; text-shadow: 0 3px 14px rgba(0,0,0,.8); }`,
     body: `<div class="band"></div><div class="l3">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${esc(text)}</div></div>`,
   };
 }
 
-/** Wordmark centred, a little above the middle, with a soft shadow. */
-function endLogo({ text = "Raptor Runner" }) {
+// Horizontal anchor of the end-card column: "center" or "right".
+const column = (align) => (align === "right" ? "left: 50%; right: 3%;" : "left: 0; right: 0;");
+
+/** The designed wordmark PNG, with a soft shadow. */
+function endLogo({ logo, align = "center", top = "36%", width = 1100 }) {
+  if (!logo) throw new Error("end-logo needs `logo` (the wordmark PNG)");
   return {
     css: `
-      .logo { position: absolute; left: 0; right: 0; top: 38%; transform: translateY(-50%);
-              ${wordmark(196)}
-              filter: drop-shadow(0 12px 36px rgba(0,0,0,.55)); }`,
-    body: `<div class="logo">${esc(text)}</div>`,
+      .w { position: absolute; ${column(align)} top: ${top}; transform: translateY(-50%);
+           display: flex; justify-content: center; }
+      .w img { width: ${width}px; max-width: 100%;
+               filter: drop-shadow(0 14px 30px rgba(0,0,0,.35)); }`,
+    body: `<div class="w"><img src="${logo}"></div>`,
   };
 }
 
-/** Call to action under the wordmark: a cream button plate and a small line. */
-function endCta({ lines }) {
+/** Call to action: a plate in the wordmark's own cream and outline colours. */
+function endCta({ lines, align = "center", top = "66%" }) {
   const [cta, ...rest] = lines;
   return {
     css: `
-      .c { position: absolute; left: 0; right: 0; top: 63%; display: flex;
-           flex-direction: column; align-items: center; gap: 26px; }
-      .plate { background: ${CREAM}; color: ${INK}; font-size: 60px; font-weight: 800;
-               padding: 22px 60px 24px; border: 7px solid ${INK}; border-radius: 18px;
-               box-shadow: 0 12px 40px rgba(0,0,0,.45); }
-      .sub { font-size: 34px; font-weight: 600; color: ${CREAM};
-             text-shadow: 0 2px 12px rgba(0,0,0,.95); }`,
+      .c { position: absolute; ${column(align)} top: ${top}; display: flex;
+           flex-direction: column; align-items: center; gap: 22px; }
+      .plate { background: ${LOGO_CREAM}; color: ${LOGO_INK}; font-size: 58px; font-weight: 800;
+               padding: 20px 58px 22px; border: 7px solid ${LOGO_INK}; border-radius: 22px;
+               box-shadow: 0 12px 34px rgba(0,0,0,.3); }
+      .sub { font-size: 32px; font-weight: 600; color: ${WHITE};
+             text-shadow: 0 2px 10px rgba(0,0,0,.85); }`,
     body: `<div class="c"><div class="plate">${esc(cta)}</div>${rest.map((l) => `<div class="sub">${esc(l)}</div>`).join("")}</div>`,
-  };
-}
-
-/** All-in-one end card: key art under a dark scrim, wordmark, call to action. */
-function endCard({ background, lines, text = "Raptor Runner" }) {
-  const [cta, ...rest] = lines;
-  return {
-    css: `
-      body { background: ${INK}; }
-      .bg { position: absolute; inset: 0; background: url("${background}") center / cover;
-            filter: saturate(.75) blur(6px); transform: scale(1.04); }
-      .scrim { position: absolute; inset: 0;
-               background: radial-gradient(ellipse at center, rgba(20,12,6,.35), rgba(20,12,6,.8)); }
-      .c { position: absolute; inset: 0; display: flex; flex-direction: column;
-           align-items: center; justify-content: center; gap: 40px; }
-      .logo { ${wordmark(180)} }
-      .cta { font-size: 64px; }
-      .sub { font-size: 36px; font-weight: 600; color: ${AMBER}; }`,
-    body: `<div class="bg"></div><div class="scrim"></div><div class="c">
-      <div class="logo">${esc(text)}</div>
-      ${cta ? `<div class="cta">${esc(cta)}</div>` : ""}
-      ${rest.map((l) => `<div class="sub">${esc(l)}</div>`).join("")}
-    </div>`,
-    opaque: true,
   };
 }
 
 const KINDS = {
   intertitle,
+  art,
   "lower-third": lowerThird,
   "end-logo": endLogo,
   "end-cta": endCta,
-  end: endCard,
 };
 
 /**
  * Render every card to `outFile`.
  * @param {{ outFile: string, kind: string, [k: string]: any }[]} jobs
- *   `background` is an absolute path
+ *   `logo` and `background` are absolute paths
  */
 export async function renderCards(jobs, { width, height, font }) {
   const dir = await mkdtemp(join(tmpdir(), "trailer-cards-"));
@@ -154,12 +195,16 @@ export async function renderCards(jobs, { width, height, font }) {
       if (!make) throw new Error(`unknown card kind "${job.kind}"`);
       const spec = make({
         ...job,
+        logo: job.logo && pathToFileURL(job.logo).href,
         background: job.background && pathToFileURL(job.background).href,
       });
       const html = join(dir, `card-${i}.html`);
       await writeFile(html, page(pathToFileURL(font).href, width, height, spec.body, spec.css));
       await tab.goto(pathToFileURL(html).href);
       await tab.evaluate(() => document.fonts.ready);
+      await tab.evaluate(() =>
+        Promise.all([...document.images].map((img) => img.decode().catch(() => {}))),
+      );
       await tab.screenshot({ path: job.outFile, omitBackground: !spec.opaque });
     }
   } finally {

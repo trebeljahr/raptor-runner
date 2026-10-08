@@ -1,0 +1,541 @@
+{
+  "name": "steam-52s",
+  "notes": "Trailer 1, draft 2 (52s). Calm midday run and flowers with the music low; swell into the drop on the track's own swell (8.4s): a time-lapse of a full day around the standing raptor, the night sky with shooting stars, one storm from first drops to rainbow, the flower stretch in the music's quiet passage, then a second swell into the outfit parade (one take, only the outfit changes), a four-shot recap and the library-hero end card. No rare events: the Steam copy leaves those to be found.",
+  "fps": 60,
+  "width": 1920,
+  "height": 1080,
+  "clips": "trailer-clips/raw",
+  "master": {
+    "loudness": -14,
+    "truePeak": -1.5
+  },
+  "music": {
+    "name": "L'Etoile danse (Pt. 1) (Meydän, CC BY 4.0)",
+    "file": "public/assets/music2.mp3",
+    "credit": "Music: \"L'Etoile danse (Pt. 1)\" by Meydän (freemusicarchive.org), licensed under CC BY 4.0, https://creativecommons.org/licenses/by/4.0/",
+    "in": 28.5,
+    "gainDb": -1,
+    "fadeIn": 0.5,
+    "fadeOut": 3.0,
+    "automation": [
+      [0, -10],
+      [6.2, -7],
+      [8.1, -13],
+      [8.4, 0],
+      [27.9, 0],
+      [28.6, 2],
+      [35.1, 2],
+      [36.6, -8],
+      [36.9, 0],
+      [46.25, 0],
+      [52.5, -4]
+    ]
+  },
+  "cuts": [
+    {
+      "clip": "01-calm-midday",
+      "in": 0.4,
+      "out": 4.4,
+      "note": "0:00 calm: bare raptor, midday, jumps the first cacti"
+    },
+    {
+      "clip": "03-flower-field",
+      "in": 1.0,
+      "out": 3.6,
+      "note": "cacti thin out, flowers come up"
+    },
+    {
+      "card": "t-desert",
+      "duration": 1.8,
+      "note": "title card over the swell"
+    },
+    {
+      "clip": "02-timelapse",
+      "in": 0.0,
+      "out": 12.0,
+      "speed": 2,
+      "note": "DROP: time-lapse, a full day turns around the standing raptor (2x)"
+    },
+    {
+      "clip": "05-night-stars",
+      "in": 0.4,
+      "out": 3.4,
+      "note": "full moon, shooting stars, pterodactyl overhead"
+    },
+    {
+      "card": "t-weather",
+      "duration": 1.2,
+      "note": "title card"
+    },
+    {
+      "clip": "04-storm",
+      "in": 2.6,
+      "out": 5.0,
+      "note": "storm take: the rain builds"
+    },
+    {
+      "clip": "04-storm",
+      "in": 6.9,
+      "out": 9.2,
+      "note": "lightning strike at 7.4s"
+    },
+    {
+      "clip": "04-storm",
+      "in": 13.2,
+      "out": 17.2,
+      "note": "the rain clears, the rainbow fades in"
+    },
+    {
+      "card": "t-breather",
+      "duration": 1.2,
+      "note": "title card"
+    },
+    {
+      "clip": "03-flower-field",
+      "in": 3.1,
+      "out": 6.6,
+      "note": "coins swept up, the diamond fills the last slot"
+    },
+    {
+      "clip": "06-sunset-pterodactyl",
+      "in": 0.4,
+      "out": 2.4,
+      "note": "sunset, pterodactyls overhead"
+    },
+    {
+      "clip": "07-sunrise",
+      "in": 1.0,
+      "out": 2.4,
+      "note": "sunrise"
+    },
+    {
+      "card": "t-outfits",
+      "duration": 1.5,
+      "note": "title card over the swell"
+    },
+    {
+      "clip": "08-parade-bare",
+      "in": 1.0,
+      "out": 2.0,
+      "note": "DROP 2: outfit parade, continuous clip time"
+    },
+    {
+      "clip": "09-parade-classic",
+      "in": 2.0,
+      "out": 2.9
+    },
+    {
+      "clip": "10-parade-cowboy",
+      "in": 2.9,
+      "out": 3.7
+    },
+    {
+      "clip": "11-parade-top-hat",
+      "in": 3.7,
+      "out": 4.45
+    },
+    {
+      "clip": "12-parade-wizard",
+      "in": 4.45,
+      "out": 5.15
+    },
+    {
+      "clip": "13-parade-diadem",
+      "in": 5.15,
+      "out": 5.8
+    },
+    {
+      "clip": "14-parade-sombrero",
+      "in": 5.8,
+      "out": 6.4
+    },
+    {
+      "clip": "15-parade-pirate",
+      "in": 6.4,
+      "out": 6.95
+    },
+    {
+      "clip": "16-parade-crown",
+      "in": 6.95,
+      "out": 7.45
+    },
+    {
+      "clip": "17-parade-monocle",
+      "in": 7.45,
+      "out": 7.95
+    },
+    {
+      "clip": "04-storm",
+      "in": 7.3,
+      "out": 7.9,
+      "note": "recap: lightning"
+    },
+    {
+      "clip": "04-storm",
+      "in": 16.0,
+      "out": 16.6,
+      "note": "recap: rainbow"
+    },
+    {
+      "clip": "02-timelapse",
+      "in": 6.4,
+      "out": 7.0,
+      "note": "recap: night sky"
+    },
+    {
+      "clip": "03-flower-field",
+      "in": 5.6,
+      "out": 6.2,
+      "note": "recap: the diamond"
+    },
+    {
+      "card": "end-art",
+      "duration": 6.25,
+      "note": "end card: the Steam library hero art"
+    }
+  ],
+  "titles": [
+    {
+      "style": "end-logo",
+      "logo": "trailer/assets/raptor-runner-logo.png",
+      "align": "right",
+      "top": "22%",
+      "width": 820,
+      "start": 46.75,
+      "duration": 5.75,
+      "fadeIn": 0.5,
+      "fadeOut": 0
+    },
+    {
+      "style": "end-cta",
+      "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"],
+      "align": "right",
+      "top": "42%",
+      "start": 47.5,
+      "duration": 5.0,
+      "fadeIn": 0.4,
+      "fadeOut": 0
+    }
+  ],
+  "cards": {
+    "t-desert": {
+      "kind": "intertitle",
+      "sky": "dusk",
+      "kicker": "Day and night",
+      "text": "The desert doesn’t stand still"
+    },
+    "t-weather": {
+      "kind": "intertitle",
+      "sky": "storm",
+      "kicker": "Weather",
+      "text": "Storms roll in and pass"
+    },
+    "t-breather": {
+      "kind": "intertitle",
+      "sky": "day",
+      "kicker": "Flower stretches",
+      "text": "Coins, then a diamond"
+    },
+    "t-outfits": {
+      "kind": "intertitle",
+      "sky": "gold",
+      "kicker": "14 cosmetics",
+      "text": "All earned by playing"
+    },
+    "end-art": {
+      "kind": "art",
+      "background": "trailer/assets/library-hero.png",
+      "fit": "width",
+      "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))"
+    }
+  },
+  "sfx": [
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 0.05,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 0.867,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 1.6,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 1.767,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 2.767,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 3.883,
+      "gainDb": -17
+    },
+    {
+      "synth": "whoosh",
+      "at": 6.15,
+      "gainDb": -8,
+      "duration": 0.8
+    },
+    {
+      "synth": "swell",
+      "at": 6.3,
+      "gainDb": -3,
+      "duration": 2.1
+    },
+    {
+      "synth": "thump",
+      "at": 8.4,
+      "gainDb": -7,
+      "duration": 0.9
+    },
+    {
+      "file": "public/assets/coin-chain-end.mp3",
+      "at": 8.4,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 15.517,
+      "gainDb": -17
+    },
+    {
+      "synth": "whoosh",
+      "at": 16.95,
+      "gainDb": -5,
+      "duration": 0.8
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 16.983,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 17.083,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/rain.mp3",
+      "at": 18.6,
+      "gainDb": -9,
+      "duration": 8.7,
+      "fadeIn": 1.5,
+      "fadeOut": 3.5
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 19.3,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 19.383,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 20.883,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/thunder.mp3",
+      "at": 21.75,
+      "gainDb": -3
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 21.933,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 23.05,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 23.7,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 25.167,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 25.25,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 25.967,
+      "gainDb": -17
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 26.45,
+      "gainDb": -13
+    },
+    {
+      "synth": "whoosh",
+      "at": 26.85,
+      "gainDb": -5,
+      "duration": 0.8
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 28.683,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 29.0,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 29.3,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 29.617,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 29.933,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 30.233,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 30.55,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 30.85,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 31.167,
+      "gainDb": -9
+    },
+    {
+      "file": "public/assets/coin-chain-end.mp3",
+      "at": 31.45,
+      "gainDb": -7
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 32.583,
+      "gainDb": -13
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 33.5,
+      "gainDb": -13
+    },
+    {
+      "synth": "swell",
+      "at": 34.8,
+      "gainDb": -3,
+      "duration": 2.1
+    },
+    {
+      "synth": "thump",
+      "at": 36.9,
+      "gainDb": -7,
+      "duration": 0.9
+    },
+    {
+      "file": "public/assets/achievement.mp3",
+      "at": 36.9,
+      "gainDb": -8
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 37.483,
+      "gainDb": -16
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 37.983,
+      "gainDb": -12
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 38.733,
+      "gainDb": -16
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 38.833,
+      "gainDb": -12
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 39.633,
+      "gainDb": -16
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 40.333,
+      "gainDb": -12
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 41.0,
+      "gainDb": -16
+    },
+    {
+      "file": "public/assets/coin-collect.mp3",
+      "at": 42.283,
+      "gainDb": -12
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 43.667,
+      "gainDb": -16
+    },
+    {
+      "file": "public/assets/thunder.mp3",
+      "at": 44.15,
+      "gainDb": -6
+    },
+    {
+      "synth": "whoosh",
+      "at": 45.8,
+      "gainDb": -6,
+      "duration": 0.8
+    },
+    {
+      "file": "public/assets/coin-chain-end.mp3",
+      "at": 46.1,
+      "gainDb": -8
+    },
+    {
+      "synth": "thump",
+      "at": 46.25,
+      "gainDb": -9,
+      "duration": 0.9
+    }
+  ]
+}

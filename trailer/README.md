@@ -39,7 +39,7 @@ BASE_URL=http://localhost:51843 pnpm trailer:shots --shots=storm-lightning,rainb
 
 - `pnpm trailer:shots:list` prints the shot list.
 - `--fps=30` halves capture time; `--seconds=N` overrides every length.
-- About 60–90 s wall time per shot on an M-series Mac; all 18 take ~20 min.
+- About 30–120 s wall time per shot on an M-series Mac; all 17 take ~20–40 min.
 - Re-recording a shot gives the same footage: `Math.random` is seeded from
   the slug, and game time steps one frame at a time.
 - Each clip gets a sidecar `NN-<slug>.events.json`: the clip second of
@@ -51,11 +51,24 @@ BASE_URL=http://localhost:51843 pnpm trailer:shots --shots=storm-lightning,rainb
 
 Shots live in `SHOTS` in `scripts/record-trailer-shots.mjs`. Per shot:
 `phase` (time of day, `PHASE.*`), `rate` (sky sweep in day cycles per
-second, for time-lapses), `moon` (moon phase, 0.5 = full), `outfit`
-(cosmetic ids from `src/cosmetics.ts`), `rain` (`off`, `build`, `full`),
-`lead` (game seconds run before the first frame), `speed`, `setup`
-(actions at the start of the lead) and `beats` (actions on a given second:
-`strike`, `rain("stopping")`, `pterodactyl`, `breather`).
+second), `moon` (moon phase, 0.5 = full), `stand` (`{ x, clouds }`: freeze
+the world and stand the raptor still while the sky turns and clouds race,
+for the time-lapse), `outfit` (cosmetic ids from `src/cosmetics.ts`),
+`rain` (`off`, `build`, `full`), `lead` (game seconds run before the first
+frame), `speed`, `seed`, `setup` (actions at the start of the lead) and
+`beats` (actions on a given second: `strike`, `rainRamp(to, seconds)`,
+`shootingStar`, `pterodactyl`, `breather`).
+
+- **Storm:** one continuous take. `rainRamp` eases the rain in over 6.5 s and
+  out over 4.5 s, slower and smoother than the game's own fades, and the
+  rainbow comes up as it clears.
+- **Night:** the phase lock starts on the second day cycle, so the game's
+  own shooting stars fall at night (from the second night on, as in a real
+  run); `shootingStar` adds one on a chosen second.
+- **Outfit parade:** ten takes share one `seed`, sky and lead, so the
+  scenery, cacti and jumps are identical (verified: 57 dB PSNR away from the
+  raptor, matching event logs). Cutting between them at continuous clip
+  times changes only the outfit.
 
 The director (`window.__trailer`) hides every DOM overlay, owns all 14
 cosmetics, keeps rare events and random rain out of the frame, and runs an
@@ -64,7 +77,7 @@ obstacle. Collisions are off, so a take never ends in a game over.
 
 ## 2. Edit file
 
-`trailer/steam-30s.json` is the first cut. Fields:
+`trailer/steam-52s.json` is the current cut. Fields:
 
 | Field | Meaning |
 |---|---|
@@ -72,21 +85,29 @@ obstacle. Collisions are off, so a take never ends in a game over.
 | `clips` | clip folder, relative to the main checkout (override with `--clips=`) |
 | `music` | `file`, `in` (seconds into the track), `gainDb`, `fadeIn`, `fadeOut`, `credit`, `automation` (`[[second in the cut, dB], …]`, linear between points: duck the calm opening, dip before the drop) |
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
-| `titles[]` | transparent overlays: `style` (`end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `lines`; `text`, `kicker`) |
-| `cards` | opaque cards used as cuts: `kind: "intertitle"` (ink, `text`, optional `kicker`) or `kind: "end"` (`background`, `lines`) |
-| `sfx[]` | `file` (repo path) or `synth` (`riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeOut` |
+| `titles[]` | transparent overlays: `style` (`end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
+| `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
+| `sfx[]` | `file` (repo path) or `synth` (`swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
 | `note`, `notes` | free text, ignored by the renderer |
 
-Pacing in `steam-30s.json`: a calm midday run with the music ducked, a title
-card over a riser, the drop on the music's own swell at 6.4 s, then the day
-turning to night, the storm and the rainbow, a full flower stretch, and an
-outfit montage whose cuts shrink to 0.4 s, every look under a different sky.
-The logo and call to action close over the blurred sunrise.
+Pacing in `steam-52s.json` follows the music's two swells: a calm midday
+run with the music low, a swell into the first drop (8.4 s) on a time-lapse
+of a full day around the standing raptor, the night sky with shooting stars,
+one storm from first drops to rainbow, then the flower stretch in the
+track's quiet passage, a second swell into the outfit parade (36.9 s, cuts
+shrinking from 1.0 s to 0.5 s), a four-shot recap and the end card. Cards
+are hard cuts carried by a soft whoosh; no dips to black.
+
+The edit was generated from the event logs (sound effects land on the
+recorded coin, jump and strike frames); edit the JSON directly to tune it.
 
 Cards use the game's display font (Unbounded, from
-`@fontsource-variable/unbounded`) and the title-screen colours. There is no
-transparent logo file yet, so the end card sets the wordmark in that font.
+`@fontsource-variable/unbounded`) over the game's own sky gradients
+(`SKY_COLORS`) and a dune silhouette. The end card uses the designed assets
+in `trailer/assets/`: `raptor-runner-logo.png` (the transparent wordmark from
+the key art) and `library-hero.png` (the Steam library hero), shown whole
+along the bottom with its sky extended upward.
 
 Times are rounded to whole frames; the MP4 and both timelines agree to the
 frame. The renderer refuses an `out` past a clip's end or a title outside the
@@ -95,7 +116,7 @@ cut.
 ## 3. Render
 
 ```bash
-pnpm trailer:render trailer/steam-30s.json
+pnpm trailer:render trailer/steam-52s.json
 ```
 
 - `--clips=<dir>` / `--out=<dir>` override the folders.
@@ -114,7 +135,7 @@ python3.12 -m venv /tmp/otio && /tmp/otio/bin/pip install opentimelineio otio-fc
 ```
 
 ```bash
-/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-30s/steam-30s.otio trailer-clips/cuts/steam-30s/steam-30s.fcpxml
+/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-52s/steam-52s.otio
 ```
 
 ## 4. Fine-tune in Resolve
@@ -149,9 +170,15 @@ Only assets whose licence allows use in a trailer are in the cut:
 - **Sound effects:** Pixabay Content License (use in videos allowed, no
   attribution required): rain ambience by Pig Bank - Mood, thunder clap by
   soundmarker33, coin pickup by freesound_community, coin chain-end chord
-  ("Diamond found") by Liecio, raptor footsteps by freesound_community.
-- Not used: the jump and shop sounds (CC BY 3.0, would need their own
-  credits) and every rare-event sound.
+  ("Diamond found") by Liecio, achievement stinger by freesound_community.
+- **Jump:** "SFX_Jump_22" from the 8-bit Jump Sound Effects pack by Jesús
+  Lastra (jalastram), CC BY 3.0, https://jalastram.itch.io/8-bit-jump-sound-effects.
+  Credit it next to the music:
+
+  > Jump sound: "SFX_Jump_22" by jalastram, licensed under CC BY 3.0, https://creativecommons.org/licenses/by/3.0/
+
+- Transition sounds (`swell`, `whoosh`, `thump`) are synthesized by ffmpeg.
+- Not used: the shop sound (CC BY 3.0) and every rare-event sound.
 
 The authoritative list for the game is `src/credits.ts`.
 

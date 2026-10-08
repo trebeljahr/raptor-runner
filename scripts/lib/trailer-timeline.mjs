@@ -142,7 +142,7 @@ export function normalizeEdit(edit, media) {
       inSeconds: 0,
       sourceSeconds,
       gainDb: x.gainDb ?? 0,
-      fadeIn: 0,
+      fadeIn: x.fadeIn ?? 0,
       fadeOut: x.fadeOut ?? 0,
       automation: [],
     });
@@ -191,14 +191,52 @@ export function packLanes(items) {
   });
 }
 
+// Noise bands from dark to airy. Layering them under smooth envelopes
+// moves the sound up or down in pitch without filter sweeps, which click
+// in ffmpeg when their cutoff is stepped.
+const BANDS = [
+  ["lowpass=f=450", 0.9],
+  ["bandpass=f=1100:width_type=q:w=0.9", 0.75],
+  ["bandpass=f=2800:width_type=q:w=0.9", 0.5],
+  ["highpass=f=6000", 0.32],
+];
+
+/** Pink-noise bands, band i shaped by `env(i)` (an ffmpeg expression in t). */
+function bands(d, env) {
+  const parts = BANDS.map(
+    ([filter, gain], i) =>
+      `anoisesrc=color=pink:duration=${d}:amplitude=${gain}:seed=${17 + i},${filter},` +
+      `volume='${env(i)}':eval=frame[b${i}]`,
+  );
+  const labels = BANDS.map((_, i) => `[b${i}]`).join("");
+  return `${parts.join(";")};${labels}amix=inputs=${BANDS.length}:normalize=0`;
+}
+
 /**
  * ffmpeg argv that synthesizes a trailer sound effect to a 48 kHz WAV.
- * riser: pink-noise swell with a rising tone, for the run-up into a drop.
- * boom: sub drop with a short noise crack, for the drop itself and the logo.
+ * swell: air rising in pitch and level, for the run-up into a drop.
+ * whoosh: a soft air pass that pans left to right, for a cut to a card.
+ * thump: a short, round low hit under a drop or the end card.
+ * riser / boom: the harder sci-fi pair from the Mesozoic Protocol cut.
  */
 export function synthArgs(kind, seconds, outFile) {
   const d = seconds;
   const graphs = {
+    swell: `${bands(d, (i) => {
+      // Each brighter band enters later; all fade out in the last frames.
+      const o = [0, 0.3, 0.55, 0.72][i];
+      return `pow(clip((t/${d}-${o})/${1 - o},0,1),1.7)*(1-pow(t/${d},30))`;
+    })},aformat=channel_layouts=stereo,extrastereo=m=1.5`,
+    whoosh:
+      `${bands(d, (i) => {
+        // A bell per band, centres staggered so the pass rises then falls.
+        const c = [0.42, 0.48, 0.54, 0.58][i];
+        return `exp(-pow((t/${d}-${c})/0.2,2))*pow(sin(PI*t/${d}),2)`;
+      })},aformat=channel_layouts=stereo,` +
+      `aeval='val(0)*(1.15-0.9*t/${d})|val(1)*(0.25+0.9*t/${d})':c=stereo`,
+    thump:
+      `aevalsrc='0.9*sin(2*PI*(72*t-14*t*t))*exp(-7*t)*min(1,t*400)':d=${d}:s=48000,` +
+      "lowpass=f=240,aformat=channel_layouts=stereo",
     riser:
       `anoisesrc=color=pink:duration=${d}:amplitude=0.6:seed=7,highpass=f=500,` +
       `volume='pow(t/${d},2.2)':eval=frame[n];` +
@@ -210,7 +248,7 @@ export function synthArgs(kind, seconds, outFile) {
       "volume='exp(-9*t)':eval=frame[n];" +
       "[s][n]amix=inputs=2:normalize=0:duration=first,aformat=channel_layouts=stereo",
   };
-  if (!graphs[kind]) throw new Error(`unknown synth "${kind}" (riser, boom)`);
+  if (!graphs[kind]) throw new Error(`unknown synth "${kind}" (${Object.keys(graphs).join(", ")})`);
   return [
     "-y",
     "-hide_banner",

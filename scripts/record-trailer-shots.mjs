@@ -68,16 +68,47 @@ const rain = (mode) => (page) => page.evaluate((m) => window.__trailer.rain(m), 
 const pterodactyl = (page) => page.evaluate(() => window.__trailer.pterodactyl());
 const breather = (page) => page.evaluate(() => window.__trailer.breather());
 
+const rainRamp = (to, seconds) => (page) =>
+  page.evaluate(([to, s]) => window.__trailer.rainRamp(to, s), [to, seconds]);
+const shootingStar = (page) => page.evaluate(() => window.__trailer.shootingStar());
+
+// Outfit parade: every look is the same take (same seed, sky, cacti and
+// jumps), so cutting between them at continuous clip times changes only
+// the outfit.
+const PARADE = {
+  seed: "outfit-parade",
+  phase: PHASE.afternoon,
+  lead: 2,
+  seconds: 9,
+};
+const LOOKS = [
+  ["bare", []],
+  ["classic", ["party-hat", "thug-glasses", "bow-tie"]],
+  ["cowboy", ["cowboy-hat", "bandana"]],
+  ["top-hat", ["top-hat", "monocle", "gold-chain"]],
+  ["wizard", ["wizard-hat"]],
+  ["diadem", ["tiara"]],
+  ["sombrero", ["sombrero", "bandana"]],
+  ["pirate", ["pirate-tricorn", "eye-patch"]],
+  ["crown", ["crown", "gold-chain"]],
+  ["monocle", ["monocle", "bow-tie"]],
+];
+
 // ---------------------------------------------------------------------------
 // THE SHOT LIST.
 //
 //   phase     time of day the shot opens on (PHASE.*)
 //   rate      day cycles per second the sky sweeps forward (0 = locked)
+//   moon      moon phase (0 new, 0.5 full)
+//   stand     { x, clouds }: freeze the world and stand the raptor at x
+//             (fraction of the width) while clouds race; for time-lapses
 //   outfit    cosmetic ids to wear (src/cosmetics.ts)
 //   rain      "off" | "build" | "full" weather at the start of the lead
 //   lead      game seconds run (not recorded) before the first frame, so
 //             stars, rain and clouds have settled
 //   speed     pinned scroll speed (7 = fresh run, 17 = top speed)
+//   seed      random seed name (default: the slug); shots sharing a seed
+//             with the same settings play out identically
 //   setup     actions fired at the start of the lead
 //   beats     actions fired at a given second of the clip
 // ---------------------------------------------------------------------------
@@ -87,19 +118,21 @@ export const SHOTS = [
     describe: "Cold open: bare raptor, midday sun, jumps the first cacti",
     phase: PHASE.midday,
     lead: 2.5,
-    seconds: 7,
+    seconds: 8,
   },
   {
-    slug: "day-to-night",
-    describe: "Time-lapse: afternoon through golden hour and sunset into a starry night",
-    phase: PHASE.afternoon + 0.03,
-    rate: 0.055,
-    lead: 1,
-    seconds: 7,
+    slug: "timelapse",
+    describe: "Time-lapse: the raptor stands still while a full day turns around it",
+    phase: PHASE.afternoon,
+    rate: 1 / 12,
+    moon: 0.5,
+    stand: { x: 0.34, clouds: 0.22 },
+    lead: 0.5,
+    seconds: 12,
   },
   {
     slug: "flower-field",
-    describe: "A full flower stretch: cacti thin out, ten coins, the diamond at the end",
+    describe: "A full flower stretch: cacti thin out, coins, the diamond at the end",
     phase: PHASE.afternoon,
     outfit: ["cowboy-hat", "bandana"],
     setup: [breather],
@@ -107,43 +140,33 @@ export const SHOTS = [
     seconds: 11,
   },
   {
-    slug: "storm-build",
-    describe: "First drops: the sky greys over and the rain thickens",
-    phase: PHASE.afternoon + 0.02,
-    lead: 0.5,
-    seconds: 8,
-    beats: [{ at: 0, run: rain("build") }],
-  },
-  {
-    slug: "storm-lightning",
-    describe: "Downpour: two lightning strikes, a dune cactus left blackened",
-    phase: PHASE.afternoon + 0.02,
-    rain: "full",
-    lead: 2.5,
-    seconds: 6,
+    slug: "storm",
+    describe: "One storm, start to finish: rain builds, two strikes, it clears, a rainbow",
+    phase: PHASE.midday + 0.03,
+    lead: 1,
+    seconds: 20,
     beats: [
-      { at: 0.8, run: strike },
-      { at: 3.6, run: strike },
+      { at: 0.2, run: rainRamp(1, 6.5) },
+      { at: 7.4, run: strike },
+      { at: 9.8, run: strike },
+      { at: 11.2, run: rainRamp(0, 4.5) },
     ],
   },
   {
-    slug: "rainbow",
-    describe: "The rain passes and a rainbow arcs over the dunes",
-    phase: PHASE.midday + 0.03,
-    rain: "full",
-    lead: 2,
-    seconds: 8,
-    beats: [{ at: 0.2, run: rain("stopping") }],
-  },
-  {
-    slug: "night-moon",
-    describe: "Midnight: moon at its zenith, star field, a pterodactyl passes overhead",
-    phase: PHASE.midnight,
+    slug: "night-stars",
+    describe: "Midnight: full moon, star field, shooting stars, a pterodactyl overhead",
+    phase: PHASE.midnight - 0.02,
+    rate: 0.003,
     moon: 0.5,
-    rate: 0.002,
     lead: 4,
-    seconds: 7,
-    beats: [{ at: 0.6, run: pterodactyl }],
+    seconds: 9,
+    beats: [
+      { at: 0.6, run: shootingStar },
+      { at: 2.4, run: shootingStar },
+      { at: 3.2, run: pterodactyl },
+      { at: 5.0, run: shootingStar },
+      { at: 7.2, run: shootingStar },
+    ],
   },
   {
     slug: "sunset-pterodactyl",
@@ -156,89 +179,19 @@ export const SHOTS = [
   },
   {
     slug: "sunrise",
-    describe: "Sunrise mood shot, slow drift into early gold (end-card background)",
+    describe: "Sunrise mood shot, slow drift into early gold",
     phase: PHASE.sunrise - 0.02,
-    moon: 0.5,
     rate: 0.004,
+    moon: 0.5,
     lead: 3,
     seconds: 8,
   },
-  // Outfit montage: every cosmetic at least once, each look under its own sky.
-  {
-    slug: "look-classic",
-    describe: "Party Hat, Thug Glasses, Bow Tie at midday",
-    phase: PHASE.midday,
-    outfit: ["party-hat", "thug-glasses", "bow-tie"],
-    lead: 2,
-    seconds: 4,
-  },
-  {
-    slug: "look-cowboy",
-    describe: "Cowboy Hat and Bandana in golden hour",
-    phase: PHASE.golden,
-    outfit: ["cowboy-hat", "bandana"],
-    lead: 2,
-    seconds: 4,
-  },
-  {
-    slug: "look-top-hat",
-    describe: "Top Hat, Monocle, Gold Chain in blue hour",
-    phase: PHASE.blueHour,
-    moon: 0.5,
-    outfit: ["top-hat", "monocle", "gold-chain"],
-    lead: 3,
-    seconds: 4,
-  },
-  {
-    slug: "look-wizard",
-    describe: "Wizard Hat under the late-night stars",
-    phase: PHASE.lateNight,
-    moon: 0.5,
-    outfit: ["wizard-hat"],
-    lead: 4,
-    seconds: 4,
-  },
-  {
-    slug: "look-diadem",
-    describe: "Diadem in the pre-dawn blue",
-    phase: PHASE.preDawn,
-    moon: 0.5,
-    outfit: ["tiara"],
-    lead: 4,
-    seconds: 4,
-  },
-  {
-    slug: "look-sombrero",
-    describe: "Sombrero and Bandana at sunrise",
-    phase: PHASE.sunrise,
-    outfit: ["sombrero", "bandana"],
-    lead: 3,
-    seconds: 4,
-  },
-  {
-    slug: "look-pirate",
-    describe: "Pirate Tricorn and Eye Patch in the early-morning gold",
-    phase: PHASE.earlyGold,
-    outfit: ["pirate-tricorn", "eye-patch"],
-    lead: 2,
-    seconds: 4,
-  },
-  {
-    slug: "look-crown",
-    describe: "Crown and Gold Chain in the afternoon",
-    phase: PHASE.afternoon,
-    outfit: ["crown", "gold-chain"],
-    lead: 2,
-    seconds: 4,
-  },
-  {
-    slug: "look-sunset",
-    describe: "Monocle and Bow Tie at sunset",
-    phase: PHASE.sunset,
-    outfit: ["monocle", "bow-tie"],
-    lead: 2,
-    seconds: 4,
-  },
+  ...LOOKS.map(([name, outfit]) => ({
+    slug: `parade-${name}`,
+    describe: `Outfit parade: ${outfit.join(", ") || "no outfit"}`,
+    outfit,
+    ...PARADE,
+  })),
 ];
 
 // ---------------------------------------------------------------------------
@@ -274,6 +227,7 @@ async function stage(page, shot) {
       if (shot.speed) T.speed(shot.speed);
       if (shot.rain) T.rain(shot.rain);
       if (shot.moon !== undefined) T.moon(shot.moon);
+      if (shot.stand) T.stand(shot.stand.x, shot.stand.clouds);
     },
     { shot: { ...shot, setup: undefined, beats: undefined } },
   );
@@ -402,18 +356,21 @@ async function main() {
       // Fresh context per shot: empty localStorage, so every take starts
       // from the same new save.
       const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-      await context.addInitScript((seed) => {
-        localStorage.setItem("raptor-runner:muted", "1");
-        // mulberry32: same slug, same cacti, clouds and bolts every take.
-        let a = seed >>> 0;
-        Math.random = () => {
-          a = (a + 0x6d2b79f5) >>> 0;
-          let t = a;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }, seedFor(shot.slug));
+      await context.addInitScript(
+        (seed) => {
+          localStorage.setItem("raptor-runner:muted", "1");
+          // mulberry32: same slug, same cacti, clouds and bolts every take.
+          let a = seed >>> 0;
+          Math.random = () => {
+            a = (a + 0x6d2b79f5) >>> 0;
+            let t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        },
+        seedFor(shot.seed ?? shot.slug),
+      );
       const page = await context.newPage();
       page.on("pageerror", (e) => console.warn(`  [page error] ${shot.slug}: ${e.message}`));
       const started = Date.now();
