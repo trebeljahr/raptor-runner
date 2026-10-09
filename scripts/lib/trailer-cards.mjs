@@ -12,6 +12,7 @@
 //   art          opaque full-frame artwork (`background`, `position`, `fit`)
 //   glass        transparent, a frosted panel with one line of text; goes
 //                over blurred night-sky footage as a title card
+//   fill         opaque solid colour (`color`); as a title with fades, a flash
 //   lower-third  transparent, bottom left, on a dark band for contrast
 //   end-logo     transparent, the designed wordmark PNG (`logo`, `align`)
 //   end-cta      transparent, the call to action plate (`lines`, `align`)
@@ -209,7 +210,13 @@ function endCta({ lines, align = "center", top = "66%" }) {
   };
 }
 
+/** A solid colour frame, e.g. a white flash laid over a cut. */
+function fill({ color = "#fff" }) {
+  return { css: `body { background: ${color}; }`, body: "", opaque: true };
+}
+
 const KINDS = {
+  fill,
   intertitle,
   art,
   "lower-third": lowerThird,

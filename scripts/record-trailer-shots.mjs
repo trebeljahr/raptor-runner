@@ -111,6 +111,8 @@ const LOOKS = [
 //   hud       keep the game's overlays (score, game over); starts the run
 //             with the real Start Game button
 //   score     the run's distance in meters at the start
+//   cursor    { from, target, start, duration, click }: after the game over,
+//             a drawn cursor eases to the named button and clicks it
 //   outfit    cosmetic ids to wear (src/cosmetics.ts)
 //   rain      "off" | "build" | "full" weather at the start of the lead
 //   lead      game seconds run (not recorded) before the first frame, so
@@ -147,7 +149,6 @@ export const SHOTS = [
     slug: "flower-field",
     describe: "A full flower stretch: cacti thin out, coins, the diamond at the end",
     phase: PHASE.afternoon,
-    outfit: ["cowboy-hat", "bandana"],
     setup: [breather],
     lead: 3,
     seconds: 11,
@@ -230,8 +231,10 @@ export const SHOTS = [
     describe: "Outfit parade, last look, run on into a crash and the game-over screen",
     ...PARADE,
     outfit: LOOKS.at(-1)[1],
-    seconds: 14,
+    seconds: 13,
     beats: [{ at: 8.4, run: crash }],
+    // After the crash a cursor glides to "Play again" and clicks it.
+    cursor: { from: [0.7, 0.86], target: "Play again", start: 0.7, duration: 1.2, click: 2.1 },
   },
   ...LOOKS.map(([name, outfit]) => ({
     slug: `parade-${name}`,
@@ -307,6 +310,62 @@ async function stage(page, shot) {
   });
 }
 
+const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
+
+/**
+ * Scripted pointer after a game over: a drawn arrow (headless screenshots
+ * show no system cursor) eases from `from` (viewport fractions) to the
+ * button named `target`, while real mouse events move with it so hover and
+ * press styles fire, then clicks. Returns true on the click frame.
+ */
+async function moveCursor(page, c, state, sinceGameOver) {
+  const t = sinceGameOver - c.start;
+  if (t < 0) return false;
+  if (!state.box) {
+    state.box = await page.getByRole("button", { name: c.target, exact: true }).boundingBox();
+    if (!state.box) throw new Error(`cursor target "${c.target}" not found`);
+    await page.evaluate(() => {
+      const el = document.createElement("div");
+      el.id = "trailer-cursor";
+      el.style.cssText =
+        "position:fixed;left:0;top:0;width:34px;height:46px;z-index:2147483647;" +
+        "pointer-events:none;transform-origin:4px 4px;transition:none;" +
+        "filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))";
+      el.innerHTML =
+        '<svg viewBox="0 0 24 32" width="34" height="46"><path d="M2 2 L2 26 L8.5 20 L13 30 L17 28 L12.5 18.5 L21 18.5 Z" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round"/></svg>';
+      document.body.appendChild(el);
+    });
+  }
+  const { width, height } = VIEWPORT;
+  const [fx, fy] = [c.from[0] * width, c.from[1] * height];
+  const tx = state.box.x + state.box.width * 0.55;
+  const ty = state.box.y + state.box.height * 0.55;
+  const k = easeInOut(Math.min(1, t / c.duration));
+  const x = fx + (tx - fx) * k;
+  const y = fy + (ty - fy) * k;
+  await page.mouse.move(x, y);
+  const pressed = t >= c.click && t < c.click + 0.12;
+  await page.evaluate(
+    ({ x, y, pressed }) => {
+      const el = document.getElementById("trailer-cursor");
+      el.style.left = `${x - 4}px`;
+      el.style.top = `${y - 4}px`;
+      el.style.transform = pressed ? "scale(0.86)" : "scale(1)";
+    },
+    { x, y, pressed },
+  );
+  if (t >= c.click && !state.clicked) {
+    state.clicked = true;
+    await page.mouse.down();
+    return true;
+  }
+  if (state.clicked && !state.released && t >= c.click + 0.12) {
+    state.released = true;
+    await page.mouse.up();
+  }
+  return false;
+}
+
 /** Step + capture `seconds` of footage, firing beats on their frame. */
 async function record(page, shot, file) {
   const cdp = await page.context().newCDPSession(page);
@@ -358,6 +417,8 @@ async function record(page, shot, file) {
   // effects in the edit file can land on the exact pickup or strike.
   const events = [];
   const last = {};
+  let gameOverAt = null;
+  const pointer = shot.cursor ? { box: null, clicked: false, released: false } : null;
   const pose = []; // per frame: [run-cycle frame, height above ground]
   try {
     for (let f = 0; f < frames; f++) {
@@ -370,7 +431,14 @@ async function record(page, shot, file) {
       );
       if (ev) {
         pose.push([ev.frame, ev.air]);
-        if (ev.over && !last.over) events.push({ t: Number(t.toFixed(3)), kind: "gameover" });
+        if (ev.over && !last.over) {
+          events.push({ t: Number(t.toFixed(3)), kind: "gameover" });
+          gameOverAt = t;
+        }
+        if (ev.grass !== !!last.grass && f > 0) {
+          events.push({ t: Number(t.toFixed(3)), kind: ev.grass ? "field-on" : "field-off" });
+        }
+        last.grass = ev.grass;
         if (ev.clip && !last.clip) {
           events.push({
             t: Number(t.toFixed(3)),
@@ -387,6 +455,10 @@ async function record(page, shot, file) {
             events.push({ t: Number(t.toFixed(3)), kind });
           last[kind] = ev[kind];
         }
+      }
+      if (pointer && gameOverAt !== null) {
+        const click = await moveCursor(page, shot.cursor, pointer, t - gameOverAt);
+        if (click) events.push({ t: Number(t.toFixed(3)), kind: "click" });
       }
       const { data } = await withTimeout(
         cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 95, optimizeForSpeed: true }),

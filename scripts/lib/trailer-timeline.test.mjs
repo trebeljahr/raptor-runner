@@ -65,7 +65,9 @@ test("ffmpeg graph concatenates every cut and caps the frame count", () => {
   const graph = args[args.indexOf("-filter_complex") + 1];
   assert.match(graph, /concat=n=3:v=1:a=0/);
   assert.match(graph, /setpts=\(PTS-STARTPTS\)\/0\.5/);
-  assert.match(graph, /atrim=start=10:duration=8\.000000/);
+  // Music starts 10 s into the track: the input is seeked, not atrimmed.
+  assert.equal(args[args.indexOf("-ss") + 1], "10.000000");
+  assert.match(graph, /atrim=start=0:duration=8\.000000/);
   assert.equal(args[args.indexOf("-frames:v") + 1], "480");
 });
 

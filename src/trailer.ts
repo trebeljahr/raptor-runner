@@ -329,6 +329,11 @@ export function installTrailerHooks(host: TrailerHost): void {
       frame: r.frame,
       air: Number(((r.ground - r.y) / r.h).toFixed(3)),
       over: state.gameOver,
+      // On a flower field (grass span under the raptor's feet)?
+      grass: (state.grassFields ?? []).some(
+        (g: { startX: number; endX: number }) =>
+          g.startX < r.x + r.w * 0.6 && g.endX > r.x + r.w * 0.4,
+      ),
       speed: Number(state.bgVelocity.toFixed(2)),
     };
   };

@@ -132,14 +132,15 @@ export function normalizeEdit(edit, media) {
     const offset = f(x.at);
     if (offset < 0 || offset >= total) throw new Error(`sfx[${i}] at ${x.at}s is outside the cut`);
     const sourceSeconds = media.sfxSeconds(i);
-    const seconds = Math.min(x.duration ?? sourceSeconds, sourceSeconds);
+    const inSeconds = x.in ?? 0;
+    const seconds = Math.min(x.duration ?? sourceSeconds - inSeconds, sourceSeconds - inSeconds);
     audio.push({
       role: "sfx",
       name: x.name ?? x.synth ?? x.file.split("/").pop(),
       file: media.sfxFile(i),
       offset,
       frames: Math.min(f(seconds), total - offset),
-      inSeconds: 0,
+      inSeconds,
       sourceSeconds,
       gainDb: x.gainDb ?? 0,
       fadeIn: x.fadeIn ?? 0,
@@ -364,10 +365,14 @@ export function ffmpegArgs(tl, outFile, { audioOnly = false, masterGainDb = 0 } 
   if (tl.audio.length) {
     const dur = (tl.frames / fps).toFixed(6);
     const tracks = tl.audio.map((a, i) => {
-      const n = addInput(["-i", a.file]);
+      // Seek the input rather than atrim's start: a start-trimmed stream
+      // followed by adelay plays at the wrong time (or not at all) once a
+      // file is used more than once in the mix.
+      const seek = a.inSeconds > 0 ? ["-ss", a.inSeconds.toFixed(6)] : [];
+      const n = addInput([...seek, "-i", a.file]);
       const len = a.frames / fps;
       const chain = [
-        `[${n}:a]atrim=start=${a.inSeconds}:duration=${len.toFixed(6)}`,
+        `[${n}:a]atrim=start=0:duration=${len.toFixed(6)}`,
         "asetpts=PTS-STARTPTS",
         "aresample=48000",
         "aformat=channel_layouts=stereo",

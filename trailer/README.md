@@ -93,7 +93,7 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 
 ## 2. Edit file
 
-`trailer/steam-47s.json` is the current cut. Fields:
+`trailer/steam-trailer.json` is the current cut. Fields:
 
 | Field | Meaning |
 |---|---|
@@ -103,11 +103,11 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
 | `titles[]` | overlays: `style` (`glass`, `art`, `end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
 | `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
-| `sfx[]` | `file` (repo path) or `synth` (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
+| `sfx[]` | `file` (repo path; optional `in`, seconds into the file) or `synth` (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
 | `note`, `notes` | free text, ignored by the renderer |
 
-Pacing in `steam-47s.json` follows the music's two swells: a calm midday
+Pacing in `steam-trailer.json` follows the music's two swells: a calm midday
 run (two jumps) with the music low, a title card into the first drop on the
 time-lapse (shooting stars at night), one storm from first drops to rainbow,
 the flower stretch, sunset and sunrise in the track's quiet passage, a card
@@ -143,7 +143,7 @@ cut.
 ## 3. Render
 
 ```bash
-pnpm trailer:render trailer/steam-47s.json
+pnpm trailer:render trailer/steam-trailer.json
 ```
 
 - `--clips=<dir>` / `--out=<dir>` override the folders.
@@ -162,7 +162,7 @@ python3.12 -m venv /tmp/otio && /tmp/otio/bin/pip install opentimelineio otio-fc
 ```
 
 ```bash
-/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-47s/steam-47s.otio
+/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-trailer/steam-trailer.otio
 ```
 
 ## 4. Fine-tune in Resolve
@@ -207,6 +207,11 @@ Only assets whose licence allows use in a trailer are in the cut:
 - The low `thump` on the drops is synthesized by ffmpeg. The `swell` and
   `whoosh` synths stay available but are not in the current cut.
 - Game over: the cactus impact sound (Pixabay, freesound_community).
+- **Card transitions:** "Whoosh Cinematic" by DRAGON-STUDIO
+  (pixabay.com/sound-effects/film-special-effects-whoosh-cinematic-376875/),
+  Pixabay Content License, trimmed in the edit. Alternatives in
+  `trailer/assets/`: "Clean modern woosh transition 1" and "8" by Sdanezis
+  (Pixabay, 607299 and 607301).
 - Not used: the shop sound (CC BY 3.0) and every rare-event sound.
 
 The authoritative list for the game is `src/credits.ts`.
