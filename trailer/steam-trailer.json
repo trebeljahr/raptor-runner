@@ -27,11 +27,11 @@
       [33.0, 2],
       [33.35, -8],
       [33.6, 0],
-      [41.47, 0],
-      [41.62, -7],
-      [44.28, -5],
-      [44.78, -2],
-      [49.63, -4]
+      [41.87, 0],
+      [42.02, -7],
+      [44.68, -5],
+      [45.18, -2],
+      [50.03, -4]
     ]
   },
   "cuts": [
@@ -94,48 +94,158 @@
     },
     {
       "clip": "12-parade-classic",
-      "in": 1.0,
-      "out": 2.0,
-      "note": "DROP 2: outfit parade, dressed from the first frame, continuous clip time"
+      "in": 0.6,
+      "out": 1.15,
+      "note": "DROP 2: outfit parade, dressed from the first frame, cuts shrinking to 6 frames"
     },
     {
       "clip": "13-parade-cowboy",
-      "in": 2.0,
-      "out": 2.9
+      "in": 1.15,
+      "out": 1.6667
     },
     {
       "clip": "14-parade-top-hat",
-      "in": 2.9,
-      "out": 3.7
+      "in": 1.6667,
+      "out": 2.15
     },
     {
       "clip": "15-parade-wizard",
-      "in": 3.7,
-      "out": 4.45
+      "in": 2.15,
+      "out": 2.6
     },
     {
       "clip": "16-parade-diadem",
-      "in": 4.45,
-      "out": 5.15
+      "in": 2.6,
+      "out": 3.0167
     },
     {
       "clip": "17-parade-sombrero",
-      "in": 5.15,
-      "out": 5.8
+      "in": 3.0167,
+      "out": 3.4167
     },
     {
       "clip": "18-parade-pirate",
-      "in": 5.8,
-      "out": 6.4
+      "in": 3.4167,
+      "out": 3.7833
     },
     {
       "clip": "19-parade-crown",
-      "in": 6.4,
-      "out": 6.95
+      "in": 3.7833,
+      "out": 4.1333
+    },
+    {
+      "clip": "21-parade-combo-01",
+      "in": 4.1333,
+      "out": 4.4667
+    },
+    {
+      "clip": "22-parade-combo-02",
+      "in": 4.4667,
+      "out": 4.7667
+    },
+    {
+      "clip": "23-parade-combo-03",
+      "in": 4.7667,
+      "out": 5.05
+    },
+    {
+      "clip": "24-parade-combo-04",
+      "in": 5.05,
+      "out": 5.3167
+    },
+    {
+      "clip": "25-parade-combo-05",
+      "in": 5.3167,
+      "out": 5.5667
+    },
+    {
+      "clip": "26-parade-combo-06",
+      "in": 5.5667,
+      "out": 5.8
+    },
+    {
+      "clip": "27-parade-combo-07",
+      "in": 5.8,
+      "out": 6.0167
+    },
+    {
+      "clip": "28-parade-combo-08",
+      "in": 6.0167,
+      "out": 6.2167
+    },
+    {
+      "clip": "29-parade-combo-09",
+      "in": 6.2167,
+      "out": 6.4167
+    },
+    {
+      "clip": "30-parade-combo-10",
+      "in": 6.4167,
+      "out": 6.6
+    },
+    {
+      "clip": "31-parade-combo-11",
+      "in": 6.6,
+      "out": 6.7667
+    },
+    {
+      "clip": "32-parade-combo-12",
+      "in": 6.7667,
+      "out": 6.9333
+    },
+    {
+      "clip": "33-parade-combo-13",
+      "in": 6.9333,
+      "out": 7.0833
+    },
+    {
+      "clip": "34-parade-combo-14",
+      "in": 7.0833,
+      "out": 7.2167
+    },
+    {
+      "clip": "35-parade-combo-15",
+      "in": 7.2167,
+      "out": 7.35
+    },
+    {
+      "clip": "36-parade-combo-16",
+      "in": 7.35,
+      "out": 7.4667
+    },
+    {
+      "clip": "37-parade-combo-17",
+      "in": 7.4667,
+      "out": 7.5833
+    },
+    {
+      "clip": "38-parade-combo-18",
+      "in": 7.5833,
+      "out": 7.6833
+    },
+    {
+      "clip": "39-parade-combo-19",
+      "in": 7.6833,
+      "out": 7.7833
+    },
+    {
+      "clip": "40-parade-combo-20",
+      "in": 7.7833,
+      "out": 7.8833
+    },
+    {
+      "clip": "41-parade-combo-21",
+      "in": 7.8833,
+      "out": 7.9667
+    },
+    {
+      "clip": "42-parade-combo-22",
+      "in": 7.9667,
+      "out": 8.05
     },
     {
       "clip": "10-parade-finale",
-      "in": 6.95,
+      "in": 8.05,
       "out": 12.233,
       "note": "last look (monocle, bow tie) runs into a cactus; the cursor clicks Play again"
     },
@@ -151,7 +261,9 @@
       "background": "trailer/assets/library-hero.png",
       "fit": "width",
       "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))",
-      "start": 44.283,
+      "logo": "trailer/assets/raptor-runner-logo.png",
+      "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"],
+      "start": 44.683,
       "duration": 0.55,
       "fadeIn": 0,
       "fadeOut": 0,
@@ -165,30 +277,11 @@
       "background": "trailer/assets/library-hero.png",
       "fit": "width",
       "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))",
-      "start": 44.833,
+      "logo": "trailer/assets/raptor-runner-logo.png",
+      "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"],
+      "start": 45.233,
       "duration": 4.8,
       "fadeIn": 0,
-      "fadeOut": 0
-    },
-    {
-      "style": "end-logo",
-      "logo": "trailer/assets/raptor-runner-logo.png",
-      "align": "right",
-      "top": "22%",
-      "width": 820,
-      "start": 44.98,
-      "duration": 4.65,
-      "fadeIn": 0.5,
-      "fadeOut": 0
-    },
-    {
-      "style": "end-cta",
-      "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"],
-      "align": "right",
-      "top": "42%",
-      "start": 45.58,
-      "duration": 4.05,
-      "fadeIn": 0.4,
       "fadeOut": 0
     }
   ],
@@ -213,7 +306,9 @@
       "kind": "art",
       "background": "trailer/assets/library-hero.png",
       "fit": "width",
-      "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))"
+      "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))",
+      "logo": "trailer/assets/raptor-runner-logo.png",
+      "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"]
     }
   },
   "sfx": [
@@ -416,117 +511,284 @@
     },
     {
       "file": "public/assets/jump.mp3",
-      "at": 34.417,
+      "at": 33.617,
       "gainDb": -16
     },
     {
       "synth": "tap",
-      "at": 34.6,
+      "at": 34.15,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.021
     },
     {
       "synth": "tap",
-      "at": 35.5,
+      "at": 34.667,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.041
     },
     {
       "file": "public/assets/jump.mp3",
-      "at": 36.05,
+      "at": 34.817,
       "gainDb": -16
     },
     {
       "synth": "tap",
-      "at": 36.3,
+      "at": 35.15,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.062
     },
     {
       "synth": "tap",
-      "at": 37.05,
+      "at": 35.6,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.083
+    },
+    {
+      "synth": "tap",
+      "at": 36.017,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.103
+    },
+    {
+      "synth": "tap",
+      "at": 36.417,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.124
     },
     {
       "file": "public/assets/jump.mp3",
-      "at": 37.433,
+      "at": 36.45,
+      "gainDb": -16
+    },
+    {
+      "synth": "tap",
+      "at": 36.783,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.145
+    },
+    {
+      "synth": "tap",
+      "at": 37.133,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.166
+    },
+    {
+      "synth": "tap",
+      "at": 37.467,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.186
+    },
+    {
+      "synth": "tap",
+      "at": 37.767,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.207
+    },
+    {
+      "file": "public/assets/jump.mp3",
+      "at": 37.833,
       "gainDb": -16
     },
     {
       "file": "public/assets/coin-collect.mp3",
-      "at": 37.567,
+      "at": 37.967,
       "gainDb": -12
     },
     {
       "synth": "tap",
-      "at": 37.75,
+      "at": 38.05,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.228
     },
     {
       "synth": "tap",
-      "at": 38.4,
+      "at": 38.317,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.248
+    },
+    {
+      "synth": "tap",
+      "at": 38.567,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.269
+    },
+    {
+      "synth": "tap",
+      "at": 38.8,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.29
     },
     {
       "file": "public/assets/jump.mp3",
-      "at": 38.483,
+      "at": 38.883,
       "gainDb": -16
     },
     {
+      "synth": "tap",
+      "at": 39.017,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.31
+    },
+    {
       "file": "public/assets/coin-collect.mp3",
-      "at": 38.767,
+      "at": 39.167,
       "gainDb": -12
     },
     {
       "synth": "tap",
-      "at": 39.0,
+      "at": 39.217,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.331
     },
     {
       "synth": "tap",
-      "at": 39.55,
+      "at": 39.417,
       "gainDb": -4,
-      "duration": 0.08
+      "duration": 0.08,
+      "rate": 1.352
+    },
+    {
+      "synth": "tap",
+      "at": 39.6,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.372
+    },
+    {
+      "synth": "tap",
+      "at": 39.767,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.393
+    },
+    {
+      "synth": "tap",
+      "at": 39.933,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.414
+    },
+    {
+      "synth": "tap",
+      "at": 40.083,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.434
+    },
+    {
+      "synth": "tap",
+      "at": 40.217,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.455
     },
     {
       "file": "public/assets/coin-collect.mp3",
-      "at": 39.883,
+      "at": 40.283,
       "gainDb": -12
     },
     {
       "file": "public/assets/jump.mp3",
-      "at": 39.9,
+      "at": 40.3,
       "gainDb": -16
     },
     {
+      "synth": "tap",
+      "at": 40.35,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.476
+    },
+    {
+      "synth": "tap",
+      "at": 40.467,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.497
+    },
+    {
+      "synth": "tap",
+      "at": 40.583,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.517
+    },
+    {
+      "synth": "tap",
+      "at": 40.683,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.538
+    },
+    {
+      "synth": "tap",
+      "at": 40.783,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.559
+    },
+    {
+      "synth": "tap",
+      "at": 40.883,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.579
+    },
+    {
+      "synth": "tap",
+      "at": 40.967,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.6
+    },
+    {
+      "synth": "tap",
+      "at": 41.05,
+      "gainDb": -4,
+      "duration": 0.08,
+      "rate": 1.6
+    },
+    {
       "file": "public/assets/coin-collect.mp3",
-      "at": 41.333,
+      "at": 41.733,
       "gainDb": -12
     },
     {
       "file": "public/assets/hit.mp3",
-      "at": 41.467,
+      "at": 41.867,
       "gainDb": -4
     },
     {
       "synth": "tap",
-      "at": 44.283,
+      "at": 44.683,
       "gainDb": -2,
       "duration": 0.08
     },
     {
       "synth": "boom",
-      "at": 44.313,
+      "at": 44.713,
       "gainDb": 0,
       "duration": 2.5
     },
     {
       "file": "trailer/assets/cinematic-dun.mp3",
-      "at": 44.313,
+      "at": 44.713,
       "gainDb": -3
     }
   ]

@@ -111,10 +111,13 @@ Pacing in `steam-trailer.json` follows the music's two swells: a calm midday
 run (two jumps) with the music low, a title card into the first drop on the
 time-lapse (shooting stars at night), one storm from first drops to rainbow,
 the flower stretch, sunset and sunrise in the track's quiet passage, a card
-into the outfit parade on the second swell (no pterodactyls), whose last look
+into the outfit parade on the second swell (no pterodactyls; 30 outfit
+combinations, cuts shrinking evenly from 0.55 s to 5 frames, the equip tap
+rising in pitch), whose last look
 runs on into a crash and the game-over screen; the end card dissolves in
 behind it: after the crash a cursor clicks Play again, and the end card
-opens as a circle from the click point with a boom.
+opens as a circle from the click point with a boom, the wordmark and call
+to action already in it (an `art` card can carry `logo` and `lines`).
 
 Sound follows the game: flower-field coins climb in pitch like the game's
 chain (7% per pickup, capped at 1.7×), each outfit change plays the game's

@@ -97,6 +97,33 @@ const LOOKS = [
   ["monocle", ["monocle", "bow-tie"]],
 ];
 
+// More combinations for the fast end of the parade, where cuts shrink to a
+// few frames. Appended after LOOKS so earlier clips keep their numbers.
+const COMBOS = [
+  ["wizard-hat", "monocle", "gold-chain"],
+  ["crown", "thug-glasses", "bow-tie"],
+  ["cowboy-hat", "eye-patch", "gold-chain"],
+  ["sombrero", "thug-glasses", "bandana"],
+  ["top-hat", "thug-glasses", "bow-tie"],
+  ["tiara", "monocle", "bow-tie"],
+  ["pirate-tricorn", "thug-glasses", "gold-chain"],
+  ["party-hat", "monocle", "bandana"],
+  ["crown", "eye-patch", "bandana"],
+  ["wizard-hat", "thug-glasses"],
+  ["cowboy-hat", "monocle", "bow-tie"],
+  ["tiara", "eye-patch", "gold-chain"],
+  ["sombrero", "monocle", "gold-chain"],
+  ["top-hat", "eye-patch", "bandana"],
+  ["party-hat", "eye-patch", "gold-chain"],
+  ["pirate-tricorn", "monocle", "bow-tie"],
+  ["crown", "thug-glasses", "bandana"],
+  ["wizard-hat", "eye-patch", "bow-tie"],
+  ["tiara", "thug-glasses", "bandana"],
+  ["cowboy-hat", "thug-glasses", "bow-tie"],
+  ["sombrero", "eye-patch", "bow-tie"],
+  ["top-hat", "thug-glasses", "gold-chain"],
+];
+
 // ---------------------------------------------------------------------------
 // THE SHOT LIST.
 //
@@ -239,6 +266,12 @@ export const SHOTS = [
   ...LOOKS.map(([name, outfit]) => ({
     slug: `parade-${name}`,
     describe: `Outfit parade: ${outfit.join(", ") || "no outfit"}`,
+    outfit,
+    ...PARADE,
+  })),
+  ...COMBOS.map((outfit, i) => ({
+    slug: `parade-combo-${String(i + 1).padStart(2, "0")}`,
+    describe: `Outfit parade, fast end: ${outfit.join(", ")}`,
     outfit,
     ...PARADE,
   })),

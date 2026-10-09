@@ -9,7 +9,8 @@
 // Kinds:
 //   intertitle   opaque card, centred text; used as a cut between shots.
 //                Black by default; `sky`: day | gold | dusk | night | storm
-//   art          opaque full-frame artwork (`background`, `position`, `fit`)
+//   art          opaque full-frame artwork (`background`, `position`, `fit`),
+//                optionally with the wordmark (`logo`) and call to action (`lines`)
 //   glass        transparent, a frosted panel with one line of text; goes
 //                over blurred night-sky footage as a title card
 //   fill         opaque solid colour (`color`); as a title with fades, a flash
@@ -126,20 +127,39 @@ function intertitle({ text, kicker, sky }) {
  * `extend` (a CSS background, e.g. a gradient matched to the art's top edge)
  * fills the frame above it, and the art's top edge fades into it.
  */
-function art({ background, position = "center", fit = "cover", extend = "#7fd6ee" }) {
-  if (fit === "width") {
-    return {
-      css: `
+function art({
+  background,
+  position = "center",
+  fit = "cover",
+  extend = "#7fd6ee",
+  logo,
+  lines,
+  align = "right",
+  logoTop = "22%",
+  logoWidth = 820,
+  ctaTop = "42%",
+}) {
+  const base =
+    fit === "width"
+      ? {
+          css: `
         body { background: ${extend}; }
         .img { position: absolute; left: 0; bottom: 0; width: 100%;
                -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%); }`,
-      body: `<img class="img" src="${background}">`,
-      opaque: true,
-    };
-  }
+          body: `<img class="img" src="${background}">`,
+        }
+      : {
+          css: `body { background: url("${background}") ${position} / cover no-repeat; }`,
+          body: "",
+        };
+  // Optional wordmark and call to action baked into the same frame, so an
+  // end card can be revealed (or cut to) with its text already in place.
+  const parts = [base];
+  if (logo) parts.push(endLogo({ logo, align, top: logoTop, width: logoWidth }));
+  if (lines) parts.push(endCta({ lines, align, top: ctaTop }));
   return {
-    css: `body { background: url("${background}") ${position} / cover no-repeat; }`,
-    body: "",
+    css: parts.map((p) => p.css).join("\n"),
+    body: parts.map((p) => p.body).join(""),
     opaque: true,
   };
 }
