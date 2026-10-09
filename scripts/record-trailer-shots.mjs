@@ -79,6 +79,8 @@ const crash = (page) => page.evaluate(() => window.__trailer.crash());
 const PARADE = {
   seed: "outfit-parade",
   phase: PHASE.afternoon,
+  pterodactyls: false,
+  score: 1841,
   lead: 2,
   seconds: 9,
 };
@@ -104,6 +106,7 @@ const LOOKS = [
 //   stand     { x, clouds }: freeze the world and stand the raptor at x
 //             (fraction of the width) while clouds race
 //   obstacles false: an open desert, no cacti, pterodactyls or coins
+//   pterodactyls false: cacti only
 //   raptorAt  pin the raptor's x (fraction of the width, < 0 off screen)
 //   hud       keep the game's overlays (score, game over); starts the run
 //             with the real Start Game button
@@ -136,6 +139,9 @@ export const SHOTS = [
     speed: 8,
     lead: 0.5,
     seconds: 8,
+    // The game's own shooting stars fall too; these make sure the short
+    // night in the time-lapse shows a few.
+    beats: [1.5, 2.0, 2.6, 3.1, 3.5].map((at) => ({ at, run: shootingStar })),
   },
   {
     slug: "flower-field",
@@ -217,6 +223,16 @@ export const SHOTS = [
     seconds: 7,
     beats: [{ at: 1.2, run: crash }],
   },
+  {
+    // The parade's last look, run on until it ends on a cactus: the same
+    // take as the parade up to the crash, so it cuts on seamlessly.
+    slug: "parade-finale",
+    describe: "Outfit parade, last look, run on into a crash and the game-over screen",
+    ...PARADE,
+    outfit: LOOKS.at(-1)[1],
+    seconds: 14,
+    beats: [{ at: 8.4, run: crash }],
+  },
   ...LOOKS.map(([name, outfit]) => ({
     slug: `parade-${name}`,
     describe: `Outfit parade: ${outfit.join(", ") || "no outfit"}`,
@@ -278,6 +294,7 @@ async function stage(page, shot) {
       if (shot.moon !== undefined) T.moon(shot.moon);
       if (shot.stand) T.stand(shot.stand.x, shot.stand.clouds);
       if (shot.obstacles === false) T.obstacles(false);
+      if (shot.pterodactyls === false) T.pterodactyls(false);
       if (shot.raptorAt !== undefined) T.raptorAt(shot.raptorAt);
       if (shot.score) T.score(shot.score);
     },
@@ -325,6 +342,15 @@ async function record(page, shot, file) {
     ffmpeg.on("error", rej);
     ffmpeg.on("close", (code) => (code === 0 ? res() : rej(new Error(`ffmpeg exited ${code}`))));
   });
+  // Handled here so an encoder that dies mid-take (killed from outside)
+  // fails this attempt, which is then retried, instead of the whole run.
+  let encoderError = null;
+  done.catch((err) => {
+    encoderError = err;
+  });
+  ffmpeg.stdin.on("error", (err) => {
+    encoderError = err;
+  });
 
   const frames = Math.round((SECONDS ?? shot.seconds) * FPS);
   const pending = [...(shot.beats ?? [])].sort((a, b) => a.at - b.at);
@@ -367,8 +393,12 @@ async function record(page, shot, file) {
         30000,
         `screenshot of frame ${f}`,
       );
+      if (encoderError) throw encoderError;
       if (!ffmpeg.stdin.write(Buffer.from(data, "base64"))) {
-        await new Promise((r) => ffmpeg.stdin.once("drain", r));
+        await Promise.race([
+          new Promise((r) => ffmpeg.stdin.once("drain", r)),
+          done.catch(() => {}),
+        ]);
       }
     }
   } catch (err) {

@@ -7,8 +7,8 @@
 // as a moment of the day cycle rather than a slide.
 //
 // Kinds:
-//   intertitle   opaque sky card, centred text; used as a cut between shots.
-//                `sky`: day | gold | dusk | night | storm
+//   intertitle   opaque card, centred text; used as a cut between shots.
+//                Black by default; `sky`: day | gold | dusk | night | storm
 //   art          opaque full-frame artwork (`background`, `position`, `fit`)
 //   glass        transparent, a frosted panel with one line of text; goes
 //                over blurred night-sky footage as a title card
@@ -77,10 +77,31 @@ function stars() {
   }).join("");
 }
 
-/** Sky card: small kicker over one big line, both centred, dunes below. */
-function intertitle({ text, kicker, sky = "night" }) {
-  const s = SKIES[sky];
-  if (!s) throw new Error(`unknown card sky "${sky}" (${Object.keys(SKIES).join(", ")})`);
+/**
+ * Title card. Default: black, as in the Mesozoic Protocol trailer, with the
+ * wordmark's cream for the line and the coin's gold for the kicker and
+ * rule; cut in and out with short fades to black. `sky` (day | gold | dusk
+ * | night | storm) swaps the black for one of the game's sky gradients.
+ */
+function intertitle({ text, kicker, sky }) {
+  const s = sky ? SKIES[sky] : null;
+  if (sky && !s) throw new Error(`unknown card sky "${sky}" (${Object.keys(SKIES).join(", ")})`);
+  const lines = esc(text).replace(/\n/g, "<br>");
+  if (!s) {
+    return {
+      css: `
+        body { background: #000; }
+        .c { position: absolute; inset: 0; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; padding: 0 120px; }
+        .k { font-size: 34px; font-weight: 700; letter-spacing: 0.3em; color: ${GOLD};
+             text-transform: uppercase; margin-bottom: 30px; padding-left: 0.3em; }
+        .t { font-size: 96px; line-height: 1.1; letter-spacing: 0.02em; text-transform: uppercase;
+             text-align: center; color: ${LOGO_CREAM}; }
+        .rule { width: 120px; height: 8px; border-radius: 4px; background: ${GOLD}; margin-top: 40px; }`,
+      body: `<div class="c">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${lines}</div><div class="rule"></div></div>`,
+      opaque: true,
+    };
+  }
   return {
     css: `
       body { background: linear-gradient(to bottom, ${rgb(s.top)}, ${rgb(s.bottom)}); }
@@ -93,7 +114,7 @@ function intertitle({ text, kicker, sky = "night" }) {
            text-shadow: 0 2px 12px rgba(0,0,0,.35); }
       .t { font-size: 104px; line-height: 1.08; text-align: center; letter-spacing: -0.01em;
            text-shadow: 0 4px 24px rgba(0,0,0,.35); }`,
-    body: `${s.stars ? `<div class="stars">${stars()}</div>` : ""}${DUNES}<div class="c">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${esc(text)}</div></div>`,
+    body: `${s.stars ? `<div class="stars">${stars()}</div>` : ""}${DUNES}<div class="c">${kicker ? `<div class="k">${esc(kicker)}</div>` : ""}<div class="t">${lines}</div></div>`,
     opaque: true,
   };
 }

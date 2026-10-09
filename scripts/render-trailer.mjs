@@ -153,6 +153,7 @@ async function main() {
         ...t,
         outFile: titleFile(i),
         logo: t.logo && fromRepo(t.logo),
+        background: t.background && fromRepo(t.background),
       })),
     ],
     { width: tl.width, height: tl.height, font: FONT },

@@ -51,6 +51,8 @@ export function installTrailerHooks(host: TrailerHost): void {
   let standX: number | null = null;
   let cloudRate = 0; // screen widths per second while standing
   let clearObstacles = false;
+  let noPterodactyls = false;
+  let revealOnGameOver = false;
   let raptorX: number | null = null;
   // Last seen x per obstacle: pterodactyls fly toward the raptor faster
   // than the ground scrolls, so the jump lead uses each one's own speed.
@@ -265,6 +267,15 @@ export function installTrailerHooks(host: TrailerHost): void {
     if (!allowEvents) state.activeRareEvent = null;
     if (!allowBreathers) state._nextBreatherAtScore = state.score + 1e9;
     if (speed !== null) state.bgVelocity = speed;
+    if (noPterodactyls) host.cactuses().pterodactyls.pteros.length = 0;
+    if (revealOnGameOver && state.gameOver) {
+      // Show the game's own game-over screen the moment the run ends, in a
+      // take that ran without overlays. The start screen was never
+      // dismissed through the UI, so hide it the way ui.ts does.
+      revealOnGameOver = false;
+      document.getElementById("start-screen")?.classList.add("hidden");
+      document.body.classList.remove("cinematic-mode");
+    }
     if (clearObstacles) {
       // An open desert: drop each cactus, pterodactyl and coin as it
       // spawns (in place: the game holds these arrays across frames).
@@ -402,10 +413,16 @@ export function installTrailerHooks(host: TrailerHost): void {
     score(meters: number) {
       state.score = meters;
     },
-    /** Let the next obstacle end the run (autopilot off, collisions on). */
+    /** Let the next obstacle end the run (autopilot off, collisions on);
+     *  the game-over screen appears when it does. */
     crash() {
       autopilot = false;
       state.noCollisions = false;
+      revealOnGameOver = true;
+    },
+    /** No pterodactyls (cacti stay). */
+    pterodactyls(on: boolean) {
+      noPterodactyls = !on;
     },
     autopilot(on: boolean) {
       autopilot = on;

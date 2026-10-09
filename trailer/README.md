@@ -53,7 +53,7 @@ BASE_URL=http://localhost:51843 pnpm trailer:shots --shots=storm-lightning,rainb
 
 Shots live in `SHOTS` in `scripts/record-trailer-shots.mjs`. Per shot:
 `phase` (time of day, `PHASE.*`), `rate` (sky sweep in day cycles per
-second), `moon` (moon phase, 0.5 = full), `obstacles: false` (an open
+second), `moon` (moon phase, 0.5 = full), `pterodactyls: false` (cacti only), `obstacles: false` (an open
 desert: no cacti, pterodactyls or coins), `raptorAt` (pin the raptor's x;
 below 0 is off screen, for sky-only plates), `stand` (freeze the world and
 stand the raptor still), `hud` (keep the game's own overlays; starts the run
@@ -75,8 +75,10 @@ second: `strike`, `rainRamp(to, seconds)`, `shootingStar`, `pterodactyl`,
   run); `shootingStar` adds one on a chosen second.
 - **Night plate:** night sky with shooting stars and the raptor off screen;
   blurred, it is the background of every title card.
-- **Game over:** HUD on, a 1841 m run, `crash` turns the autopilot off and
-  collisions on, so the next cactus ends it and the score card comes up.
+- **Game over:** `parade-finale` is the parade's last look run on until
+  `crash` turns the autopilot off and collisions on: the next cactus ends the
+  run and the game's own game-over screen appears in the same take. (The
+  older `game-over` shot does the same with the HUD on from the start.)
 - **Outfit parade:** ten takes share one `seed`, sky and lead, so the
   scenery, cacti and jumps are identical (verified: 57 dB PSNR away from the
   raptor, matching event logs). Cutting between them at continuous clip
@@ -91,7 +93,7 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 
 ## 2. Edit file
 
-`trailer/steam-54s.json` is the current cut. Fields:
+`trailer/steam-47s.json` is the current cut. Fields:
 
 | Field | Meaning |
 |---|---|
@@ -99,19 +101,25 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 | `clips` | clip folder, relative to the main checkout (override with `--clips=`) |
 | `music` | `file`, `in` (seconds into the track), `gainDb`, `fadeIn`, `fadeOut`, `credit`, `automation` (`[[second in the cut, dB], …]`, linear between points: duck the calm opening, dip before the drop) |
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
-| `titles[]` | transparent overlays: `style` (`glass`, `end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
+| `titles[]` | overlays: `style` (`glass`, `art`, `end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
 | `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
-| `sfx[]` | `file` (repo path) or `synth` (`swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
+| `sfx[]` | `file` (repo path) or `synth` (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
 | `note`, `notes` | free text, ignored by the renderer |
 
-Pacing in `steam-54s.json` follows the music's two swells: a calm midday
-run with the music low, then a title card into the first drop (8.4 s) on the
-time-lapse, the night sky with shooting stars, one storm from first drops to
-rainbow, the flower stretch in the track's quiet passage, a second card into
-the outfit parade (36.9 s, cuts shrinking from 1.0 s to 0.5 s), a real game
-over and the end card. Transitions carry no synthesized whooshes: only the
-music, a soft low thump on the drops and the game's own sounds.
+Pacing in `steam-47s.json` follows the music's two swells: a calm midday
+run (two jumps) with the music low, a title card into the first drop on the
+time-lapse (shooting stars at night), one storm from first drops to rainbow,
+the flower stretch, sunset and sunrise in the track's quiet passage, a card
+into the outfit parade on the second swell (no pterodactyls), whose last look
+runs on into a crash and the game-over screen; the end card dissolves in
+over it (an `art` title with a fade, so the cut is a cross-dissolve).
+
+Title cards follow the Mesozoic Protocol cut: black, short fades to and from
+black, a big uppercase line in the wordmark's cream and a coin-gold rule,
+and a transition sound on each cut in. `pnpm trailer:render` on an edit made
+of short clip-to-card pairs is an easy way to audition sounds; the synths
+`impact`, `swipe` and `sand` exist for that.
 
 Every cut between two gameplay clips is matched on the raptor's pose: the
 frame before the new in-point shows the same run-cycle pose, held as long,
@@ -120,9 +128,9 @@ mid-jump), so the run cycle continues across the cut. Out-points are pulled
 back to a frame on the ground. The edit was generated from the event and
 pose logs; edit the JSON directly to tune it.
 
-Title cards are clip cuts of the night plate with `look.blur`, under a
-`glass` title: the game's own night sky behind a frosted panel, in the
-game's display font (Unbounded, from `@fontsource-variable/unbounded`). The
+Cards use the game's display font (Unbounded, from
+`@fontsource-variable/unbounded`). The `glass` title style (a frosted panel
+over blurred night-plate footage) remains available. The
 end card uses the designed assets in `trailer/assets/`:
 `raptor-runner-logo.png` (the transparent wordmark from the key art) and
 `library-hero.png` (the Steam library hero), shown whole along the bottom
@@ -135,7 +143,7 @@ cut.
 ## 3. Render
 
 ```bash
-pnpm trailer:render trailer/steam-54s.json
+pnpm trailer:render trailer/steam-47s.json
 ```
 
 - `--clips=<dir>` / `--out=<dir>` override the folders.
@@ -154,7 +162,7 @@ python3.12 -m venv /tmp/otio && /tmp/otio/bin/pip install opentimelineio otio-fc
 ```
 
 ```bash
-/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-54s/steam-54s.otio
+/tmp/otio/bin/python -c "import opentimelineio as o, sys; [print(f, o.adapters.read_from_file(f).duration()) for f in sys.argv[1:]]" trailer-clips/cuts/steam-47s/steam-47s.otio
 ```
 
 ## 4. Fine-tune in Resolve

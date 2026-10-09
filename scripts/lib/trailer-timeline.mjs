@@ -234,6 +234,20 @@ export function synthArgs(kind, seconds, outFile) {
         return `exp(-pow((t/${d}-${c})/0.2,2))*pow(sin(PI*t/${d}),2)`;
       })},aformat=channel_layouts=stereo,` +
       `aeval='val(0)*(1.15-0.9*t/${d})|val(1)*(0.25+0.9*t/${d})':c=stereo`,
+    // Audition candidates for card transitions.
+    impact:
+      `aevalsrc='0.9*sin(2*PI*(64*t-10*t*t))*exp(-4.5*t)':d=${d}:s=48000[s];` +
+      `anoisesrc=color=pink:duration=${d}:amplitude=0.9:seed=9,highpass=f=1800,` +
+      "volume='exp(-28*t)':eval=frame[n];" +
+      "[s][n]amix=inputs=2:normalize=0,aformat=channel_layouts=stereo",
+    swipe:
+      `anoisesrc=color=white:duration=${d}:amplitude=0.6:seed=4,bandpass=f=4200:width_type=q:w=0.8,` +
+      `volume='min(1,t*40)*exp(-9*t)':eval=frame,aformat=channel_layouts=stereo,` +
+      `aeval='val(0)*(1.2-1.2*t/${d})|val(1)*(0.2+1.0*t/${d})':c=stereo`,
+    sand:
+      `anoisesrc=color=brown:duration=${d}:amplitude=0.9:seed=13,bandpass=f=900:width_type=q:w=0.7,` +
+      `tremolo=f=38:d=0.55,volume='pow(sin(PI*min(1,t/${d})),1.4)*exp(-1.5*t)':eval=frame,` +
+      "aformat=channel_layouts=stereo,extrastereo=m=1.8",
     thump:
       `aevalsrc='0.9*sin(2*PI*(72*t-14*t*t))*exp(-7*t)*min(1,t*400)':d=${d}:s=48000,` +
       "lowpass=f=240,aformat=channel_layouts=stereo",
