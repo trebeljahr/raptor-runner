@@ -114,7 +114,7 @@ the track's quiet passage, a card into the outfit parade on the second swell
 (no pterodactyls; 30 outfit combinations, cuts shrinking evenly from 0.55 s
 to 5 frames, the equip tap rising in pitch). A few frames of the last outfit,
 then a hard cut to the end card (an `art` card carrying the wordmark and
-call to action via `logo` and `lines`) on the Mesozoic end-card hit.
+call to action via `logo` and `lines`) on a cinematic piano hit.
 
 Sound follows the game: flower-field coins climb in pitch like the game's
 chain (7% per pickup, capped at 1.7×) and each outfit change plays the
@@ -238,7 +238,10 @@ Only assets whose licence allows use in a trailer are in the cut:
   Pixabay Content License. Auditioned alternatives kept in `trailer/assets/`:
   "Whoosh Cinematic" by DRAGON-STUDIO (376875) and "Clean modern woosh
   transition 1" by Sdanezis (607299).
-- **End card hit:** the same as the Mesozoic Protocol trailer: the `boom`
+- **End card hit:** "Cinematic Piano Hit" by Universfield
+  (pixabay.com/sound-effects/musical-cinematic-piano-hit-567216/), Pixabay
+  Content License, `trailer/assets/cinematic-piano-hit.mp3`.
+- **Previous end card hit** (`mesohit` in the generator): the same as the Mesozoic Protocol trailer: the `boom`
   synth layered with "Cinematic dun"
   (pixabay.com/sound-effects/dun-283044/, Pixabay Content License), copied
   from Mesozoic Protocol's `public/audio/new-enemy.mp3` to

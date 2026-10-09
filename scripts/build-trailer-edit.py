@@ -10,7 +10,8 @@ frames, title cards, the outfit parade and the end card.
 The second argument picks the transition sound (M = Clean Modern Woosh 8).
 The cut carries the game's footsteps (pre-mixed into one stem under
 trailer-clips/stems/) and audible jumps; `nosteps` as a third argument
-leaves both out, for comparison.
+leaves both out, for comparison. `mesohit` swaps the end-card piano hit for
+the Mesozoic trailer's boom + Cinematic dun.
 """
 import json, os, subprocess, sys
 
@@ -243,10 +244,15 @@ s, a, b = clip("20-parade-monocle", round(ct, 4), round(ct + LAST_FRAMES / FPS, 
                note="last look (monocle, bow tie), a few frames")
 sound(synth="tap", when=s, gain=-4, duration=0.08, rate=1.6)
 END = t
-# The end-card hit from the Mesozoic Protocol trailer: its boom synth layered
-# with "Cinematic dun" (Pixabay), on the cut.
-sound(synth="boom", when=END, gain=0, duration=2.5)
-sound("trailer/assets/cinematic-dun.mp3", when=END, gain=-3)
+if "mesohit" in sys.argv[3:]:
+    # The end-card hit from the Mesozoic Protocol trailer: its boom synth
+    # layered with "Cinematic dun" (Pixabay), on the cut.
+    sound(synth="boom", when=END, gain=0, duration=2.5)
+    sound("trailer/assets/cinematic-dun.mp3", when=END, gain=-3)
+else:
+    # "Cinematic Piano Hit" (Universfield, Pixabay): a short swell, the hit
+    # lands 0.37 s in, on the cut.
+    sound("trailer/assets/cinematic-piano-hit.mp3", when=END - 0.37, gain=-2)
 cuts.append({"card": "end-art", "duration": 4.8, "note": "end card: library hero, wordmark and Wishlist plate"})
 t = round(t + 4.8, 4)
 total = t
@@ -310,7 +316,7 @@ edit = {
         "one take from first drops to the strike, then the rainbow; the bare raptor through a flower "
         "field in the music's quiet passage; the outfit parade on the second swell (30 combinations "
         "of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); a few frames of the "
-        "last outfit, then a hard cut to the end card on the Mesozoic end-card hit. In-game "
+        "last outfit, then a hard cut to the end card on a cinematic piano hit. In-game "
         "footsteps and jumps throughout. "
         "Gameplay cuts are matched on the raptor's pose. No rare events: the Steam copy leaves those "
         "to be found."

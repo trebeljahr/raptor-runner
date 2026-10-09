@@ -1,6 +1,6 @@
 {
   "name": "steam-trailer",
-  "notes": "Trailer 1, draft 12. Calm midday run (two jumps) with the music low; black title cards as in the Mesozoic cut, each with Clean Modern Woosh 8; the drop on the track's own swell: a time-lapse of a full day with shooting stars while the raptor runs an open desert; one storm, one take from first drops to the strike, then the rainbow; the bare raptor through a flower field in the music's quiet passage; the outfit parade on the second swell (30 combinations of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); a few frames of the last outfit, then a hard cut to the end card on the Mesozoic end-card hit. In-game footsteps and jumps throughout. Gameplay cuts are matched on the raptor's pose. No rare events: the Steam copy leaves those to be found.",
+  "notes": "Trailer 1, draft 12. Calm midday run (two jumps) with the music low; black title cards as in the Mesozoic cut, each with Clean Modern Woosh 8; the drop on the track's own swell: a time-lapse of a full day with shooting stars while the raptor runs an open desert; one storm, one take from first drops to the strike, then the rainbow; the bare raptor through a flower field in the music's quiet passage; the outfit parade on the second swell (30 combinations of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); a few frames of the last outfit, then a hard cut to the end card on a cinematic piano hit. In-game footsteps and jumps throughout. Gameplay cuts are matched on the raptor's pose. No rare events: the Steam copy leaves those to be found.",
   "fps": 60,
   "width": 1920,
   "height": 1080,
@@ -719,6 +719,11 @@
       "rate": 1.559
     },
     {
+      "file": "trailer/assets/cinematic-piano-hit.mp3",
+      "at": 40.813,
+      "gainDb": -2
+    },
+    {
       "file": "public/assets/jump.mp3",
       "at": 40.866,
       "gainDb": -10
@@ -748,17 +753,6 @@
       "gainDb": -4,
       "duration": 0.08,
       "rate": 1.6
-    },
-    {
-      "synth": "boom",
-      "at": 41.183,
-      "gainDb": 0,
-      "duration": 2.5
-    },
-    {
-      "file": "trailer/assets/cinematic-dun.mp3",
-      "at": 41.183,
-      "gainDb": -3
     }
   ]
 }
