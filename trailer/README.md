@@ -207,11 +207,12 @@ Only assets whose licence allows use in a trailer are in the cut:
 - The low `thump` on the drops is synthesized by ffmpeg. The `swell` and
   `whoosh` synths stay available but are not in the current cut.
 - Game over: the cactus impact sound (Pixabay, freesound_community).
-- **Card transitions:** "Whoosh Cinematic" by DRAGON-STUDIO
-  (pixabay.com/sound-effects/film-special-effects-whoosh-cinematic-376875/),
-  Pixabay Content License, trimmed in the edit. Alternatives in
-  `trailer/assets/`: "Clean modern woosh transition 1" and "8" by Sdanezis
-  (Pixabay, 607299 and 607301).
+- **Transitions** (every title card and the end flash): "Clean modern woosh
+  transition 8" by Sdanezis
+  (pixabay.com/sound-effects/film-special-effects-clean-modern-woosh-transition-8-607301/),
+  Pixabay Content License. Auditioned alternatives kept in `trailer/assets/`:
+  "Whoosh Cinematic" by DRAGON-STUDIO (376875) and "Clean modern woosh
+  transition 1" by Sdanezis (607299).
 - Not used: the shop sound (CC BY 3.0) and every rare-event sound.
 
 The authoritative list for the game is `src/credits.ts`.

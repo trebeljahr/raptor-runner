@@ -222,11 +222,11 @@
       "gainDb": -13
     },
     {
-      "file": "trailer/assets/whoosh-cinematic.mp3",
-      "at": 3.175,
-      "gainDb": -9,
-      "in": 0.45,
-      "duration": 0.75,
+      "file": "trailer/assets/clean-woosh-8.mp3",
+      "at": 3.43,
+      "gainDb": -14,
+      "in": 0.0,
+      "duration": 0.9,
       "fadeOut": 0.25
     },
     {
@@ -241,11 +241,11 @@
       "gainDb": -9
     },
     {
-      "file": "trailer/assets/whoosh-cinematic.mp3",
-      "at": 12.675,
-      "gainDb": -9,
-      "in": 0.45,
-      "duration": 0.75,
+      "file": "trailer/assets/clean-woosh-8.mp3",
+      "at": 12.93,
+      "gainDb": -14,
+      "in": 0.0,
+      "duration": 0.9,
       "fadeOut": 0.25
     },
     {
@@ -317,11 +317,11 @@
       "gainDb": -17
     },
     {
-      "file": "trailer/assets/whoosh-cinematic.mp3",
-      "at": 25.375,
-      "gainDb": -9,
-      "in": 0.45,
-      "duration": 0.75,
+      "file": "trailer/assets/clean-woosh-8.mp3",
+      "at": 25.63,
+      "gainDb": -14,
+      "in": 0.0,
+      "duration": 0.9,
       "fadeOut": 0.25
     },
     {
@@ -375,11 +375,11 @@
       "gainDb": -7
     },
     {
-      "file": "trailer/assets/whoosh-cinematic.mp3",
-      "at": 31.775,
-      "gainDb": -9,
-      "in": 0.45,
-      "duration": 0.75,
+      "file": "trailer/assets/clean-woosh-8.mp3",
+      "at": 32.03,
+      "gainDb": -14,
+      "in": 0.0,
+      "duration": 0.9,
       "fadeOut": 0.25
     },
     {
@@ -439,11 +439,11 @@
       "gainDb": -4
     },
     {
-      "file": "trailer/assets/whoosh-cinematic.mp3",
-      "at": 43.908,
-      "gainDb": -8,
-      "in": 0.45,
-      "duration": 0.75,
+      "file": "trailer/assets/clean-woosh-8.mp3",
+      "at": 44.163,
+      "gainDb": -14,
+      "in": 0.0,
+      "duration": 0.9,
       "fadeOut": 0.25
     },
     {
