@@ -273,11 +273,11 @@ export function synthArgs(kind, seconds, outFile) {
       `volume='pow(t/${d},2.2)':eval=frame[n];` +
       `aevalsrc='0.22*sin(2*PI*(180*t+${(700 / (2 * d)).toFixed(4)}*t*t))*pow(t/${d},1.6)':d=${d}:s=48000[s];` +
       "[n][s]amix=inputs=2:normalize=0,aformat=channel_layouts=stereo",
+    // Same as the Mesozoic Protocol trailer: 48 Hz sub hit with a short crack.
     boom:
-      `aevalsrc='0.95*sin(2*PI*(58*t-9*t*t))*exp(-2.6*t)':d=${d}:s=48000[s];` +
-      "anoisesrc=color=brown:duration=0.5:amplitude=0.8:seed=3,lowpass=f=900," +
-      "volume='exp(-9*t)':eval=frame[n];" +
-      "[s][n]amix=inputs=2:normalize=0:duration=first,aformat=channel_layouts=stereo",
+      `aevalsrc='0.9*sin(2*PI*48*t)*exp(-3*t)+0.45*(random(0)*2-1)*exp(-140*t)':d=${d}:s=48000,lowpass=f=5000[a];` +
+      `aevalsrc='0.5*(random(1)*2-1)*exp(-5*t)':d=${d}:s=48000,lowpass=f=180[b];` +
+      "[a][b]amix=inputs=2:normalize=0,aformat=channel_layouts=stereo",
   };
   if (!graphs[kind]) throw new Error(`unknown synth "${kind}" (${Object.keys(graphs).join(", ")})`);
   return [
@@ -313,7 +313,8 @@ export function revealMask(o, W, H, fps) {
       Math.hypot(W - x, H - y),
     ),
   );
-  const d = (o.frames / fps).toFixed(6);
+  // Fully open a few frames before the overlay ends, so the handoff is clean.
+  const d = ((o.frames / fps) * 0.85).toFixed(6);
   const r = `(${far + 40})*(1-pow(1-min(1,T/${d}),3))`;
   const a = `255*clip((${r}-hypot(X-${x},Y-${y}))/36,0,1)*alpha(X,Y)/255`;
   return `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${a}'`;
@@ -382,7 +383,9 @@ export function ffmpegArgs(tl, outFile, { audioOnly = false, masterGainDb = 0 } 
     const n = addInput(["-loop", "1", "-framerate", String(fps), "-i", o.file]);
     graph.push(
       [
-        `[${n}:v]trim=end_frame=${o.frames}`,
+        // One spare frame: overlay drops an input's final frame at EOF, which
+        // showed as a one-frame gap before the next cut and on the last frame.
+        `[${n}:v]trim=end_frame=${o.frames + 1}`,
         "setpts=PTS-STARTPTS",
         "format=rgba",
         ...(o.reveal ? [revealMask(o, W, H, fps)] : []),
@@ -392,7 +395,7 @@ export function ffmpegArgs(tl, outFile, { audioOnly = false, masterGainDb = 0 } 
     );
     const next = `base${i + 1}`;
     graph.push(
-      `[${base}][o${i}]overlay=0:0:eof_action=pass:enable='between(t,${sec(o.offset)},${sec(o.offset + o.frames)})'[${next}]`,
+      `[${base}][o${i}]overlay=0:0:eof_action=pass:enable='between(t,${sec(o.offset)},${sec(o.offset + o.frames - 0.5)})'[${next}]`,
     );
     base = next;
   }

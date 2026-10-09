@@ -161,6 +161,16 @@
       }
     },
     {
+      "style": "art",
+      "background": "trailer/assets/library-hero.png",
+      "fit": "width",
+      "extend": "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))",
+      "start": 44.833,
+      "duration": 4.8,
+      "fadeIn": 0,
+      "fadeOut": 0
+    },
+    {
       "style": "end-logo",
       "logo": "trailer/assets/raptor-runner-logo.png",
       "align": "right",
@@ -516,8 +526,13 @@
     {
       "synth": "boom",
       "at": 44.313,
-      "gainDb": -3,
-      "duration": 2.2
+      "gainDb": 0,
+      "duration": 2.5
+    },
+    {
+      "file": "trailer/assets/cinematic-dun.mp3",
+      "at": 44.313,
+      "gainDb": -3
     }
   ]
 }

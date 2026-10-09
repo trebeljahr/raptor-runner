@@ -218,6 +218,11 @@ Only assets whose licence allows use in a trailer are in the cut:
   Pixabay Content License. Auditioned alternatives kept in `trailer/assets/`:
   "Whoosh Cinematic" by DRAGON-STUDIO (376875) and "Clean modern woosh
   transition 1" by Sdanezis (607299).
+- **End card hit:** the same as the Mesozoic Protocol trailer: the `boom`
+  synth layered with "Cinematic dun"
+  (pixabay.com/sound-effects/dun-283044/, Pixabay Content License), copied
+  from Mesozoic Protocol's `public/audio/new-enemy.mp3` to
+  `trailer/assets/cinematic-dun.mp3`.
 - Not used: the shop sound (CC BY 3.0) and every rare-event sound.
 
 The authoritative list for the game is `src/credits.ts`.
