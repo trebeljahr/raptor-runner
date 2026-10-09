@@ -267,7 +267,14 @@ export function installTrailerHooks(host: TrailerHost): void {
     if (!allowEvents) state.activeRareEvent = null;
     if (!allowBreathers) state._nextBreatherAtScore = state.score + 1e9;
     if (speed !== null) state.bgVelocity = speed;
-    if (noPterodactyls) host.cactuses().pterodactyls.pteros.length = 0;
+    if (noPterodactyls) {
+      // Claim the last spawn was a pterodactyl: the spawner then never rolls
+      // one (and so never leaves the coin it hangs under a flyer). Clearing
+      // flyers after the fact left that coin floating over empty sand.
+      const c = host.cactuses() as unknown as { _prevSpawnWasPtero: boolean };
+      c._prevSpawnWasPtero = true;
+      host.cactuses().pterodactyls.pteros.length = 0;
+    }
     if (revealOnGameOver && state.gameOver) {
       // Show the game's own game-over screen the moment the run ends, in a
       // take that ran without overlays. The start screen was never

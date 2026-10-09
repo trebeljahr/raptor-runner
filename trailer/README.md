@@ -112,10 +112,9 @@ time-lapse (shooting stars at night), one storm in one take from first drops
 to the strike, then the rainbow, the bare raptor through a flower field in
 the track's quiet passage, a card into the outfit parade on the second swell
 (no pterodactyls; 30 outfit combinations, cuts shrinking evenly from 0.55 s
-to 5 frames, the equip tap rising in pitch). On the last outfit the end card,
-wordmark and call to action already in it (an `art` card can carry `logo`
-and `lines`), opens as a circle from the raptor's head with the Mesozoic
-end-card hit, and stays as one overlay to the last frame.
+to 5 frames, the equip tap rising in pitch). A few frames of the last outfit,
+then a hard cut to the end card (an `art` card carrying the wordmark and
+call to action via `logo` and `lines`) on the Mesozoic end-card hit.
 
 Sound follows the game: flower-field coins climb in pitch like the game's
 chain (7% per pickup, capped at 1.7×) and each outfit change plays the
@@ -157,15 +156,13 @@ python3 scripts/build-trailer-edit.py trailer/steam-trailer.json M
 It reads the clips' event and pose logs and writes the cut. Hand edits to
 the JSON work too, but are overwritten the next time the generator runs.
 
-**Footsteps variant.** `trailer/steam-trailer-steps.json` is the same cut
-plus the game's footsteps (run-cycle frames 0 and 6, four samples with the
-game's pitch and level jitter, pre-mixed into
-`trailer-clips/stems/footsteps-steam-trailer.wav`) and the jump sound 6 dB
-louder. It renders to its own folder, so the two can be compared side by
-side; to drop it, delete the JSON. Regenerate it with:
+The cut carries the game's footsteps (run-cycle frames 0 and 6, four
+samples with the game's pitch and level jitter, pre-mixed into
+`trailer-clips/stems/footsteps-steam-trailer.wav`) and audible jumps. To
+hear it without them, build a comparison cut:
 
 ```bash
-python3 scripts/build-trailer-edit.py trailer/steam-trailer-steps.json M steps
+python3 scripts/build-trailer-edit.py trailer/steam-trailer-nosteps.json M nosteps
 ```
 
 ## 3. Render

@@ -6,11 +6,11 @@ scripts/render-trailer.mjs: pose-matched cuts, sound effects on the recorded
 frames, title cards, the outfit parade and the end card.
 
     python3 scripts/build-trailer-edit.py trailer/steam-trailer.json M
-    python3 scripts/build-trailer-edit.py trailer/steam-trailer-steps.json M steps
 
 The second argument picks the transition sound (M = Clean Modern Woosh 8).
-`steps` adds the game's footsteps (pre-mixed into one stem under
-trailer-clips/stems/) and louder jumps, as a separate cut to compare against.
+The cut carries the game's footsteps (pre-mixed into one stem under
+trailer-clips/stems/) and audible jumps; `nosteps` as a third argument
+leaves both out, for comparison.
 """
 import json, os, subprocess, sys
 
@@ -129,7 +129,7 @@ def sound(file=None, synth=None, when=0, gain=0, **kw):
 COIN = "public/assets/coin-collect.mp3"
 CHIME = "public/assets/coin-chain-end.mp3"
 JUMP = "public/assets/jump.mp3"
-STEPS = "steps" in sys.argv[3:]  # variant: in-game footsteps and louder jumps
+STEPS = "nosteps" not in sys.argv[3:]  # in-game footsteps and audible jumps (default)
 JUMP_BOOST = 6 if STEPS else 0
 titles = []
 END_SKY = "linear-gradient(to bottom, rgba(14,150,214,.45), rgba(14,150,214,0) 70%), linear-gradient(to right, rgb(161,235,238), rgb(199,241,228) 25%, rgb(162,236,233) 50%, rgb(69,217,244) 75%, rgb(23,213,247))"
@@ -236,32 +236,21 @@ for i, (name, nf) in enumerate(zip(clips_, frames_)):
 ct = cf / FPS
 sound(synth="thump", when=parade_start, gain=-9, duration=0.9)
 gameplay("11-parade-bare", parade_start, cf0 / FPS, ct, coin_gain=-12, jump_gain=-16)
-# The last look, then the end card opens as a circle from the raptor's head
-# (no crash, no game over).
-LAST_HOLD = 0.45  # seconds of the last outfit before the reveal
-REVEAL = 0.55     # seconds for the circle to open
-HEAD = (580, 800) # the raptor's head in the parade take, in px
-s, a, b = clip("20-parade-monocle", round(ct, 4), round(ct + LAST_HOLD + REVEAL, 4), match=False, ground_out=False,
-               note="last look (monocle, bow tie); the end card opens from the raptor's head")
+# The last look for a few frames, then a hard cut to the end card on the
+# Mesozoic end-card hit.
+LAST_FRAMES = 8
+s, a, b = clip("20-parade-monocle", round(ct, 4), round(ct + LAST_FRAMES / FPS, 4), match=False, ground_out=False,
+               note="last look (monocle, bow tie), a few frames")
 sound(synth="tap", when=s, gain=-4, duration=0.08, rate=1.6)
-gameplay("20-parade-monocle", s, a, b, coin_gain=-12, jump_gain=-16)
-END = round(s + LAST_HOLD, 4)
+END = t
 # The end-card hit from the Mesozoic Protocol trailer: its boom synth layered
-# with "Cinematic dun" (Pixabay), as the end card opens.
+# with "Cinematic dun" (Pixabay), on the cut.
 sound(synth="boom", when=END, gain=0, duration=2.5)
 sound("trailer/assets/cinematic-dun.mp3", when=END, gain=-3)
-cuts.append({"card": "end-art", "duration": 4.8, "note": "end card (under the reveal overlay)"})
+cuts.append({"card": "end-art", "duration": 4.8, "note": "end card: library hero, wordmark and Wishlist plate"})
 t = round(t + 4.8, 4)
 total = t
 END_TEXT = {"logo": "trailer/assets/raptor-runner-logo.png", "lines": ["Wishlist on Steam", "store.steampowered.com/app/5035590"]}
-titles += [
-    # The end card, wordmark and call to action already in it, opens as a
-    # circle from the raptor's head and stays to the last frame: one overlay,
-    # so nothing hands over and nothing can pop.
-    {"style": "art", "background": "trailer/assets/library-hero.png", "fit": "width", "extend": END_SKY, **END_TEXT,
-     "start": END, "duration": round(total - END, 4), "fadeIn": 0, "fadeOut": 0,
-     "reveal": {"x": HEAD[0], "y": HEAD[1], "seconds": REVEAL}},
-]
 if STEPS:
     # The game's footsteps (audio.ts playStep): on run-cycle frames 0 and 6
     # while on the ground, one of four samples (never the same twice in a
@@ -313,15 +302,16 @@ if STEPS:
     print(f"  footsteps: {len(steps)} steps pre-mixed into {STEM}")
 
 edit = {
-    "name": "steam-trailer-steps" if STEPS else "steam-trailer",
+    "name": "steam-trailer" if STEPS else "steam-trailer-nosteps",
     "notes": (
-        "Trailer 1, draft 11. Calm midday run (two jumps) with the music low; black title cards as in "
+        "Trailer 1, draft 12. Calm midday run (two jumps) with the music low; black title cards as in "
         "the Mesozoic cut, each with Clean Modern Woosh 8; the drop on the track's own swell: a "
         "time-lapse of a full day with shooting stars while the raptor runs an open desert; one storm, "
         "one take from first drops to the strike, then the rainbow; the bare raptor through a flower "
         "field in the music's quiet passage; the outfit parade on the second swell (30 combinations "
-        "of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); on the last outfit "
-        "the end card opens as a circle from the raptor's head with the Mesozoic end-card hit. "
+        "of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); a few frames of the "
+        "last outfit, then a hard cut to the end card on the Mesozoic end-card hit. In-game "
+        "footsteps and jumps throughout. "
         "Gameplay cuts are matched on the raptor's pose. No rare events: the Steam copy leaves those "
         "to be found."
     ),
