@@ -101,9 +101,9 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 | `clips` | clip folder, relative to the main checkout (override with `--clips=`) |
 | `music` | `file`, `in` (seconds into the track), `gainDb`, `fadeIn`, `fadeOut`, `credit`, `automation` (`[[second in the cut, dB], …]`, linear between points: duck the calm opening, dip before the drop) |
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
-| `titles[]` | overlays: `style` (`glass`, `art`, `end-logo`, `end-cta`, `lower-third`), `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
+| `titles[]` | overlays: `style` (`glass`, `art`, `fill`, `end-logo`, `end-cta`, `lower-third`); optional `reveal: { x, y }` opens the overlay as a circle growing from that point over its duration; `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
 | `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
-| `sfx[]` | `file` (repo path; optional `in`, seconds into the file) or `synth` (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
+| `sfx[]` | `file` (repo path; optional `in`, seconds into the file; `rate`, playback rate like Web Audio's, pitch and speed) or `synth` (`tap` is the game's menu/equip tap) (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
 | `note`, `notes` | free text, ignored by the renderer |
 
@@ -113,7 +113,12 @@ time-lapse (shooting stars at night), one storm from first drops to rainbow,
 the flower stretch, sunset and sunrise in the track's quiet passage, a card
 into the outfit parade on the second swell (no pterodactyls), whose last look
 runs on into a crash and the game-over screen; the end card dissolves in
-over it (an `art` title with a fade, so the cut is a cross-dissolve).
+behind it: after the crash a cursor clicks Play again, and the end card
+opens as a circle from the click point with a boom.
+
+Sound follows the game: flower-field coins climb in pitch like the game's
+chain (7% per pickup, capped at 1.7×), each outfit change plays the game's
+equip tap, and the click plays it once more.
 
 Title cards follow the Mesozoic Protocol cut: black, short fades to and from
 black, a big uppercase line in the wordmark's cream and a coin-gold rule,

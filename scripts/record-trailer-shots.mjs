@@ -316,11 +316,11 @@ const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
  * Scripted pointer after a game over: a drawn arrow (headless screenshots
  * show no system cursor) eases from `from` (viewport fractions) to the
  * button named `target`, while real mouse events move with it so hover and
- * press styles fire, then clicks. Returns true on the click frame.
+ * press styles fire, then clicks. Returns the click point on the click frame.
  */
 async function moveCursor(page, c, state, sinceGameOver) {
   const t = sinceGameOver - c.start;
-  if (t < 0) return false;
+  if (t < 0) return null;
   if (!state.box) {
     state.box = await page.getByRole("button", { name: c.target, exact: true }).boundingBox();
     if (!state.box) throw new Error(`cursor target "${c.target}" not found`);
@@ -357,13 +357,13 @@ async function moveCursor(page, c, state, sinceGameOver) {
   if (t >= c.click && !state.clicked) {
     state.clicked = true;
     await page.mouse.down();
-    return true;
+    return { x: Math.round(x), y: Math.round(y) };
   }
   if (state.clicked && !state.released && t >= c.click + 0.12) {
     state.released = true;
     await page.mouse.up();
   }
-  return false;
+  return null;
 }
 
 /** Step + capture `seconds` of footage, firing beats on their frame. */
@@ -458,7 +458,7 @@ async function record(page, shot, file) {
       }
       if (pointer && gameOverAt !== null) {
         const click = await moveCursor(page, shot.cursor, pointer, t - gameOverAt);
-        if (click) events.push({ t: Number(t.toFixed(3)), kind: "click" });
+        if (click) events.push({ t: Number(t.toFixed(3)), kind: "click", ...click });
       }
       const { data } = await withTimeout(
         cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 95, optimizeForSpeed: true }),

@@ -104,6 +104,9 @@ export function normalizeEdit(edit, media) {
       frames,
       fadeIn: f(t.fadeIn ?? t.fade ?? 0.25),
       fadeOut: f(t.fadeOut ?? t.fade ?? 0.25),
+      // { x, y } in px: the overlay opens as a growing circle from there
+      // over its whole duration (draft-only, like fades).
+      reveal: t.reveal ? { x: t.reveal.x, y: t.reveal.y } : null,
     };
   });
 
@@ -126,6 +129,7 @@ export function normalizeEdit(edit, media) {
       fadeIn: m.fadeIn ?? 0,
       fadeOut: m.fadeOut ?? 0,
       automation: [...(m.automation ?? [])].sort((a, b) => a[0] - b[0]),
+      rate: 1,
     });
   }
   for (const [i, x] of (edit.sfx ?? []).entries()) {
@@ -133,7 +137,12 @@ export function normalizeEdit(edit, media) {
     if (offset < 0 || offset >= total) throw new Error(`sfx[${i}] at ${x.at}s is outside the cut`);
     const sourceSeconds = media.sfxSeconds(i);
     const inSeconds = x.in ?? 0;
-    const seconds = Math.min(x.duration ?? sourceSeconds - inSeconds, sourceSeconds - inSeconds);
+    // `rate` plays faster and higher, like Web Audio's playbackRate.
+    const rate = x.rate ?? 1;
+    const seconds = Math.min(
+      x.duration ?? (sourceSeconds - inSeconds) / rate,
+      (sourceSeconds - inSeconds) / rate,
+    );
     audio.push({
       role: "sfx",
       name: x.name ?? x.synth ?? x.file.split("/").pop(),
@@ -141,6 +150,7 @@ export function normalizeEdit(edit, media) {
       offset,
       frames: Math.min(f(seconds), total - offset),
       inSeconds,
+      rate,
       sourceSeconds,
       gainDb: x.gainDb ?? 0,
       fadeIn: x.fadeIn ?? 0,
@@ -249,6 +259,12 @@ export function synthArgs(kind, seconds, outFile) {
       `anoisesrc=color=brown:duration=${d}:amplitude=0.9:seed=13,bandpass=f=900:width_type=q:w=0.7,` +
       `tremolo=f=38:d=0.55,volume='pow(sin(PI*min(1,t/${d})),1.4)*exp(-1.5*t)':eval=frame,` +
       "aformat=channel_layouts=stereo,extrastereo=m=1.8",
+    // The game's menu/equip tap (audio.ts playMenuTap): a 900→620 Hz sine
+    // body plus a 2.1 kHz triangle tick, under 60 ms.
+    tap:
+      `aevalsrc='0.8*sin(2*PI*900*(0.05/log(620/900))*(pow(620/900,t/0.05)-1))*exp(-90*t)*min(1,t*250)` +
+      `+0.5*(2/PI)*asin(sin(2*PI*2100*t))*exp(-250*t)*min(1,t*500)':d=${d}:s=48000,` +
+      "aformat=channel_layouts=stereo",
     thump:
       `aevalsrc='0.9*sin(2*PI*(72*t-14*t*t))*exp(-7*t)*min(1,t*400)':d=${d}:s=48000,` +
       "lowpass=f=240,aformat=channel_layouts=stereo",
@@ -282,6 +298,26 @@ export function synthArgs(kind, seconds, outFile) {
 // ---------------------------------------------------------------------------
 // ffmpeg
 // ---------------------------------------------------------------------------
+
+/**
+ * geq alpha mask: a circle from (x, y) that grows (ease-out) to cover the
+ * frame over the overlay's duration, with a soft 36 px edge.
+ */
+export function revealMask(o, W, H, fps) {
+  const { x, y } = o.reveal;
+  const far = Math.ceil(
+    Math.max(
+      Math.hypot(x, y),
+      Math.hypot(W - x, y),
+      Math.hypot(x, H - y),
+      Math.hypot(W - x, H - y),
+    ),
+  );
+  const d = (o.frames / fps).toFixed(6);
+  const r = `(${far + 40})*(1-pow(1-min(1,T/${d}),3))`;
+  const a = `255*clip((${r}-hypot(X-${x},Y-${y}))/36,0,1)*alpha(X,Y)/255`;
+  return `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${a}'`;
+}
 
 /**
  * ffmpeg argv that renders the timeline to an H.264 + AAC MP4.
@@ -349,6 +385,7 @@ export function ffmpegArgs(tl, outFile, { audioOnly = false, masterGainDb = 0 } 
         `[${n}:v]trim=end_frame=${o.frames}`,
         "setpts=PTS-STARTPTS",
         "format=rgba",
+        ...(o.reveal ? [revealMask(o, W, H, fps)] : []),
         ...fades(o, ":alpha=1"),
         `setpts=PTS+${sec(o.offset)}/TB`,
       ].join(",") + `[o${i}]`,
@@ -371,10 +408,12 @@ export function ffmpegArgs(tl, outFile, { audioOnly = false, masterGainDb = 0 } 
       const seek = a.inSeconds > 0 ? ["-ss", a.inSeconds.toFixed(6)] : [];
       const n = addInput([...seek, "-i", a.file]);
       const len = a.frames / fps;
+      const rate = a.rate ?? 1;
       const chain = [
-        `[${n}:a]atrim=start=0:duration=${len.toFixed(6)}`,
+        `[${n}:a]atrim=start=0:duration=${(len * rate).toFixed(6)}`,
         "asetpts=PTS-STARTPTS",
         "aresample=48000",
+        ...(rate !== 1 ? [`asetrate=${Math.round(48000 * rate)}`, "aresample=48000"] : []),
         "aformat=channel_layouts=stereo",
         `volume='${gainExpr(a.automation, a.gainDb)}':eval=frame`,
       ];
