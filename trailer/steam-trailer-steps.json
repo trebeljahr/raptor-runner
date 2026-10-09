@@ -1,5 +1,5 @@
 {
-  "name": "steam-trailer",
+  "name": "steam-trailer-steps",
   "notes": "Trailer 1, draft 11. Calm midday run (two jumps) with the music low; black title cards as in the Mesozoic cut, each with Clean Modern Woosh 8; the drop on the track's own swell: a time-lapse of a full day with shooting stars while the raptor runs an open desert; one storm, one take from first drops to the strike, then the rainbow; the bare raptor through a flower field in the music's quiet passage; the outfit parade on the second swell (30 combinations of one take, cuts shrinking to 5 frames, the equip tap rising in pitch); on the last outfit the end card opens as a circle from the raptor's head with the Mesozoic end-card hit. Gameplay cuts are matched on the raptor's pose. No rare events: the Steam copy leaves those to be found.",
   "fps": 60,
   "width": 1920,
@@ -300,6 +300,12 @@
   },
   "sfx": [
     {
+      "file": "/Users/rico/projects/raptor-runner/trailer-clips/stems/footsteps-steam-trailer.wav",
+      "at": 0,
+      "gainDb": -15,
+      "name": "footsteps (pre-mixed, game's playStep)"
+    },
+    {
       "file": "public/assets/coin-collect.mp3",
       "at": 0.2,
       "gainDb": -13
@@ -307,12 +313,12 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 1.267,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 2.783,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/coin-collect.mp3",
@@ -352,22 +358,22 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 15.167,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 16.3,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 17.6,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 19.017,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/coin-collect.mp3",
@@ -382,22 +388,22 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 20.117,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 21.466,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 22.816,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/jump.mp3",
       "at": 24.0,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "public/assets/coin-collect.mp3",
@@ -407,7 +413,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 25.283,
-      "gainDb": -17
+      "gainDb": -11
     },
     {
       "file": "trailer/assets/clean-woosh-8.mp3",
@@ -499,7 +505,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 33.9,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "synth": "tap",
@@ -518,7 +524,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 35.1,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "synth": "tap",
@@ -551,7 +557,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 36.733,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "synth": "tap",
@@ -591,7 +597,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 38.116,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "file": "public/assets/coin-collect.mp3",
@@ -629,7 +635,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 39.166,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "synth": "tap",
@@ -714,7 +720,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 40.583,
-      "gainDb": -16
+      "gainDb": -10
     },
     {
       "synth": "tap",
@@ -765,7 +771,7 @@
     {
       "file": "public/assets/jump.mp3",
       "at": 41.883,
-      "gainDb": -16
+      "gainDb": -10
     }
   ]
 }

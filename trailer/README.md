@@ -75,10 +75,9 @@ second: `strike`, `rainRamp(to, seconds)`, `shootingStar`, `pterodactyl`,
   run); `shootingStar` adds one on a chosen second.
 - **Night plate:** night sky with shooting stars and the raptor off screen;
   blurred, it is the background of every title card.
-- **Game over:** `parade-finale` is the parade's last look run on until
-  `crash` turns the autopilot off and collisions on: the next cactus ends the
-  run and the game's own game-over screen appears in the same take. (The
-  older `game-over` shot does the same with the HUD on from the start.)
+- **Game over** (recorded, not in the current cut): `parade-finale` runs the
+  parade's last look on until `crash` ends the run on a cactus, and a drawn
+  cursor clicks Play again; `game-over` does the same with the HUD on.
 - **Outfit parade:** ten takes share one `seed`, sky and lead, so the
   scenery, cacti and jumps are identical (verified: 57 dB PSNR away from the
   raptor, matching event logs). Cutting between them at continuous clip
@@ -101,7 +100,7 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 | `clips` | clip folder, relative to the main checkout (override with `--clips=`) |
 | `music` | `file`, `in` (seconds into the track), `gainDb`, `fadeIn`, `fadeOut`, `credit`, `automation` (`[[second in the cut, dB], …]`, linear between points: duck the calm opening, dip before the drop) |
 | `cuts[]` | in order, end to end. Clip cut: `clip` (file name without `.mp4`), `in`, `out` (seconds in the clip), optional `speed`, `fadeIn`, `fadeOut` (to/from black), `look` (`{ blur, dim }`, e.g. under the end card). Card cut: `card` (key in `cards`), `duration`, `fadeIn`, `fadeOut` |
-| `titles[]` | overlays: `style` (`glass`, `art`, `fill`, `end-logo`, `end-cta`, `lower-third`); optional `reveal: { x, y }` opens the overlay as a circle growing from that point over its duration; `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
+| `titles[]` | overlays: `style` (`glass`, `art`, `fill`, `end-logo`, `end-cta`, `lower-third`); optional `reveal: { x, y, seconds }` opens the overlay as a circle growing from that point (then it stays fully open); `start`, `duration` (seconds in the cut), `fadeIn`, `fadeOut`, plus the style's fields (`text`; `logo`, `align`, `top`, `width`; `lines`, `align`, `top`; `text`, `kicker`) |
 | `cards` | opaque cards used as cuts: `kind: "intertitle"` (`sky`: `day`, `gold`, `dusk`, `night`, `storm`; `text`, optional `kicker`) or `kind: "art"` (`background`, `fit`: `cover` or `width`, `extend`, `position`) |
 | `sfx[]` | `file` (repo path; optional `in`, seconds into the file; `rate`, playback rate like Web Audio's, pitch and speed) or `synth` (`tap` is the game's menu/equip tap) (`impact`, `swipe`, `sand`, `swell`, `whoosh`, `thump`, `riser`, `boom`, made by ffmpeg), `at` (second in the cut), `gainDb`, optional `duration`, `fadeIn`, `fadeOut` |
 | `master` | `loudness` (LUFS, default −14), `truePeak` (dBTP, default −1.5) |
@@ -109,19 +108,18 @@ obstacle. Collisions stay off as a safety net, except in the game-over shot.
 
 Pacing in `steam-trailer.json` follows the music's two swells: a calm midday
 run (two jumps) with the music low, a title card into the first drop on the
-time-lapse (shooting stars at night), one storm from first drops to rainbow,
-the flower stretch, sunset and sunrise in the track's quiet passage, a card
-into the outfit parade on the second swell (no pterodactyls; 30 outfit
-combinations, cuts shrinking evenly from 0.55 s to 5 frames, the equip tap
-rising in pitch), whose last look
-runs on into a crash and the game-over screen; the end card dissolves in
-behind it: after the crash a cursor clicks Play again, and the end card
-opens as a circle from the click point with a boom, the wordmark and call
-to action already in it (an `art` card can carry `logo` and `lines`).
+time-lapse (shooting stars at night), one storm in one take from first drops
+to the strike, then the rainbow, the bare raptor through a flower field in
+the track's quiet passage, a card into the outfit parade on the second swell
+(no pterodactyls; 30 outfit combinations, cuts shrinking evenly from 0.55 s
+to 5 frames, the equip tap rising in pitch). On the last outfit the end card,
+wordmark and call to action already in it (an `art` card can carry `logo`
+and `lines`), opens as a circle from the raptor's head with the Mesozoic
+end-card hit, and stays as one overlay to the last frame.
 
 Sound follows the game: flower-field coins climb in pitch like the game's
-chain (7% per pickup, capped at 1.7×), each outfit change plays the game's
-equip tap, and the click plays it once more.
+chain (7% per pickup, capped at 1.7×) and each outfit change plays the
+game's equip tap.
 
 Title cards follow the Mesozoic Protocol cut: black, short fades to and from
 black, a big uppercase line in the wordmark's cream and a coin-gold rule,
@@ -147,6 +145,28 @@ with its sky extended upward.
 Times are rounded to whole frames; the MP4 and both timelines agree to the
 frame. The renderer refuses an `out` past a clip's end or a title outside the
 cut.
+
+### Generating the edit
+
+`trailer/steam-trailer.json` is generated, not hand-written:
+
+```bash
+python3 scripts/build-trailer-edit.py trailer/steam-trailer.json M
+```
+
+It reads the clips' event and pose logs and writes the cut. Hand edits to
+the JSON work too, but are overwritten the next time the generator runs.
+
+**Footsteps variant.** `trailer/steam-trailer-steps.json` is the same cut
+plus the game's footsteps (run-cycle frames 0 and 6, four samples with the
+game's pitch and level jitter, pre-mixed into
+`trailer-clips/stems/footsteps-steam-trailer.wav`) and the jump sound 6 dB
+louder. It renders to its own folder, so the two can be compared side by
+side; to drop it, delete the JSON. Regenerate it with:
+
+```bash
+python3 scripts/build-trailer-edit.py trailer/steam-trailer-steps.json M steps
+```
 
 ## 3. Render
 

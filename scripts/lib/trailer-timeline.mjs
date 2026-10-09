@@ -106,7 +106,11 @@ export function normalizeEdit(edit, media) {
       fadeOut: f(t.fadeOut ?? t.fade ?? 0.25),
       // { x, y } in px: the overlay opens as a growing circle from there
       // over its whole duration (draft-only, like fades).
-      reveal: t.reveal ? { x: t.reveal.x, y: t.reveal.y } : null,
+      // `seconds` (default: 85 % of the overlay) is how long the circle takes
+      // to open; the overlay then simply stays, so nothing hands over.
+      reveal: t.reveal
+        ? { x: t.reveal.x, y: t.reveal.y, seconds: t.reveal.seconds ?? (frames / fps) * 0.85 }
+        : null,
     };
   });
 
@@ -313,8 +317,7 @@ export function revealMask(o, W, H, fps) {
       Math.hypot(W - x, H - y),
     ),
   );
-  // Fully open a few frames before the overlay ends, so the handoff is clean.
-  const d = ((o.frames / fps) * 0.85).toFixed(6);
+  const d = o.reveal.seconds.toFixed(6);
   const r = `(${far + 40})*(1-pow(1-min(1,T/${d}),3))`;
   const a = `255*clip((${r}-hypot(X-${x},Y-${y}))/36,0,1)*alpha(X,Y)/255`;
   return `geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${a}'`;
