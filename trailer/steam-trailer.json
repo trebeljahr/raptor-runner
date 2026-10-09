@@ -252,11 +252,6 @@
       "duration": 0.9
     },
     {
-      "file": "public/assets/coin-chain-end.mp3",
-      "at": 5.1,
-      "gainDb": -9
-    },
-    {
       "file": "trailer/assets/clean-woosh-8.mp3",
       "at": 12.93,
       "gainDb": -14,
