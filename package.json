@@ -55,6 +55,7 @@
     "test:mobile-assets": "node scripts/test-mobile-assets.mjs",
     "test:browser": "node scripts/run-browser-tests.mjs",
     "release:check": "node --test scripts/release/*.test.mjs",
+    "steam:input": "node scripts/steam-input.mjs",
     "trailer:shots": "node scripts/record-trailer-shots.mjs",
     "trailer:shots:list": "node scripts/record-trailer-shots.mjs --list",
     "trailer:render": "node scripts/render-trailer.mjs",

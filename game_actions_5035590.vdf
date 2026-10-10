@@ -5,6 +5,7 @@
 		"InGame"
 		{
 			"title"		"#Set_InGame"
+			"legacy_set"	"0"
 			"StickPadGyro"
 			{
 			}
@@ -20,6 +21,7 @@
 		"Menus"
 		{
 			"title"		"#Set_Menus"
+			"legacy_set"	"0"
 			"StickPadGyro"
 			{
 			}

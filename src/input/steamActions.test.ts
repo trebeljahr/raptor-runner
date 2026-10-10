@@ -7,12 +7,15 @@
  *      importing it would race the compiled .js sibling that
  *      `pnpm electron:compile` drops next to it, which shadows the .ts
  *      under Vite's resolve order)
- *   3. game_actions_5035590.vdf    (the manifest uploaded to Steamworks)
+ *   3. game_actions_5035590.vdf    (the In-Game Actions file)
+ *   4. steam_input/                (the action manifest and official
+ *      layouts shipped in the Steam depots, generated from 3 by
+ *      scripts/steam-input.mjs)
  * Editing any one alone fails this suite. The VDF is scraped with
  * minimal regexes on purpose — no VDF parser dependency.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { familyFromSteamInputType, STEAM_ACTION_SETS, STEAM_DIGITAL_ACTIONS } from "./steamActions";
@@ -137,4 +140,100 @@ describe("game_actions_5035590.vdf stays in sync", () => {
       expect(english?.[1]).toMatch(new RegExp(`"${token}"\\s+"`));
     }
   });
+});
+
+describe("steam_input/ stays in sync", () => {
+  // Layouts repeat keys ("group", "preset"), so a block is a list of
+  // pairs rather than an object.
+  type Block = Array<[string, string | Block]>;
+  const parse = (text: string): Block => {
+    const tokens = [...text.matchAll(/"((?:[^"\\]|\\.)*)"|([{}])/g)];
+    let at = 0;
+    const block = (): Block => {
+      const pairs: Block = [];
+      while (at < tokens.length) {
+        const key = tokens[at++];
+        if (key[2] === "}") return pairs;
+        const value = tokens[at++];
+        pairs.push([key[1], value[2] === "{" ? block() : value[1]]);
+      }
+      return pairs;
+    };
+    return block();
+  };
+  const blocks = (pairs: Block, key: string): Block[] =>
+    pairs
+      .filter(([name, value]) => name === key && typeof value !== "string")
+      .map(([, v]) => v as Block);
+  const text = (pairs: Block, key: string): string | undefined =>
+    pairs.find(([name, value]) => name === key && typeof value === "string")?.[1] as
+      | string
+      | undefined;
+
+  const source = blocks(parse(repoFile("game_actions_5035590.vdf")), "In Game Actions")[0];
+  const manifest = blocks(
+    parse(repoFile("steam_input/steam_input_manifest.vdf")),
+    "Action Manifest",
+  )[0];
+  const layouts = blocks(manifest, "configurations")[0].map(
+    ([type, entries]) => [type, text(blocks(entries as Block, "0")[0], "path") ?? ""] as const,
+  );
+
+  // Steam resolves action handles from the manifest once it ships, so
+  // an action added to the In-Game Actions file alone would never fire.
+  it("carries the In-Game Actions file's actions and strings unchanged", () => {
+    expect(blocks(manifest, "actions")).toEqual(blocks(source, "actions"));
+    expect(blocks(manifest, "localization")).toEqual(blocks(source, "localization"));
+  });
+
+  it("lists every layout file in the folder, and nothing else", () => {
+    const onDisk = readdirSync(join(process.cwd(), "steam_input")).filter(
+      (name) => name !== "steam_input_manifest.vdf",
+    );
+    expect(sorted(layouts.map(([, path]) => path))).toEqual(sorted(onDisk));
+  });
+
+  // An opted-in controller has no fallback: the game skips the browser
+  // gamepad path while Steam Input reports a controller, so an action
+  // a layout leaves unbound is unreachable on that controller type.
+  for (const [type, path] of layouts) {
+    it(`${path} binds every action of every set`, () => {
+      const layout = blocks(parse(repoFile(`steam_input/${path}`)), "controller_mappings")[0];
+      expect(text(layout, "controller_type")).toBe(type);
+      expect(blocks(layout, "actions")).toEqual(blocks(source, "actions"));
+
+      const groups = new Map(blocks(layout, "group").map((group) => [text(group, "id"), group]));
+      const presets = blocks(layout, "preset");
+      expect(sorted(presets.map((preset) => text(preset, "name") ?? ""))).toEqual(
+        sorted(SET_NAMES),
+      );
+
+      const claimed = new Set<string>();
+      for (const preset of presets) {
+        const set = text(preset, "name") ?? "";
+        const declared = blocks(blocks(blocks(source, "actions")[0], set)[0], "Button")[0].map(
+          ([name]) => name,
+        );
+        const bound = new Set<string>();
+        for (const [id] of blocks(preset, "group_source_bindings")[0]) {
+          expect(claimed.has(id), `group ${id} is used by two sets`).toBe(false);
+          claimed.add(id);
+          const group = groups.get(id);
+          expect(group, `group ${id} of set ${set}`).toBeDefined();
+          for (const [, input] of blocks(group ?? [], "inputs")[0]) {
+            const bindings = JSON.stringify(input).match(/game_action [^"]+/g) ?? [];
+            expect(bindings.length).toBeGreaterThan(0);
+            for (const binding of bindings) {
+              const [, boundSet, action] = binding.split(" ");
+              expect(boundSet).toBe(set);
+              expect(declared).toContain(action);
+              bound.add(action);
+            }
+          }
+        }
+        expect(sorted([...bound]), `actions bound in set ${set}`).toEqual(sorted(declared));
+      }
+      expect(claimed.size).toBe(groups.size);
+    });
+  }
 });

@@ -14,9 +14,15 @@ pre-Steam-Input behaviour within a quarter second.
 
 Moving parts:
 
-- `game_actions_5035590.vdf` (repo root) — the In-Game Actions
-  manifest. Uploaded to Steamworks / copied for local testing; never
-  shipped inside the app.
+- `game_actions_5035590.vdf` (repo root) — the In-Game Actions file
+  and the source of truth for action names. Copied into Steam's
+  config directory for local testing; never shipped.
+- `steam_input/` — the action manifest (`steam_input_manifest.vdf`)
+  and one official layout per controller type. Generated from the
+  In-Game Actions file by `pnpm steam:input`
+  (`scripts/steam-input.mjs`); do not edit by hand.
+  `scripts/release/publish-desktop.mjs` copies the folder into the
+  root of every Steam depot, outside the signed macOS bundles.
 - `electron/steamInputActions.ts` — action/set name constants for the
   main process, which owns every native handle and pushes ~60 Hz
   level-state snapshots to the renderer over IPC.
@@ -27,26 +33,48 @@ Moving parts:
 - `src/input/steamActions.test.ts` — drift guard: the two constant
   copies and the VDF must agree, or `pnpm test` fails.
 
-## Partner-site upload (app 5035590)
+## Steamworks settings (app 5035590)
 
-1. Steamworks → App 5035590 → Steamworks Settings → Application →
-   Steam Input.
-2. Under "In-Game Actions File", upload `game_actions_5035590.vdf`.
-3. Create the default configuration in the configurator:
-   - **InGame set**: face buttons → `jump`; Start/Select (and
-     equivalents) → `menu_toggle`; d-pad up → `jump` (matches the
-     keyboard's up-arrow-jumps).
-   - **Menus set**: d-pad **and** left-stick-as-dpad → `nav_up` /
-     `nav_down` / `nav_left` / `nav_right`; confirm face button →
-     `select`; cancel face button → `back`; Start/Select →
-     `menu_toggle`. Binding the stick as a dpad here is what gives
-     stick menu navigation — the game reads no axes on the Steam
-     path.
-4. Set the configuration as the official default for the app and
-   publish it.
-5. Publish the Steamworks change set. Expect propagation delay —
-   clients can take a while (up to hours) to pick up a new in-game
-   actions file; restarting Steam usually hurries it along.
+Steamworks has no upload for the In-Game Actions file. The manifest
+and layouts ship in the depots, and Steamworks only names the path.
+
+Steamworks → App 5035590 → Steamworks Settings → Application →
+Steam Input:
+
+- **Opt Controllers into Steam Input**: Xbox, PlayStation, Nintendo
+  Switch, Generic and Any Future Devices are all ticked, so the
+  action path is the default on every pad.
+- **Steam Input Default Controller Configuration**: Custom
+  Configuration, with the manifest path
+  `steam_input/steam_input_manifest.vdf` (relative to the install
+  directory).
+- Touch configuration and Steam Deck touchscreen mode keep their
+  defaults.
+
+Publish the Steamworks change set after any change on that page.
+
+The official layouts, identical on every controller type:
+
+- **InGame set**: every face button → `jump`; d-pad up → `jump`
+  (matches the keyboard's up-arrow-jumps); Start and Select (and
+  equivalents) → `menu_toggle`.
+- **Menus set**: d-pad **and** left-stick-as-dpad → `nav_up` /
+  `nav_down` / `nav_left` / `nav_right`; A, X, Y positions →
+  `select`; B position → `back`; Start and Select → `menu_toggle`.
+  Binding the stick as a dpad here is what gives stick menu
+  navigation — the game reads no axes on the Steam path.
+- The Steam Controller has no d-pad, so its left trackpad click takes
+  the d-pad's bindings.
+
+To change a binding or add a controller type, edit `LAYOUT` or
+`CONTROLLERS` in `scripts/steam-input.mjs`, run `pnpm steam:input`,
+and upload a new Steam build. `pnpm test` fails when a layout leaves
+an action unbound: the game skips the W3C path while Steam Input
+reports a controller, so an unbound action is unreachable.
+
+The layouts are written by the script, not exported from the Steam
+configurator. Check each controller family once on a Steam install
+after a layout change (see the test matrix below).
 
 ## Local testing recipe
 
@@ -118,7 +146,8 @@ master, checked 2026-08, exposes nothing beyond the 0.4.0 surface.
 | Steam not running | No Steam init; W3C path, id-heuristic glyphs |
 | itch / DRM-free build (no app id) | Steam code never touched; identical to before |
 | `input.init()` throws | Caught; no frames; W3C path |
-| Handles stay `0n` (VDF not uploaded/loaded) | Snapshots `available:false`; W3C path; resolution retried ~1/s, Steam path engages late if the manifest appears |
+| Handles stay `0n` (manifest missing from the depot, or the Steamworks path not published) | Snapshots `available:false`; W3C path; resolution retried ~1/s, Steam path engages late if the manifest appears |
+| Handles resolve but the layout for this controller type fails to load | Controller does nothing in game: the Steam path is live with no bindings. Check `Steam/logs/controller*.txt`, fix the layout, upload a new build |
 | Steam Input disabled for the pad in Steam settings | `controllerCount: 0` frames; raw pad still visible to Chromium; W3C path |
 | Launched outside Steam, Steam running | Full Steam path if the config loads; W3C fallback otherwise |
 | Steam quits mid-session | Frames stale after 250 ms; primed handoff to W3C; auto-pause fires on the controllers-lost transition |
