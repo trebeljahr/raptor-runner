@@ -332,7 +332,11 @@ edit = {
         "gainDb": -1, "fadeIn": 0.5, "fadeOut": 3.0,
         "automation": [[0, -10], [round(DROP1 - 0.6, 2), -8], [round(DROP1 - 0.25, 2), -13], [round(DROP1, 2), 0],
                        [round(DROP1 + 19.5, 2), 0], [round(DROP1 + 20.2, 2), 2], [round(DROP2 - 0.6, 2), 2], [round(DROP2 - 0.25, 2), -8],
-                       [round(DROP2, 2), 0], [round(END, 2), 0], [round(END + 0.5, 2), -2], [round(total, 2), -4]],
+                       [round(DROP2, 2), 0],
+                       # Out of the way of the end-card hit: down fast on the cut,
+                       # gone a second and a half later.
+                       [round(END - 0.05, 2), 0], [round(END + 0.15, 2), -18],
+                       [round(END + 1.6, 2), -40], [round(total, 2), -60]],
     },
     "cuts": cuts,
     "titles": titles,
